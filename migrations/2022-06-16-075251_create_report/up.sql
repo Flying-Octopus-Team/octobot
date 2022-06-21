@@ -1,6 +1,6 @@
 CREATE TABLE public.report
 (
-    id uuid NOT NULL,
+    id uuid NOT NULL DEFAULT gen_random_uuid (),
     member_uuid uuid NOT NULL,
     content text NOT NULL,
     create_date date NOT NULL,
