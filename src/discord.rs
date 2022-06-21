@@ -1,6 +1,7 @@
 use serenity::async_trait;
 use serenity::client::Context;
 use serenity::client::EventHandler;
+use serenity::framework::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
@@ -23,8 +24,12 @@ pub async fn start_bot() {
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
+    let framework = StandardFramework::new()
+        .configure(|c| c.prefix("~"));
+
     let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
+        .framework(framework)
         .await
         .expect("Error creating client");
 
