@@ -1,6 +1,6 @@
 use crate::database::schema::report;
-use diesel::RunQueryDsl;
 use chrono::NaiveDate;
+use diesel::RunQueryDsl;
 use uuid::Uuid;
 
 #[derive(Queryable, Debug)]
