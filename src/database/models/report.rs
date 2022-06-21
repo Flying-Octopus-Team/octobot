@@ -1,5 +1,5 @@
 use crate::database::schema::report;
-use crate::diesel::RunQueryDsl;
+use diesel::RunQueryDsl;
 use chrono::NaiveDate;
 use uuid::Uuid;
 

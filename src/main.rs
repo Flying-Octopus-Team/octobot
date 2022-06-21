@@ -1,6 +1,4 @@
 #[macro_use]
-extern crate diesel_migrations;
-#[macro_use]
 extern crate diesel;
 
 use lazy_static::lazy_static;

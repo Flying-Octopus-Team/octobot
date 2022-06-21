@@ -5,7 +5,7 @@ use diesel::{
 use diesel_migrations::embed_migrations;
 use lazy_static::lazy_static;
 use diesel_migrations::EmbeddedMigrations;
-use crate::diesel_migrations::MigrationHarness;
+use diesel_migrations::MigrationHarness;
 
 use crate::SETTINGS;
 
