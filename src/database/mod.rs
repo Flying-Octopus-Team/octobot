@@ -4,6 +4,8 @@ use diesel::{
 };
 use diesel_migrations::embed_migrations;
 use lazy_static::lazy_static;
+use diesel_migrations::EmbeddedMigrations;
+use crate::diesel_migrations::MigrationHarness;
 
 use crate::SETTINGS;
 
@@ -19,11 +21,10 @@ lazy_static! {
     };
 }
 
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
 pub fn run_migrations() {
-    embed_migrations!();
+    let mut conn = PG_POOL.get().expect("Failed to get connection from pool.");
 
-    let connection = PG_POOL.get().expect("Failed to get connection from pool.");
-
-    embedded_migrations::run_with_output(&connection, &mut std::io::stdout())
-        .expect("Failed to run migrations.");
+    conn.run_pending_migrations(MIGRATIONS).expect("Failed to run migrations.");
 }

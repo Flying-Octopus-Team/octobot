@@ -12,7 +12,7 @@ struct Report {
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "report"]
+#[diesel(table_name = report)]
 struct NewReport {
     member_uuid: Uuid,
     content: String,
@@ -26,6 +26,6 @@ fn create_report(member_uuid: Uuid, content: String) -> Report {
 
     diesel::insert_into(report::table)
         .values(&new_report)
-        .get_result(&crate::database::PG_POOL.get().unwrap())
+        .get_result(&mut crate::database::PG_POOL.get().unwrap())
         .expect("Error creating new report")
 }

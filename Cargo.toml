@@ -9,15 +9,18 @@ edition = "2021"
 config = "0.13"
 serde = "1.0"
 lazy_static = "1.4"
-diesel_migrations = "1.4"
+diesel_migrations = "2.0.0-rc.0"
 tokio = { version = "1.19", features = ["full"] }
 chrono = "0.4"
-uuid = "0.8.2"
 
 [dependencies.serenity]
 version = "0.11"
 features = ["framework", "standard_framework", "collector"]
 
 [dependencies.diesel]
-version = "1.4"
-features = ["postgres", "r2d2", "uuidv07", "chrono"]
+version = "2.0.0-rc.0"
+features = ["postgres", "r2d2", "uuid", "chrono"]
+
+[dependencies.uuid]
+version = "0.8.2"
+features = ["v4"]
