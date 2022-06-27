@@ -1,8 +1,5 @@
 use serenity::async_trait;
-use serenity::client::Context;
-use serenity::client::EventHandler;
 use serenity::framework::StandardFramework;
-use serenity::model::gateway::Ready;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
 
