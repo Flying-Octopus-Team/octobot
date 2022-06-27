@@ -24,8 +24,7 @@ pub async fn start_bot() {
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let framework = StandardFramework::new()
-        .configure(|c| c.prefix("~"));
+    let framework = StandardFramework::new().configure(|c| c.prefix("~"));
 
     let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
