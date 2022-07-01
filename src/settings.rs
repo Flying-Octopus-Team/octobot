@@ -7,6 +7,7 @@ use serde::Deserialize;
 pub struct Settings {
     pub discord_token: String,
     pub database_url: String,
+    pub server_id: u64,
 }
 
 impl Settings {
