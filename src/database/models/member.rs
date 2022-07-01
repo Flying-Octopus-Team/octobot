@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 #[derive(Queryable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = member)]
-struct Member {
+pub struct Member {
     id: Uuid,
     discord_id: Option<String>,
     trello_id: Option<String>,

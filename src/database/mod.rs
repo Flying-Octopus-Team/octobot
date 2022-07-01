@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 
 use crate::SETTINGS;
 
-mod models;
+pub mod models;
 mod schema;
 
 pub type PgPool = Pool<ConnectionManager<PgConnection>>;
