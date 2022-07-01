@@ -16,7 +16,7 @@ pub type PgPool = Pool<ConnectionManager<PgConnection>>;
 
 lazy_static! {
     static ref PG_POOL: PgPool = {
-        let manager = ConnectionManager::new(&SETTINGS.database_url);
+        let manager = ConnectionManager::<PgConnection>::new(&SETTINGS.database_url);
         Pool::new(manager).expect("Failed to create pool.")
     };
 }
