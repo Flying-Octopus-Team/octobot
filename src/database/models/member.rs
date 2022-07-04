@@ -2,6 +2,7 @@ use crate::database::schema::member;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
 use diesel::QueryDsl;
+use serenity::model::interactions::application_command::ApplicationCommandInteractionDataOption;
 use uuid::Uuid;
 
 #[derive(Queryable, Insertable, AsChangeset, Debug)]
@@ -48,4 +49,24 @@ impl Member {
             .execute(&mut crate::database::PG_POOL.get().unwrap())
             .is_ok()
     }
+}
+
+impl From<&[ApplicationCommandInteractionDataOption]> for Member {
+    fn from(options: &[ApplicationCommandInteractionDataOption]) -> Self {
+        let discord_id = find_option_value(options, "discord_id");
+        let trello_id = find_option_value(options, "trello_id");
+        let trello_report_card_id = find_option_value(options, "trello_report_card");
+
+        Member::new(discord_id, trello_id, trello_report_card_id)
+    }
+}
+
+fn find_option_value(
+    options: &[ApplicationCommandInteractionDataOption],
+    name: &str,
+) -> Option<String> {
+    options
+        .iter()
+        .find(|option| option.name.as_str() == name)
+        .and_then(|option| option.value.as_ref().map(|value| value.as_str().unwrap().to_string()))
 }
