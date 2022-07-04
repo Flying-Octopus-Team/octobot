@@ -4,15 +4,61 @@ use serenity::framework::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
 use serenity::model::interactions::application_command::ApplicationCommandOptionType;
+use serenity::model::interactions::{Interaction, InteractionResponseType};
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
 
+use crate::database::models::member::Member;
 use crate::SETTINGS;
 
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::ApplicationCommand(command) = interaction {
+            let content = match command.data.name.as_str() {
+                "member" => {
+                    println!("{:?}", command.data.options);
+                    match command.data.options.first() {
+                        Some(option) => match option.name.as_str() {
+                            "add" => {
+                                let member = Member::from(&option.options[..]);
+                                member.insert();
+                                format!("Added member {:?}", member)
+                            }
+                            "remove" => {
+                                todo!()
+                            }
+                            "update" => {
+                                todo!()
+                            }
+                            "list" => {
+                                todo!()
+                            }
+                            _ => {
+                                "Unknown command".to_string()
+                            }
+                        },
+                        None => {
+                            "Unknown command".to_string()
+                        }
+                    }
+                }
+                _ => return,
+            };
+            if let Err(why) = command.create_interaction_response(&ctx.http, |response| {
+                response
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|message| message.content(content))
+            })
+            .await
+            {
+                println!("Error creating interaction response: {:?}", why);
+            }
+        }
+    }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
 
