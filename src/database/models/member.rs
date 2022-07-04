@@ -68,5 +68,10 @@ fn find_option_value(
     options
         .iter()
         .find(|option| option.name.as_str() == name)
-        .and_then(|option| option.value.as_ref().map(|value| value.as_str().unwrap().to_string()))
+        .and_then(|option| {
+            option
+                .value
+                .as_ref()
+                .map(|value| value.as_str().unwrap().to_string())
+        })
 }
