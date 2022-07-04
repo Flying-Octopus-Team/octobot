@@ -30,21 +30,21 @@ impl EventHandler for Handler {
                             .kind(ApplicationCommandOptionType::SubCommand)
                             .create_sub_option(|sub_option| {
                                 sub_option
-                                    .name("discord")
+                                    .name("discord_id")
                                     .description("Add a member by their Discord ID")
                                     .required(true)
                                     .kind(ApplicationCommandOptionType::User)
                             })
                             .create_sub_option(|sub_option| {
                                 sub_option
-                                    .name("trello")
+                                    .name("trello_id")
                                     .description("Add a member by their Trello ID")
                                     .required(false)
                                     .kind(ApplicationCommandOptionType::String)
                             })
                             .create_sub_option(|sub_option| {
                                 sub_option
-                                    .name("trello-report-card")
+                                    .name("trello_report_card_id")
                                     .description("Add a member by their Trello Report Card ID")
                                     .required(false)
                                     .kind(ApplicationCommandOptionType::String)
@@ -97,14 +97,14 @@ impl EventHandler for Handler {
                             })
                             .create_sub_option(|sub_option| {
                                 sub_option
-                                    .name("trello")
+                                    .name("trello_id")
                                     .description("Update a member's Trello ID")
                                     .required(false)
                                     .kind(ApplicationCommandOptionType::String)
                             })
                             .create_sub_option(|sub_option| {
                                 sub_option
-                                    .name("trello-report-card")
+                                    .name("trello_report_card_id")
                                     .description("Update a member's Trello Report Card ID")
                                     .required(false)
                                     .kind(ApplicationCommandOptionType::String)
