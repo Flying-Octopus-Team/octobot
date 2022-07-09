@@ -53,19 +53,23 @@ impl Member {
             .map(|_| true)?)
     }
 
-    pub fn list(page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>>
-    {
+    pub fn list(
+        page: i64,
+        per_page: Option<i64>,
+    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
-
-        let mut query = member.select(member::all_columns()).into_boxed().paginate(page);
+        let mut query = member
+            .select(member::all_columns())
+            .into_boxed()
+            .paginate(page);
 
         if let Some(per_page) = per_page {
             query = query.per_page(per_page);
         };
 
-
-        let (vec, total_pages) = query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
+        let (vec, total_pages) =
+            query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
         Ok((vec, total_pages))
     }
 
