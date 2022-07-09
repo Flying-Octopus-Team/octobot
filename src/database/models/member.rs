@@ -97,11 +97,20 @@ impl Display for Member {
 
 impl From<&[ApplicationCommandInteractionDataOption]> for Member {
     fn from(options: &[ApplicationCommandInteractionDataOption]) -> Self {
+        let id = match find_option_value(options, "id") {
+            Some(id) => Uuid::parse_str(&id).unwrap(),
+            None => Uuid::new_v4(),
+        };
         let discord_id = find_option_value(options, "discord_id");
         let trello_id = find_option_value(options, "trello_id");
         let trello_report_card_id = find_option_value(options, "trello_report_card");
 
-        Member::new(discord_id, trello_id, trello_report_card_id)
+        Member {
+            id,
+            discord_id,
+            trello_id,
+            trello_report_card_id,
+        }
     }
 }
 
