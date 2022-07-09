@@ -17,9 +17,7 @@ pub async fn handle_interaction_command<'a>(
         "member" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
                 "add" => add_member(ctx, command, option).await,
-                "remove" => {
-                    todo!()
-                }
+                "remove" => remove_member(ctx, command, option).await,
                 "update" => {
                     todo!()
                 }
@@ -60,6 +58,32 @@ async fn add_member(
     }
 
     Ok(format!("Added {}", member))
+}
+
+async fn remove_member(
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+    option: &ApplicationCommandInteractionDataOption,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let id = option.options[0]
+        .value
+        .as_ref()
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let member = Member::find_by_id(id)?;
+    if member.discord_id().is_some() {
+        let user_id = member.discord_id().unwrap().parse().unwrap();
+        let guild_id = *command.guild_id.unwrap().as_u64();
+        ctx.http
+            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+            .await
+            .unwrap();
+    }
+    
+    Ok(format!("Removed {}", member))
 }
 
 pub fn create_application_commands(
