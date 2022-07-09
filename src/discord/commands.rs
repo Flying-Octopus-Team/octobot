@@ -6,6 +6,7 @@ use serenity::{
         ApplicationCommandOptionType,
     },
 };
+use uuid::Uuid;
 
 use crate::{database::models::member::Member, SETTINGS};
 
@@ -73,7 +74,7 @@ async fn remove_member(
         .unwrap()
         .to_string();
 
-    let member = Member::find_by_id(id)?;
+    let member = Member::find_by_id(Uuid::parse_str(&id)?)?;
     if member.discord_id().is_some() {
         let user_id = member.discord_id().unwrap().parse().unwrap();
         let guild_id = *command.guild_id.unwrap().as_u64();
@@ -82,7 +83,9 @@ async fn remove_member(
             .await
             .unwrap();
     }
-    
+
+    member.delete()?;
+
     Ok(format!("Removed {}", member))
 }
 
