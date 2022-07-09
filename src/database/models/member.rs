@@ -30,26 +30,24 @@ impl Member {
         }
     }
 
-    pub fn insert(&self) -> Member {
-        diesel::insert_into(member::table)
+    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(diesel::insert_into(member::table)
             .values(self)
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())
-            .expect("Error creating new member")
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Self {
-        diesel::update(member::table)
+    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(diesel::update(member::table)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())
-            .expect("Error updating member")
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> bool {
+    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
-        diesel::delete(member.filter(id.eq(id)))
+        Ok(diesel::delete(member.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
-            .is_ok()
+            .map(|_| true)?)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
