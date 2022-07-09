@@ -63,6 +63,10 @@ impl Member {
     pub fn discord_id(&self) -> Option<&String> {
         self.discord_id.as_ref()
     }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
 }
 
 impl Display for Member {
