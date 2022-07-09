@@ -50,10 +50,10 @@ impl Member {
             .map(|_| true)?)
     }
 
-    pub fn find_by_id(find_id: String) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
-        let uuid = Uuid::parse_str(&find_id)?;
+        let uuid = find_id.into();
 
         Ok(member
             .filter(id.eq(uuid))
