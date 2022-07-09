@@ -1,58 +1,33 @@
 use serenity::async_trait;
+
 use serenity::client::{Context, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
-use serenity::model::interactions::application_command::ApplicationCommandOptionType;
-use serenity::model::interactions::{Interaction, InteractionResponseType};
+
+use serenity::model::interactions::Interaction;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
 
-use crate::database::models::member::Member;
 use crate::SETTINGS;
 
 struct Handler;
+
+mod commands;
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match command.data.name.as_str() {
-                "member" => {
-                    println!("{:?}", command.data.options);
-                    match command.data.options.first() {
-                        Some(option) => match option.name.as_str() {
-                            "add" => {
-                                let member = Member::from(&option.options[..]);
-                                member.insert();
-                                format!("Added member {:?}", member)
-                            }
-                            "remove" => {
-                                todo!()
-                            }
-                            "update" => {
-                                todo!()
-                            }
-                            "list" => {
-                                todo!()
-                            }
-                            _ => {
-                                "Unknown command".to_string()
-                            }
-                        },
-                        None => {
-                            "Unknown command".to_string()
-                        }
-                    }
-                }
-                _ => return,
+            let content = match commands::handle_interaction_command(&ctx, &command).await {
+                Ok(content) => content,
+                Err(e) => format!("{:?}", e),
             };
-            if let Err(why) = command.create_interaction_response(&ctx.http, |response| {
-                response
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|message| message.content(content))
-            })
-            .await
+            if let Err(why) = command
+                .create_interaction_response(&ctx.http, |response| {
+                    response.interaction_response_data(|message| message.content(content))
+                })
+                .await
             {
                 println!("Error creating interaction response: {:?}", why);
             }
@@ -65,98 +40,7 @@ impl EventHandler for Handler {
         let guild_id = GuildId(SETTINGS.server_id);
 
         let guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
-            commands.create_application_command(|command| {
-                command
-                    .name("member")
-                    .description("Manage organization's members")
-                    .create_option(|option| {
-                        option
-                            .name("add")
-                            .description("Add member to the organization")
-                            .kind(ApplicationCommandOptionType::SubCommand)
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("discord_id")
-                                    .description("Add member by their Discord ID")
-                                    .required(true)
-                                    .kind(ApplicationCommandOptionType::User)
-                            })
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("trello_id")
-                                    .description("Add member by their Trello ID")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::String)
-                            })
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("trello_report_card_id")
-                                    .description("Add member by their Trello Report Card ID")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::String)
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("remove")
-                            .description("Remove member from the organization")
-                            .kind(ApplicationCommandOptionType::SubCommand)
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("id")
-                                    .description("Remove member by their ID")
-                                    .required(true)
-                                    .kind(ApplicationCommandOptionType::User)
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("list")
-                            .description("List all members of the organization")
-                            .kind(ApplicationCommandOptionType::SubCommand)
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("page")
-                                    .description("List all members of the organization")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::Integer)
-                            })
-                    })
-                    .create_option(|option| {
-                        option
-                            .name("update")
-                            .description("Update member's information")
-                            .kind(ApplicationCommandOptionType::SubCommand)
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("id")
-                                    .description("Update member by their ID")
-                                    .required(true)
-                                    .kind(ApplicationCommandOptionType::String)
-                            })
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("discord_id")
-                                    .description("Update member's Discord ID")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::User)
-                            })
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("trello_id")
-                                    .description("Update member's Trello ID")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::String)
-                            })
-                            .create_sub_option(|sub_option| {
-                                sub_option
-                                    .name("trello_report_card_id")
-                                    .description("Update member's Trello Report Card ID")
-                                    .required(false)
-                                    .kind(ApplicationCommandOptionType::String)
-                            })
-                    })
-            })
+            commands.create_application_command(commands::create_application_commands)
         })
         .await
         .expect("Error creating global application command");
