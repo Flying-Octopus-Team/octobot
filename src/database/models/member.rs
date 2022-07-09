@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::database::schema::member;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
@@ -48,6 +50,31 @@ impl Member {
         diesel::delete(member.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
             .is_ok()
+    }
+
+impl Display for Member {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let discord_id = if let Some(discord_id) = &self.discord_id {
+            format!("{}", discord_id)
+        } else {
+            format!("None")
+        };
+        let trello_id = if let Some(trello_id) = &self.trello_id {
+            format!("{}", trello_id)
+        } else {
+            format!("None")
+        };
+        let trello_report_card_id = if let Some(trello_report_card_id) = &self.trello_report_card_id
+        {
+            format!("{}", trello_report_card_id)
+        } else {
+            format!("None")
+        };
+        write!(
+            f,
+            "Member: {}, discord_id: {}, trello_id: {}, trello_report_card: {}",
+            self.id, discord_id, trello_id, trello_report_card_id
+        )
     }
 }
 
