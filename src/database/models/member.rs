@@ -3,6 +3,7 @@ use std::fmt::Display;
 use crate::database::schema::member;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
+use crate::discord::find_option_as_string;
 use diesel::QueryDsl;
 use serenity::model::interactions::application_command::ApplicationCommandInteractionDataOption;
 use uuid::Uuid;
@@ -97,13 +98,13 @@ impl Display for Member {
 
 impl From<&[ApplicationCommandInteractionDataOption]> for Member {
     fn from(options: &[ApplicationCommandInteractionDataOption]) -> Self {
-        let id = match find_option_value(options, "id") {
+        let id = match find_option_as_string(options, "id") {
             Some(id) => Uuid::parse_str(&id).unwrap(),
             None => Uuid::new_v4(),
         };
-        let discord_id = find_option_value(options, "discord_id");
-        let trello_id = find_option_value(options, "trello_id");
-        let trello_report_card_id = find_option_value(options, "trello_report_card");
+        let discord_id = find_option_as_string(options, "discord_id");
+        let trello_id = find_option_as_string(options, "trello_id");
+        let trello_report_card_id = find_option_as_string(options, "trello_report_card");
 
         Member {
             id,
@@ -112,19 +113,4 @@ impl From<&[ApplicationCommandInteractionDataOption]> for Member {
             trello_report_card_id,
         }
     }
-}
-
-fn find_option_value(
-    options: &[ApplicationCommandInteractionDataOption],
-    name: &str,
-) -> Option<String> {
-    options
-        .iter()
-        .find(|option| option.name.as_str() == name)
-        .and_then(|option| {
-            option
-                .value
-                .as_ref()
-                .map(|value| value.as_str().unwrap().to_string())
-        })
 }

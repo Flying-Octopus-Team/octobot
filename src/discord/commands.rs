@@ -1,3 +1,4 @@
+use serde_json::Value;
 use serenity::{
     builder::CreateApplicationCommand,
     client::Context,
@@ -213,4 +214,21 @@ pub fn create_application_commands(
                         .kind(ApplicationCommandOptionType::String)
                 })
         })
+}
+
+pub fn find_option_value<'a>(
+    options: &'a [ApplicationCommandInteractionDataOption],
+    name: &str,
+) -> Option<&'a Value> {
+    options
+        .iter()
+        .find(|option| option.name.as_str() == name)
+        .and_then(|option| option.value.as_ref())
+}
+
+pub fn find_option_as_string(
+    options: &[ApplicationCommandInteractionDataOption],
+    name: &str,
+) -> Option<String> {
+    find_option_value(options, name).map(|value| value.to_string())
 }

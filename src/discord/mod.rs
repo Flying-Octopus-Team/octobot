@@ -13,6 +13,9 @@ use crate::SETTINGS;
 
 struct Handler;
 
+pub use crate::discord::commands::find_option_as_string;
+pub use crate::discord::commands::find_option_value;
+
 mod commands;
 
 #[async_trait]
