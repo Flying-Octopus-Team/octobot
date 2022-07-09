@@ -50,6 +50,16 @@ impl Member {
             .map(|_| true)?)
     }
 
+    pub fn find_by_id(find_id: String) -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::member::dsl::*;
+
+        let uuid = Uuid::parse_str(&find_id)?;
+
+        Ok(member
+            .filter(id.eq(uuid))
+            .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
+    }
+
     pub fn discord_id(&self) -> Option<&String> {
         self.discord_id.as_ref()
     }
