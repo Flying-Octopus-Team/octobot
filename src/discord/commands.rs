@@ -105,7 +105,7 @@ pub fn create_application_commands(
                         .name("id")
                         .description("Remove member by their ID")
                         .required(true)
-                        .kind(ApplicationCommandOptionType::User)
+                        .kind(ApplicationCommandOptionType::String)
                 })
         })
         .create_option(|option| {
