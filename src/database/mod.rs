@@ -10,6 +10,7 @@ use lazy_static::lazy_static;
 use crate::SETTINGS;
 
 pub mod models;
+pub mod pagination;
 mod schema;
 
 pub type PgPool = Pool<ConnectionManager<PgConnection>>;
