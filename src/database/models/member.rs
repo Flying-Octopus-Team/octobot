@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
+use crate::database::pagination::Paginate;
 use crate::database::schema::member;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
 use diesel::QueryDsl;
+use diesel::Table;
 use serenity::model::interactions::application_command::ApplicationCommandInteractionDataOption;
 use uuid::Uuid;
 
@@ -49,6 +51,22 @@ impl Member {
         Ok(diesel::delete(member.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
             .map(|_| true)?)
+    }
+
+    pub fn list(page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>>
+    {
+        use crate::database::schema::member::dsl::*;
+
+
+        let mut query = member.select(member::all_columns()).into_boxed().paginate(page);
+
+        if let Some(per_page) = per_page {
+            query = query.per_page(per_page);
+        };
+
+
+        let (vec, total_pages) = query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
+        Ok((vec, total_pages))
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {

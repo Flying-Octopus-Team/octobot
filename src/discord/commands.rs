@@ -21,9 +21,7 @@ pub async fn handle_interaction_command<'a>(
                 "add" => add_member(ctx, command, option).await,
                 "remove" => remove_member(ctx, command, option).await,
                 "update" => update_member(ctx, command, option).await,
-                "list" => {
-                    todo!()
-                }
+                "list" => list_members(option).await,
                 _ => {
                     //"Unknown command".to_string()
                     todo!()
@@ -121,6 +119,24 @@ async fn update_member(
     Ok(format!("Updated {}", updated_member))
 }
 
+async fn list_members(
+    option: &ApplicationCommandInteractionDataOption,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
+    let page_size = find_option_value(&option.options[..], "page_size").map(|v| v.as_i64().unwrap());
+
+    let (members, total_pages) = Member::list(page, page_size)?;
+
+    let mut output = String::new();
+
+    for member in members {
+        output.push_str(&format!("{}\n", member));
+    }
+    output.push_str(&format!("Page: {page}/{total_pages}"));
+
+    Ok(output)
+}
+
 pub fn create_application_commands(
     command: &mut CreateApplicationCommand,
 ) -> &mut CreateApplicationCommand {
@@ -175,7 +191,14 @@ pub fn create_application_commands(
                 .create_sub_option(|sub_option| {
                     sub_option
                         .name("page")
-                        .description("List all members of the organization")
+                        .description("Page number")
+                        .required(false)
+                        .kind(ApplicationCommandOptionType::Integer)
+                })
+                .create_sub_option(|sub_option| {
+                    sub_option
+                        .name("page_size")
+                        .description("Number of members per page")
                         .required(false)
                         .kind(ApplicationCommandOptionType::Integer)
                 })
@@ -230,5 +253,5 @@ pub fn find_option_as_string(
     options: &[ApplicationCommandInteractionDataOption],
     name: &str,
 ) -> Option<String> {
-    find_option_value(options, name).map(|value| value.to_string())
+    find_option_value(options, name).map(|value| value.as_str().unwrap().to_string())
 }
