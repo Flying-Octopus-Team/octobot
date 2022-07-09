@@ -52,6 +52,11 @@ impl Member {
             .is_ok()
     }
 
+    pub fn discord_id(&self) -> Option<&String> {
+        self.discord_id.as_ref()
+    }
+}
+
 impl Display for Member {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let discord_id = if let Some(discord_id) = &self.discord_id {
