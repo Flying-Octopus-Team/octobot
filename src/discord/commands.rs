@@ -43,7 +43,7 @@ pub async fn handle_interaction_command<'a>(
     }
 }
 
-async fn add_member<'a>(
+async fn add_member(
     ctx: &Context,
     command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,

@@ -58,20 +58,20 @@ impl Member {
 impl Display for Member {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let discord_id = if let Some(discord_id) = &self.discord_id {
-            format!("{}", discord_id)
+            discord_id.to_string()
         } else {
-            format!("None")
+            "None".to_string()
         };
         let trello_id = if let Some(trello_id) = &self.trello_id {
-            format!("{}", trello_id)
+            trello_id.to_string()
         } else {
-            format!("None")
+            "None".to_string()
         };
         let trello_report_card_id = if let Some(trello_report_card_id) = &self.trello_report_card_id
         {
-            format!("{}", trello_report_card_id)
+            trello_report_card_id.to_string()
         } else {
-            format!("None")
+            "None".to_string()
         };
         write!(
             f,
