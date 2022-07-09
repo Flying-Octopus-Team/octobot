@@ -19,9 +19,7 @@ pub async fn handle_interaction_command<'a>(
             Some(option) => match option.name.as_str() {
                 "add" => add_member(ctx, command, option).await,
                 "remove" => remove_member(ctx, command, option).await,
-                "update" => {
-                    todo!()
-                }
+                "update" => update_member(ctx, command, option).await,
                 "list" => {
                     todo!()
                 }
@@ -87,6 +85,39 @@ async fn remove_member(
     member.delete()?;
 
     Ok(format!("Removed {}", member))
+}
+
+async fn update_member(
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+    option: &ApplicationCommandInteractionDataOption,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let updated_member = Member::from(&option.options[..]);
+
+    let old_member = Member::find_by_id(updated_member.id())?;
+
+    let updated_member = updated_member.update()?;
+
+    if old_member.discord_id() != updated_member.discord_id() {
+        if old_member.discord_id().is_some() {
+            let user_id = old_member.discord_id().unwrap().parse().unwrap();
+            let guild_id = *command.guild_id.unwrap().as_u64();
+            ctx.http
+                .remove_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+                .await
+                .unwrap();
+        }
+        if updated_member.discord_id().is_some() {
+            let user_id = updated_member.discord_id().unwrap().parse().unwrap();
+            let guild_id = *command.guild_id.unwrap().as_u64();
+            ctx.http
+                .add_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+                .await
+                .unwrap();
+        }
+    }
+
+    Ok(format!("Updated {}", updated_member))
 }
 
 pub fn create_application_commands(
