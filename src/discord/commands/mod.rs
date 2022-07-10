@@ -1,6 +1,6 @@
 use serde_json::Value;
 use serenity::{
-    builder::CreateApplicationCommand,
+    builder::CreateApplicationCommands,
     client::Context,
     model::interactions::application_command::{
         ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
@@ -39,105 +39,214 @@ pub async fn handle_interaction_command<'a>(
 }
 
 pub fn create_application_commands(
-    command: &mut CreateApplicationCommand,
-) -> &mut CreateApplicationCommand {
-    command
-        .name("member")
-        .description("Manage organization's members")
-        .create_option(|option| {
-            option
-                .name("add")
-                .description("Add member to the organization")
-                .kind(ApplicationCommandOptionType::SubCommand)
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("discord_id")
-                        .description("Add member by their Discord ID")
-                        .required(true)
-                        .kind(ApplicationCommandOptionType::User)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("trello_id")
-                        .description("Add member by their Trello ID")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("trello_report_card_id")
-                        .description("Add member by their Trello Report Card ID")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-        })
-        .create_option(|option| {
-            option
-                .name("remove")
-                .description("Remove member from the organization")
-                .kind(ApplicationCommandOptionType::SubCommand)
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("id")
-                        .description("Remove member by their ID")
-                        .required(true)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-        })
-        .create_option(|option| {
-            option
-                .name("list")
-                .description("List all members of the organization")
-                .kind(ApplicationCommandOptionType::SubCommand)
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("page")
-                        .description("Page number")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::Integer)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("page_size")
-                        .description("Number of members per page")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::Integer)
-                })
-        })
-        .create_option(|option| {
-            option
-                .name("update")
-                .description("Update member's information")
-                .kind(ApplicationCommandOptionType::SubCommand)
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("id")
-                        .description("Update member by their ID")
-                        .required(true)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("discord_id")
-                        .description("Update member's Discord ID")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::User)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("trello_id")
-                        .description("Update member's Trello ID")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-                .create_sub_option(|sub_option| {
-                    sub_option
-                        .name("trello_report_card_id")
-                        .description("Update member's Trello Report Card ID")
-                        .required(false)
-                        .kind(ApplicationCommandOptionType::String)
-                })
-        })
+    commands: &mut CreateApplicationCommands,
+) -> &mut CreateApplicationCommands {
+    commands.create_application_command(|command| {
+        command
+            .name("member")
+            .description("Manage organization's members")
+            .create_option(|option| {
+                option
+                    .name("add")
+                    .description("Add member to the organization")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("discord_id")
+                            .description("Add member by their Discord ID")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello_id")
+                            .description("Add member by their Trello ID")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello_report_card_id")
+                            .description("Add member by their Trello Report Card ID")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("remove")
+                    .description("Remove member from the organization")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Remove member by their ID")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("list")
+                    .description("List all members of the organization")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page")
+                            .description("Page number")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page_size")
+                            .description("Number of members per page")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::Integer)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("update")
+                    .description("Update member's information")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Update member by their ID")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("discord_id")
+                            .description("Update member's Discord ID")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello_id")
+                            .description("Update member's Trello ID")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello_report_card_id")
+                            .description("Update member's Trello Report Card ID")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+    });
+
+    commands.create_application_command(|command| {
+        command
+            .name("report")
+            .description("Manage member's reports")
+            .create_option(|option| {
+                option
+                    .name("add")
+                    .description("Add report")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("content")
+                            .description("Report content")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("member")
+                            .description("Add report for member")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::User)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("remove")
+                    .description("Remove report")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Remove report by ID")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("list")
+                    .description("List all reports")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page")
+                            .description("Page number")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page_size")
+                            .description("Number of reports per page")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("member")
+                            .description("List reports for member")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("older_than")
+                            .description("List reports older than this date")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("newer_than")
+                            .description("List reports newer than this date")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("update")
+                    .description("Update report")
+                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Update report by ID")
+                            .required(true)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("content")
+                            .description("Update report content")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("member")
+                            .description("Update report for member")
+                            .required(false)
+                            .kind(ApplicationCommandOptionType::User)
+                    })
+            })
+    })
 }
 
 pub fn find_option_value<'a>(

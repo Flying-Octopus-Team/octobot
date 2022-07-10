@@ -1,11 +1,15 @@
+use serenity::{
+    client::Context,
+    model::interactions::application_command::{
+        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
+    },
+};
 use std::fmt::Write;
-use serenity::{client::Context, model::interactions::application_command::{ApplicationCommandInteraction, ApplicationCommandInteractionDataOption}};
 use uuid::Uuid;
 
 use crate::{database::models::member::Member, SETTINGS};
 
 use super::find_option_value;
-
 
 pub async fn add_member(
     ctx: &Context,
