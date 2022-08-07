@@ -1,5 +1,6 @@
 stages:
   - build
+  - notification
 
 rust-latest:
   stage: build
@@ -15,3 +16,24 @@ rust-nightly:
     - cargo build --verbose
     - cargo test --verbose
   allow_failure: true
+
+success_notification:
+  stage: notification
+  image: alpine
+  script:
+    - apk add --update git curl
+    - wget https://raw.githubusercontent.com/Flying-Octopus-Team/gitlab-ci-discord-webhook/master/send.sh
+    - chmod +x send.sh
+    - /bin/ash ./send.sh success $WEBHOOK_URL
+  when: on_success
+
+failure_notification:
+  stage: notification
+  image: alpine
+  script:
+    - apk add --update git curl
+    - wget https://raw.githubusercontent.com/Flying-Octopus-Team/gitlab-ci-discord-webhook/master/send.sh
+    - chmod +x send.sh
+    - /bin/ash ./send.sh failure $WEBHOOK_URL
+  when: on_failure
+
