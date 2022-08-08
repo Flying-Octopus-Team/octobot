@@ -29,10 +29,10 @@ jobs:
       run: wget https://raw.githubusercontent.com/Flying-Octopus-Team/gitlab-ci-discord-webhook/master/send.sh && chmod +x send.sh
     - name: Send Failed message
       if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
-      run: /bin/ash ./send.sh failure $NOTIFICATION_URL
+      run: /bin/bash ./send.sh failure $NOTIFICATION_URL
     - name: Send success message
       if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
-      run: /bin/ash ./send.sh success $NOTIFICATION_URL
+      run: /bin/bash ./send.sh success $NOTIFICATION_URL
       
 
     
