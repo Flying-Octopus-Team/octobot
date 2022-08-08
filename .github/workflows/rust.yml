@@ -1,0 +1,38 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  NOTIFICATION_URL: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
+
+
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      id: build
+      run: cargo build --verbose
+    - name: Run tests
+      id: test
+      run: cargo test --verbose
+    - name: Setup notification
+      run: wget https://raw.githubusercontent.com/Flying-Octopus-Team/gitlab-ci-discord-webhook/master/send.sh && chmod +x send.sh
+    - name: Send Failed message
+      if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
+      run: /bin/ash ./send.sh failure $NOTIFICATION_URL
+    - name: Send success message
+      if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
+      run: /bin/ash ./send.sh success $NOTIFICATION_URL
+      
+
+    
