@@ -8,7 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NOTIFICATION_URL: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
+  DISCORD_WEBHOOK: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
 
 
 
@@ -26,13 +26,12 @@ jobs:
       id: test
       run: cargo test --verbose
     - name: Setup notification
-      run: wget https://raw.githubusercontent.com/Flying-Octopus-Team/gitlab-ci-discord-webhook/master/send.sh && chmod +x send.sh
-    - name: Send Failed message
-      if: steps.build.outcome != 'success' || steps.test.outcome != 'success'
-      run: /bin/bash ./send.sh failure $NOTIFICATION_URL
-    - name: Send success message
-      if: steps.build.outcome == 'success' && steps.test.outcome == 'success'
-      run: /bin/bash ./send.sh success $NOTIFICATION_URL
+      uses: kceb/pull-request-url-action@v1
+      id: pr-url
+    - name: Actions Status Discord
+      uses: sarisia/actions-status-discord@v1.10.0
+      with:
+        url: ${{ steps.pr-url.outputs.url }}
       
 
     
