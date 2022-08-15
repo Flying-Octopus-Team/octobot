@@ -20,7 +20,7 @@ pub async fn handle_interaction_command<'a>(
                 "add" => member::add_member(ctx, command, option).await,
                 "remove" => member::remove_member(ctx, command, option).await,
                 "update" => member::update_member(ctx, command, option).await,
-                "list" => member::list_members(option).await,
+                "list" => member::list_members(option),
                 _ => {
                     //"Unknown command".to_string()
                     todo!()

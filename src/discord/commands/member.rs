@@ -91,7 +91,7 @@ pub async fn update_member(
     Ok(format!("Updated {}", updated_member))
 }
 
-pub async fn list_members(
+pub fn list_members(
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
