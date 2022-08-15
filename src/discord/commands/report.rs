@@ -13,15 +13,20 @@ use super::find_option_value;
 
 pub(crate) fn add_report(
     _ctx: &Context,
-    _command: &ApplicationCommandInteraction,
+    command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let member_dc_id = match find_option_value(&option.options[..], "member") {
-        Some(member_uuid) => member_uuid.as_str().unwrap(),
-        None => return Ok("No member specified".to_string()),
+        Some(member_uuid) => String::from(member_uuid.as_str().unwrap()),
+        None => command.member.as_ref().unwrap().user.id.as_u64().to_string(),
     };
 
-    let member = Member::find_by_discord_id(member_dc_id)?;
+    let find_by_discord_id = Member::find_by_discord_id(member_dc_id);
+    let member = if let Err(why) = find_by_discord_id {
+        return Ok(format!("Member not found: {}", why));
+    } else {
+        find_by_discord_id?
+    };
 
     let content = match find_option_value(&option.options[..], "content") {
         Some(content) => String::from(content.as_str().unwrap()),
