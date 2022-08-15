@@ -13,6 +13,7 @@ table! {
         member_uuid -> Uuid,
         content -> Text,
         create_date -> Date,
+        published -> Bool,
     }
 }
 

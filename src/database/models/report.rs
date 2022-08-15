@@ -14,6 +14,7 @@ pub struct Report {
     member_uuid: Uuid,
     content: String,
     create_date: NaiveDate,
+    published: bool,
 }
 
 #[derive(Insertable, Debug)]
@@ -30,6 +31,7 @@ impl Report {
             member_uuid,
             content,
             create_date: chrono::Local::now().naive_local().date(),
+            published: false,
         }
     }
 

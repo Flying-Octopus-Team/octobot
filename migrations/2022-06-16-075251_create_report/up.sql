@@ -4,6 +4,7 @@ CREATE TABLE public.report
     member_uuid uuid NOT NULL,
     content text NOT NULL,
     create_date date NOT NULL DEFAULT now(),
+    published boolean NOT NULL DEFAULT false,
     PRIMARY KEY (id),
     CONSTRAINT "FK_report_member" FOREIGN KEY (member_uuid)
         REFERENCES public.member (id) MATCH FULL
