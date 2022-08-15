@@ -11,7 +11,7 @@ use uuid::Uuid;
 #[diesel(table_name = report)]
 pub struct Report {
     id: Uuid,
-    pub member_uuid: Uuid,
+    pub member_id: Uuid,
     pub content: String,
     create_date: NaiveDate,
     published: bool,
@@ -20,26 +20,23 @@ pub struct Report {
 #[derive(Insertable, Debug)]
 #[diesel(table_name = report)]
 struct NewReport {
-    member_uuid: Uuid,
+    member_id: Uuid,
     content: String,
 }
 
 impl Report {
-    pub fn new(member_uuid: Uuid, content: String) -> Report {
+    pub fn new(member_id: Uuid, content: String) -> Report {
         Report {
             id: Uuid::new_v4(),
-            member_uuid,
+            member_id,
             content,
             create_date: chrono::Local::now().naive_local().date(),
             published: false,
         }
     }
 
-    pub fn insert(member_uuid: Uuid, content: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let new_report = NewReport {
-            member_uuid,
-            content,
-        };
+    pub fn insert(member_id: Uuid, content: String) -> Result<Self, Box<dyn std::error::Error>> {
+        let new_report = NewReport { member_id, content };
 
         Ok(diesel::insert_into(report::table)
             .values(&new_report)
@@ -68,7 +65,7 @@ impl Report {
         let mut query = report::table.into_boxed();
 
         if let Some(member_dc_id) = member_dc_id {
-            query = query.filter(dsl::member_uuid.eq(member_dc_id));
+            query = query.filter(dsl::member_id.eq(member_dc_id));
         }
 
         let mut query = query.paginate(page);
@@ -83,7 +80,8 @@ impl Report {
     }
 
     pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
-        Ok(dsl::report.filter(dsl::published.eq(false))
+        Ok(dsl::report
+            .filter(dsl::published.eq(false))
             .load(&mut crate::database::PG_POOL.get().unwrap())?)
     }
 
@@ -108,7 +106,7 @@ impl Display for Report {
         write!(
             f,
             "Report {} by {} on {}: {}",
-            self.id, self.member_uuid, self.create_date, self.content
+            self.id, self.member_id, self.create_date, self.content
         )
     }
 }

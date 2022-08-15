@@ -10,13 +10,13 @@ table! {
 table! {
     report (id) {
         id -> Uuid,
-        member_uuid -> Uuid,
+        member_id -> Uuid,
         content -> Text,
         create_date -> Date,
         published -> Bool,
     }
 }
 
-joinable!(report -> member (member_uuid));
+joinable!(report -> member (member_id));
 
 allow_tables_to_appear_in_same_query!(member, report,);

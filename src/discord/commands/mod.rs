@@ -259,7 +259,9 @@ pub fn create_application_commands(
             .create_option(|option| {
                 option
                     .name("publish")
-                    .description("Mark reports as published and do not display them in the next summary")
+                    .description(
+                        "Mark reports as published and do not display them in the next summary",
+                    )
                     .kind(ApplicationCommandOptionType::Boolean)
                     .required(false)
             })

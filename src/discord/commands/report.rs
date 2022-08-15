@@ -17,8 +17,15 @@ pub(crate) fn add_report(
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let member_dc_id = match find_option_value(&option.options[..], "member") {
-        Some(member_uuid) => String::from(member_uuid.as_str().unwrap()),
-        None => command.member.as_ref().unwrap().user.id.as_u64().to_string(),
+        Some(member_id) => String::from(member_id.as_str().unwrap()),
+        None => command
+            .member
+            .as_ref()
+            .unwrap()
+            .user
+            .id
+            .as_u64()
+            .to_string(),
     };
 
     let find_by_discord_id = Member::find_by_discord_id(member_dc_id);
@@ -71,8 +78,8 @@ pub(crate) fn list_reports(
     let page_size =
         find_option_value(&option.options[..], "page_size").map(|v| v.as_i64().unwrap());
 
-    let member = find_option_value(&option.options[..], "member").map(|member_uuid| {
-        let member_dc_id = member_uuid.as_str().unwrap();
+    let member = find_option_value(&option.options[..], "member").map(|member_id| {
+        let member_dc_id = member_id.as_str().unwrap();
         Member::find_by_discord_id(member_dc_id)
             .map(|member| member.id())
             .unwrap() /*Some(member.id())*/
@@ -115,7 +122,7 @@ pub(crate) fn update_report(
     if let Some(member) = find_option_value(&option.options[..], "member") {
         let member_dc_id = member.as_str().unwrap();
         let member = Member::find_by_discord_id(member_dc_id)?;
-        old_report.member_uuid = member.id();
+        old_report.member_id = member.id();
     }
 
     let report = old_report.update()?;
@@ -131,12 +138,12 @@ pub(crate) async fn summary(
 
     let mut output = String::new();
 
-    reports.sort_by(|a, b| a.member_uuid.cmp(&b.member_uuid));
+    reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
 
     let mut previous_report: Option<Report> = None;
 
     for report in reports {
-        let member = Member::find_by_id(report.member_uuid)?;
+        let member = Member::find_by_id(report.member_id)?;
         let member = ctx
             .http
             .get_user(member.discord_id().unwrap().parse().unwrap())
@@ -144,9 +151,7 @@ pub(crate) async fn summary(
 
         // if report is from the same member as the previous report, don't print the member's name
 
-        if previous_report.is_some()
-            && previous_report.unwrap().member_uuid == report.member_uuid
-        {
+        if previous_report.is_some() && previous_report.unwrap().member_id == report.member_id {
             write!(&mut output, " {}", report.content)?;
         } else {
             write!(&mut output, "\n**{}:** {}", member.name, report.content)?;
