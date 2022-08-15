@@ -11,8 +11,8 @@ use uuid::Uuid;
 #[diesel(table_name = report)]
 pub struct Report {
     id: Uuid,
-    member_uuid: Uuid,
-    content: String,
+    pub member_uuid: Uuid,
+    pub content: String,
     create_date: NaiveDate,
     published: bool,
 }
@@ -89,14 +89,6 @@ impl Report {
             .filter(id.eq(find_id))
             .first(&mut crate::database::PG_POOL.get().unwrap())
             .ok()
-    }
-
-    pub fn set_member_uuid(&mut self, member_uuid: Uuid) {
-        self.member_uuid = member_uuid;
-    }
-
-    pub fn set_content(&mut self, content: String) {
-        self.content = content;
     }
 }
 

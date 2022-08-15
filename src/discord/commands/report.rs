@@ -109,13 +109,13 @@ pub(crate) fn update_report(
     };
 
     if let Some(content) = find_option_value(&option.options[..], "content") {
-        old_report.set_content(String::from(content.as_str().unwrap()));
+        old_report.content = String::from(content.as_str().unwrap());
     }
 
     if let Some(member) = find_option_value(&option.options[..], "member") {
         let member_dc_id = member.as_str().unwrap();
         let member = Member::find_by_discord_id(member_dc_id)?;
-        old_report.set_member_uuid(member.id());
+        old_report.member_uuid = member.id();
     }
 
     let report = old_report.update()?;
