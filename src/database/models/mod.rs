@@ -1,2 +1,2 @@
 pub mod member;
-mod report;
+pub mod report;

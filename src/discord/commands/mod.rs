@@ -9,6 +9,7 @@ use serenity::{
 };
 
 mod member;
+mod report;
 
 pub async fn handle_interaction_command<'a>(
     ctx: &Context,
@@ -21,6 +22,22 @@ pub async fn handle_interaction_command<'a>(
                 "remove" => member::remove_member(ctx, command, option).await,
                 "update" => member::update_member(ctx, command, option).await,
                 "list" => member::list_members(option),
+                _ => {
+                    //"Unknown command".to_string()
+                    todo!()
+                }
+            },
+            None => {
+                //"Unknown command".to_string()
+                todo!()
+            }
+        },
+        "report" => match command.data.options.first() {
+            Some(option) => match option.name.as_str() {
+                "add" => report::add_report(ctx, command, option),
+                "remove" => report::remove_report(option),
+                "list" => report::list_reports(option),
+                "update" => report::update_report(ctx, command, option),
                 _ => {
                     //"Unknown command".to_string()
                     todo!()
