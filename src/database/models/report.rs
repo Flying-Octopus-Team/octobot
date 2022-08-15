@@ -82,6 +82,17 @@ impl Report {
         Ok((reports, total_pages))
     }
 
+    pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+        Ok(dsl::report.filter(dsl::published.eq(false))
+            .load(&mut crate::database::PG_POOL.get().unwrap())?)
+    }
+
+    pub fn publish(&self) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(diesel::update(&self)
+            .set(dsl::published.eq(true))
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
+    }
+
     pub fn find_by_id(find_id: Uuid) -> Option<Report> {
         use crate::database::schema::report::dsl::*;
 

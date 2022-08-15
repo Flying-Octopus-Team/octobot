@@ -122,3 +122,44 @@ pub(crate) fn update_report(
 
     Ok(format!("Report updated: {}", report))
 }
+
+pub(crate) async fn summary(
+    ctx: &Context,
+    _command: &ApplicationCommandInteraction,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut reports = Report::get_unpublished_reports()?;
+
+    let mut output = String::new();
+
+    reports.sort_by(|a, b| a.member_uuid.cmp(&b.member_uuid));
+
+    let mut previous_report: Option<Report> = None;
+
+    for report in reports {
+        let member = Member::find_by_id(report.member_uuid)?;
+        let member = ctx
+            .http
+            .get_user(member.discord_id().unwrap().parse().unwrap())
+            .await?;
+
+        // if report is from the same member as the previous report, don't print the member's name
+
+        if previous_report.is_some()
+            && previous_report.unwrap().member_uuid == report.member_uuid
+        {
+            write!(&mut output, " {}", report.content)?;
+        } else {
+            write!(&mut output, "\n**{}:** {}", member.name, report.content)?;
+        }
+
+        report.publish()?;
+
+        previous_report = Some(report);
+    }
+
+    if output == String::new() {
+        Ok("No unpublished reports".to_string())
+    } else {
+        Ok(output)
+    }
+}

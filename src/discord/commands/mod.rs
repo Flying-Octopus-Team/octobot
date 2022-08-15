@@ -48,6 +48,7 @@ pub async fn handle_interaction_command<'a>(
                 todo!()
             }
         },
+        "summary" => report::summary(ctx, command).await,
         _ => {
             //"Unknown command".to_string()
             todo!()
@@ -248,6 +249,19 @@ pub fn create_application_commands(
                             .required(false)
                             .kind(ApplicationCommandOptionType::User)
                     })
+            })
+    });
+
+    commands.create_application_command(|command| {
+        command
+            .name("summary")
+            .description("Show weekly summary containing unpublished reports")
+            .create_option(|option| {
+                option
+                    .name("publish")
+                    .description("Mark reports as published and do not display them in the next summary")
+                    .kind(ApplicationCommandOptionType::Boolean)
+                    .required(false)
             })
     })
 }
