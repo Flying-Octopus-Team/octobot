@@ -22,15 +22,9 @@ pub async fn handle_interaction_command<'a>(
                 "remove" => member::remove_member(ctx, command, option).await,
                 "update" => member::update_member(ctx, command, option).await,
                 "list" => member::list_members(option),
-                _ => {
-                    //"Unknown command".to_string()
-                    todo!()
-                }
+                _ => Ok(String::from("Unknown subcommand")),
             },
-            None => {
-                //"Unknown command".to_string()
-                todo!()
-            }
+            None => Ok(String::from("No subcommand specified")),
         },
         "report" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
@@ -38,21 +32,12 @@ pub async fn handle_interaction_command<'a>(
                 "remove" => report::remove_report(option),
                 "list" => report::list_reports(option),
                 "update" => report::update_report(ctx, command, option),
-                _ => {
-                    //"Unknown command".to_string()
-                    todo!()
-                }
+                _ => Ok(String::from("Unknown subcommand")),
             },
-            None => {
-                //"Unknown command".to_string()
-                todo!()
-            }
+            None => Ok(String::from("No subcommand specified")),
         },
         "summary" => report::summary(ctx, command).await,
-        _ => {
-            //"Unknown command".to_string()
-            todo!()
-        }
+        _ => Ok(String::from("Unknown command")),
     }
 }
 
