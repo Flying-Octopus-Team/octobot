@@ -1,3 +1,4 @@
+use crate::database::pagination::Paginate;
 use crate::database::schema::report;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
@@ -54,5 +55,29 @@ impl Report {
         diesel::delete(report.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
             .is_ok()
+    pub fn list(
+        page: i64,
+        per_page: Option<i64>,
+        member_dc_id: Option<Uuid>,
+    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+        use crate::database::schema::report;
+        use crate::database::schema::report::dsl::*;
+
+        let mut query = report::table.into_boxed();
+
+        if let Some(member_dc_id) = member_dc_id {
+            query = query.filter(member_uuid.eq(member_dc_id));
+        }
+
+        let mut query = query.paginate(page);
+
+        if let Some(per_page) = per_page {
+            query = query.per_page(per_page);
+        };
+
+        let (reports, total_pages) =
+            query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
+        Ok((reports, total_pages))
+    }
     }
 }
