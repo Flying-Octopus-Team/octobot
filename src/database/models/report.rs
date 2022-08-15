@@ -79,5 +79,31 @@ impl Report {
             query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
         Ok((reports, total_pages))
     }
+
+    pub fn find_by_id(find_id: Uuid) -> Option<Report> {
+        use crate::database::schema::report::dsl::*;
+
+        report
+            .filter(id.eq(find_id))
+            .first(&mut crate::database::PG_POOL.get().unwrap())
+            .ok()
+    }
+
+    pub fn set_member_uuid(&mut self, member_uuid: Uuid) {
+        self.member_uuid = member_uuid;
+    }
+
+    pub fn set_content(&mut self, content: String) {
+        self.content = content;
+    }
+}
+
+impl Display for Report {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Report {} by {} on {}: {}",
+            self.id, self.member_uuid, self.create_date, self.content
+        )
     }
 }
