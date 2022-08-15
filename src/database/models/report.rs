@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
 use uuid::Uuid;
 
-#[derive(Queryable, AsChangeset, Debug)]
+#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = report)]
 struct Report {
     id: Uuid,
