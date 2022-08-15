@@ -42,11 +42,10 @@ impl Report {
             .expect("Error creating new report")
     }
 
-    pub fn update(&self) -> Self {
-        diesel::update(report::table)
+    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(diesel::update(&self)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())
-            .expect("Error updating report")
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> bool {
