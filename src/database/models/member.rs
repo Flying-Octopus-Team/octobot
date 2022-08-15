@@ -10,7 +10,7 @@ use diesel::Table;
 use serenity::model::interactions::application_command::ApplicationCommandInteractionDataOption;
 use uuid::Uuid;
 
-#[derive(Queryable, Insertable, AsChangeset, Debug)]
+#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = member)]
 pub struct Member {
     id: Uuid,
@@ -40,7 +40,7 @@ impl Member {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(member::table)
+        Ok(diesel::update(&self)
             .set(self)
             .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
