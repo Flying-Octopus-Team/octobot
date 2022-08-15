@@ -3,11 +3,12 @@ use crate::database::schema::report;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
+use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = report)]
-struct Report {
+pub struct Report {
     id: Uuid,
     member_uuid: Uuid,
     content: String,
@@ -31,16 +32,15 @@ impl Report {
         }
     }
 
-    pub fn insert(member_uuid: Uuid, content: String) -> Report {
+    pub fn insert(member_uuid: Uuid, content: String) -> Result<Self, Box<dyn std::error::Error>> {
         let new_report = NewReport {
             member_uuid,
             content,
         };
 
-        diesel::insert_into(report::table)
+        Ok(diesel::insert_into(report::table)
             .values(&new_report)
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())
-            .expect("Error creating new report")
+            .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
@@ -49,12 +49,14 @@ impl Report {
             .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> bool {
+    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::report::dsl::*;
 
-        diesel::delete(report.filter(id.eq(id)))
+        Ok(diesel::delete(report.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
-            .is_ok()
+            .map(|rows| rows != 0)?)
+    }
+
     pub fn list(
         page: i64,
         per_page: Option<i64>,
