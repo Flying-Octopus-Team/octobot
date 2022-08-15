@@ -204,20 +204,6 @@ pub fn create_application_commands(
                             .required(false)
                             .kind(ApplicationCommandOptionType::User)
                     })
-                    .create_sub_option(|sub_option| {
-                        sub_option
-                            .name("older_than")
-                            .description("List reports older than this date")
-                            .required(false)
-                            .kind(ApplicationCommandOptionType::String)
-                    })
-                    .create_sub_option(|sub_option| {
-                        sub_option
-                            .name("newer_than")
-                            .description("List reports newer than this date")
-                            .required(false)
-                            .kind(ApplicationCommandOptionType::String)
-                    })
             })
             .create_option(|option| {
                 option
