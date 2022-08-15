@@ -50,7 +50,7 @@ impl Member {
 
         Ok(diesel::delete(member.filter(id.eq(id)))
             .execute(&mut crate::database::PG_POOL.get().unwrap())
-            .map(|_| true)?)
+            .map(|rows| rows != 0)?)
     }
 
     pub fn list(
@@ -80,6 +80,18 @@ impl Member {
 
         Ok(member
             .filter(id.eq(uuid))
+            .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
+    }
+
+    pub fn find_by_discord_id(
+        find_id: impl Into<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::member::dsl::*;
+
+        let dc_id = find_id.into();
+
+        Ok(member
+            .filter(discord_id.eq(dc_id))
             .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
     }
 
