@@ -1,5 +1,6 @@
 use crate::database::pagination::Paginate;
 use crate::database::schema::report;
+use crate::database::schema::report::dsl;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
@@ -62,13 +63,10 @@ impl Report {
         per_page: Option<i64>,
         member_dc_id: Option<Uuid>,
     ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
-        use crate::database::schema::report;
-        use crate::database::schema::report::dsl::*;
-
         let mut query = report::table.into_boxed();
 
         if let Some(member_dc_id) = member_dc_id {
-            query = query.filter(member_uuid.eq(member_dc_id));
+            query = query.filter(dsl::member_uuid.eq(member_dc_id));
         }
 
         let mut query = query.paginate(page);
