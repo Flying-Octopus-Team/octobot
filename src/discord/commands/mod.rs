@@ -36,7 +36,14 @@ pub async fn handle_interaction_command<'a>(
             },
             None => Ok(String::from("No subcommand specified")),
         },
-        "summary" => report::summary(ctx, command).await,
+        "summary" => {
+            let publish = if let Some(option) = command.data.options.first() {
+                option.value.as_ref().unwrap().as_bool().unwrap()
+            } else {
+                false
+            };
+            report::summary(ctx, command, publish).await
+        },
         _ => Ok(String::from("Unknown command")),
     }
 }

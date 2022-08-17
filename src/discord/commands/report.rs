@@ -133,6 +133,7 @@ pub(crate) fn update_report(
 pub(crate) async fn summary(
     ctx: &Context,
     _command: &ApplicationCommandInteraction,
+    publish: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut reports = Report::get_unpublished_reports()?;
 
@@ -156,8 +157,10 @@ pub(crate) async fn summary(
         } else {
             write!(&mut output, "\n**{}:** {}", member.name, report.content)?;
         }
-
-        report.publish()?;
+        
+        if publish {
+            report.publish()?;
+        }
 
         previous_report = Some(report);
     }
