@@ -9,7 +9,7 @@ edition = "2021"
 config = "0.13"
 serde = "1.0"
 lazy_static = "1.4"
-diesel_migrations = "2.0.0-rc.0"
+diesel_migrations = "2.0.0-rc.1"
 tokio = { version = "1.19", features = ["full"] }
 chrono = "0.4"
 serde_json = "1.0.82"
@@ -18,7 +18,7 @@ serde_json = "1.0.82"
 version = "0.11"
 
 [dependencies.diesel]
-version = "2.0.0-rc.0"
+version = "2.0.0-rc.1"
 features = ["postgres", "r2d2", "chrono", "uuid"]
 
 [dependencies.uuid]
