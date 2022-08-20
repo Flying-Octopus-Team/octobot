@@ -71,6 +71,7 @@ jobs:
 
   notification:
     name: Send notification
+    runs-on: ubuntu-latest
     if: ${{ always() }}
     needs: [test, clippy, rustfmt]
     steps:
