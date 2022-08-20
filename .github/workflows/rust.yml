@@ -2,36 +2,81 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
   DISCORD_WEBHOOK: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
 
-
-
 jobs:
-  build:
-
+  rustfmt:
+    name: Code formatting
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      id: build
-      run: cargo build --verbose
-    - name: Run tests
-      id: test
-      run: cargo test --verbose
-    - name: Setup notification
-      uses: kceb/pull-request-url-action@v1
-      id: pr-url
-    - name: Actions Status Discord
-      uses: sarisia/actions-status-discord@v1.10.0
-      with:
-        url: ${{ steps.pr-url.outputs.url }}
-      
+      - name: Checkout sources
+        uses: actions/checkout@v3
 
-    
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+
+  compile:
+    name: Compile project
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install rust toolchain
+        run: |
+          rustup update --no-self-update stable
+          rustup component add rustfmt rust-src clippy
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
+      - run: cargo check --all-features --all-targets
+
+  clippy:
+    name: Clippy
+    needs: [compile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
+      - name: Run clippy
+        run: cargo clippy --all-features --all-targets -- -D warnings
+
+  test:
+    name: Test project
+    needs: [compile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v1
+
+      - name: Run tests
+        id: test
+        run: cargo test -- --nocapture --quiet
+
+  notification:
+    name: Send notification
+    if: ${{ always() }}
+    needs: [test, clippy, rustfmt]
+    steps:
+      - name: Setup notification
+        uses: kceb/pull-request-url-action@v1
+        id: pr-url
+
+      - name: Actions Status Discord
+        uses: sarisia/actions-status-discord@v1.10.0
+        with:
+          url: ${{ steps.pr-url.outputs.url }}
