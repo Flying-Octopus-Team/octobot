@@ -75,6 +75,11 @@ jobs:
     if: ${{ always() }}
     needs: [test, clippy, rustfmt]
     steps:
+      - name: Fail if any job fails
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: exit 1
+      
       - name: Setup notification
         uses: kceb/pull-request-url-action@v1
         id: pr-url
