@@ -76,7 +76,7 @@ jobs:
     needs: [test, clippy, rustfmt]
     steps:
       - name: Fail if any job fails
-        if: ${{ github.action_status == "failure" }}
+        if: ${{ github.action_status == 'failure' }}
         run: exit 1
       
       - name: Setup notification
