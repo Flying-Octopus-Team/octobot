@@ -69,14 +69,28 @@ jobs:
         id: test
         run: cargo test -- --nocapture --quiet
 
-  notification:
+  success_notification:
     name: Send notification
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: ${{ success() }}
+    needs: [test, clippy, rustfmt]
+    steps:
+      - name: Setup notification
+        uses: kceb/pull-request-url-action@v1
+        id: pr-url
+
+      - name: Actions Status Discord
+        uses: sarisia/actions-status-discord@v1.10.0
+        with:
+          url: ${{ steps.pr-url.outputs.url }}
+
+  fail_notification:
+    name: Send notification
+    runs-on: ubuntu-latest
+    if: ${{ failure() }}
     needs: [test, clippy, rustfmt]
     steps:
       - name: Fail if any job fails
-        if: ${{ jobs.test.status != 'success' || jobs.clippy.status != 'success' || jobs.rustfmt.status != 'success' }}
         run: exit 1
       
       - name: Setup notification
