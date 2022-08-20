@@ -157,7 +157,7 @@ pub(crate) async fn summary(
         } else {
             write!(&mut output, "\n**{}:** {}", member.name, report.content)?;
         }
-        
+
         if publish {
             report.publish()?;
         }
