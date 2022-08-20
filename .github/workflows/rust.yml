@@ -76,15 +76,16 @@ jobs:
     needs: [test, clippy, rustfmt]
     steps:
       - name: Fail if any job fails
-        if: ${{ failure() }}
-        continue-on-error: true
+        if: ${{ github.action_status == "failure" }}
         run: exit 1
       
       - name: Setup notification
+        if: ${{ always() }}
         uses: kceb/pull-request-url-action@v1
         id: pr-url
 
       - name: Actions Status Discord
+        if: ${{ always() }}
         uses: sarisia/actions-status-discord@v1.10.0
         with:
           url: ${{ steps.pr-url.outputs.url }}
