@@ -15,6 +15,7 @@ pub struct Report {
     pub content: String,
     create_date: NaiveDate,
     published: bool,
+    summary_id: Option<Uuid>,
 }
 
 #[derive(Insertable, Debug)]
@@ -32,6 +33,7 @@ impl Report {
             content,
             create_date: chrono::Local::now().naive_local().date(),
             published: false,
+            summary_id: None,
         }
     }
 
