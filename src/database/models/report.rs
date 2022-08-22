@@ -1,3 +1,4 @@
+use crate::database::models::member::Member;
 use crate::database::pagination::Paginate;
 use crate::database::schema::report;
 use crate::database::schema::report::dsl;
@@ -7,7 +8,8 @@ use diesel::{QueryDsl, RunQueryDsl};
 use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
-#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
+#[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Debug)]
+#[diesel(belongs_to(Member))]
 #[diesel(table_name = report)]
 pub struct Report {
     id: Uuid,
