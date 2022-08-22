@@ -49,7 +49,7 @@ impl Member {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::delete(member.filter(id.eq(id)))
-            .execute(&mut crate::database::PG_POOL.get().unwrap())
+            .execute(&mut crate::database::PG_POOL.get()?)
             .map(|rows| rows != 0)?)
     }
 
@@ -79,8 +79,8 @@ impl Member {
         let uuid = find_id.into();
 
         Ok(member
-            .filter(id.eq(uuid))
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
+            .find(uuid)
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
     pub fn find_by_discord_id(
@@ -92,7 +92,7 @@ impl Member {
 
         Ok(member
             .filter(discord_id.eq(dc_id))
-            .get_result(&mut crate::database::PG_POOL.get().unwrap())?)
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
