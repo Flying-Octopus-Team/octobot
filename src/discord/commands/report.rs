@@ -59,8 +59,8 @@ pub(crate) fn remove_report(
     }?;
 
     let report = match Report::find_by_id(report_id) {
-        Some(report) => report,
-        None => return Ok("Can't find report with this ID".to_string()),
+        Ok(report) => report,
+        Err(why) => return Ok(format!("Can't find report with this ID: {why}")),
     };
 
     match report.delete() {
@@ -119,7 +119,7 @@ pub(crate) fn update_report(
     let mut old_report = match find_option_value(&option.options[..], "id") {
         Some(report_id) => {
             let report_id = Uuid::parse_str(report_id.as_str().unwrap())?;
-            if let Some(report) = Report::find_by_id(report_id) {
+            if let Ok(report) = Report::find_by_id(report_id) {
                 report
             } else {
                 return Ok("Can't find report with this ID".to_string());
