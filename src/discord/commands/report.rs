@@ -163,7 +163,7 @@ pub(crate) async fn summary(
         let member = Member::find_by_id(report.member_id)?;
         let member = ctx
             .http
-            .get_user(member.discord_id().unwrap().parse().unwrap())
+            .get_user(member.discord_id().unwrap().parse()?)
             .await?;
 
         // if report is from the same member as the previous report, don't print the member's name
