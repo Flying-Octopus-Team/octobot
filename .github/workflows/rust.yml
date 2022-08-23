@@ -25,6 +25,7 @@ jobs:
 
   compile:
     name: Compile project
+    needs: [rustfmt]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -56,7 +57,7 @@ jobs:
 
   test:
     name: Test project
-    needs: [compile]
+    needs: [clippy]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -73,7 +74,7 @@ jobs:
     name: Send notification
     runs-on: ubuntu-latest
     if: ${{ success() }}
-    needs: [test, clippy, rustfmt]
+    needs: [test]
     steps:
       - name: Setup notification
         uses: kceb/pull-request-url-action@v1
