@@ -13,6 +13,7 @@ use crate::SETTINGS;
 
 struct Handler;
 
+use crate::database::models::member::Member;
 pub use crate::discord::commands::find_option_as_string;
 pub use crate::discord::commands::find_option_value;
 use crate::meeting::MeetingStatus;
@@ -46,7 +47,12 @@ impl EventHandler for Handler {
 
         if meeting_status.is_meeting_ongoing() {
             if new.channel_id.is_some() && new.channel_id.unwrap() == SETTINGS.meeting.channel_id {
-                meeting_status.add_member(new.user_id).unwrap();
+                match Member::find_by_discord_id(new.user_id.0.to_string()) {
+                    Ok(member) => {
+                        meeting_status.add_member(member.id()).unwrap();
+                    }
+                    Err(e) => println!("User is not member of the organization: {:?}", e),
+                }
             }
         }
     }

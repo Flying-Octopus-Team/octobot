@@ -8,8 +8,9 @@ use std::{
 
 use chrono::Local;
 use cron::Schedule;
-use serenity::{client::Cache, model::prelude::UserId, prelude::TypeMapKey};
+use serenity::{client::Cache, prelude::TypeMapKey};
 use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::{
     database::models::{
@@ -123,12 +124,8 @@ impl MeetingStatus {
 
     pub fn add_member(
         &mut self,
-        user_id: impl Into<UserId>,
+        member_id: impl Into<Uuid>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let member_id = Member::find_by_discord_id(user_id.into().0.to_string())
-            .unwrap()
-            .id();
-
         self.members.push(MeetingMembers::new(
             member_id,
             self.meeting_data().unwrap().id,
