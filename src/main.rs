@@ -12,6 +12,7 @@ use tracing_subscriber::{
 
 mod database;
 mod discord;
+mod meeting;
 mod settings;
 
 lazy_static! {
