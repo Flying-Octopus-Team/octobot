@@ -1,11 +1,10 @@
 use serenity::async_trait;
-
 use serenity::client::{Context, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
-
 use serenity::model::interactions::Interaction;
+use serenity::model::voice::VoiceState;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
 use tracing::{debug, error, info};
@@ -16,6 +15,7 @@ struct Handler;
 
 pub use crate::discord::commands::find_option_as_string;
 pub use crate::discord::commands::find_option_value;
+use crate::meeting::MeetingStatus;
 
 mod commands;
 
@@ -39,18 +39,39 @@ impl EventHandler for Handler {
         }
     }
 
+    async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
+        let read = ctx.data.read().await;
+        let meeting_status = read.get::<MeetingStatus>().unwrap();
+        let mut meeting_status = meeting_status.write().await;
+
+        if meeting_status.is_meeting_ongoing() {
+            if new.channel_id.is_some() && new.channel_id.unwrap() == SETTINGS.meeting.channel_id {
+                meeting_status.add_member(new.user_id).unwrap();
+            }
+        }
+    }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
 
         let guild_id = GuildId(SETTINGS.server_id);
 
-        let guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        let _guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands::create_application_commands(commands)
         })
         .await
         .expect("Error creating global application command");
 
         debug!("{:?}", guild_command);
+
+        let meeting_status = crate::meeting::create_meeting_job(ctx.cache.clone())
+            .await
+            .unwrap();
+
+        ctx.data
+            .write()
+            .await
+            .insert::<MeetingStatus>(meeting_status);
     }
 }
 
@@ -59,7 +80,10 @@ pub async fn start_bot() {
 
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
+        | GatewayIntents::MESSAGE_CONTENT
+        | GatewayIntents::GUILD_VOICE_STATES
+        | GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_MEMBERS;
 
     let framework = StandardFramework::new().configure(|c| c.prefix("~"));
 

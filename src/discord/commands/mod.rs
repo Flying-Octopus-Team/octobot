@@ -9,6 +9,8 @@ use serenity::{
 };
 use tracing::warn;
 
+use crate::meeting::MeetingStatus;
+
 mod member;
 mod report;
 
@@ -56,6 +58,13 @@ pub async fn handle_interaction_command<'a>(
                 false
             };
             report::summary(ctx, command, publish).await
+        }
+        "end-meeting" => {
+            let read = ctx.data.read().await;
+            let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
+            let mut meeting_status = meeting_status.write().await;
+            *meeting_status = meeting_status.end_meeting()?;
+            Ok(String::from("Meeting ended"))
         }
         _ => {
             warn!("Unknown command: {}", command.data.name);
@@ -273,6 +282,12 @@ pub fn create_application_commands(
                     .kind(ApplicationCommandOptionType::Boolean)
                     .required(false)
             })
+    });
+
+    commands.create_application_command(|command| {
+        command
+        .name("end-meeting")
+        .description("End the current meeting")
     })
 }
 
