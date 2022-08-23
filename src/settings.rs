@@ -2,7 +2,7 @@ use config::Config;
 use config::ConfigError;
 use config::File;
 use serde::Deserialize;
-use tracing::info;
+use serenity::model::prelude::ChannelId;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
@@ -10,6 +10,13 @@ pub struct Settings {
     pub database_url: String,
     pub member_role_id: u64,
     pub server_id: u64,
+    pub meeting: Meeting,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Meeting {
+    pub channel_id: ChannelId,
+    pub cron: String,
 }
 
 impl Settings {
