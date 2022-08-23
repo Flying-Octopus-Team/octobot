@@ -43,7 +43,7 @@ pub async fn handle_interaction_command<'a>(
                 false
             };
             report::summary(ctx, command, publish).await
-        },
+        }
         _ => Ok(String::from("Unknown command")),
     }
 }
