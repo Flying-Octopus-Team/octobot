@@ -8,6 +8,7 @@ use serenity::model::id::GuildId;
 use serenity::model::interactions::Interaction;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
+use tracing::{debug, error, info, trace};
 
 use crate::SETTINGS;
 
@@ -21,6 +22,7 @@ mod commands;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        debug!(?interaction, "Interaction created");
         if let Interaction::ApplicationCommand(command) = interaction {
             let content = match commands::handle_interaction_command(&ctx, &command).await {
                 Ok(content) => content,
@@ -32,13 +34,13 @@ impl EventHandler for Handler {
                 })
                 .await
             {
-                println!("Error creating interaction response: {:?}", why);
+                error!("Error creating interaction response: {:?}", why);
             }
         }
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
+        info!("{} is connected!", ready.user.name);
 
         let guild_id = GuildId(SETTINGS.server_id);
 
@@ -48,7 +50,7 @@ impl EventHandler for Handler {
         .await
         .expect("Error creating global application command");
 
-        println!("{:?}", guild_command);
+        trace!("{:?}", guild_command);
     }
 }
 
@@ -67,7 +69,9 @@ pub async fn start_bot() {
         .await
         .expect("Error creating client");
 
+    info!("Starting bot...");
+
     if let Err(why) = client.start().await {
-        println!("An error occurred while running the client: {:?}", why);
+        error!("An error occurred while running the client: {:?}", why);
     }
 }

@@ -7,6 +7,7 @@ use serenity::{
         ApplicationCommandOptionType,
     },
 };
+use tracing::debug;
 
 mod member;
 mod report;
@@ -22,9 +23,15 @@ pub async fn handle_interaction_command<'a>(
                 "remove" => member::remove_member(ctx, command, option).await,
                 "update" => member::update_member(ctx, command, option).await,
                 "list" => member::list_members(option),
-                _ => Ok(String::from("Unknown subcommand")),
+                _ => {
+                    debug!("Unknown member option: {}", option.name);
+                    Ok(String::from("Unknown subcommand"))
+                }
             },
-            None => Ok(String::from("No subcommand specified")),
+            None => {
+                debug!("No member options");
+                Ok(String::from("No subcommand specified"))
+            }
         },
         "report" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
@@ -32,9 +39,15 @@ pub async fn handle_interaction_command<'a>(
                 "remove" => report::remove_report(option),
                 "list" => report::list_reports(option),
                 "update" => report::update_report(ctx, command, option),
-                _ => Ok(String::from("Unknown subcommand")),
+                _ => {
+                    debug!("Unknown report option: {}", option.name);
+                    Ok(String::from("Unknown subcommand"))
+                }
             },
-            None => Ok(String::from("No subcommand specified")),
+            None => {
+                debug!("No report options");
+                Ok(String::from("No subcommand specified"))
+            }
         },
         "summary" => {
             let publish = if let Some(option) = command.data.options.first() {
@@ -44,7 +57,10 @@ pub async fn handle_interaction_command<'a>(
             };
             report::summary(ctx, command, publish).await
         }
-        _ => Ok(String::from("Unknown command")),
+        _ => {
+            debug!("Unknown command: {}", command.data.name);
+            Ok(String::from("Unknown command"))
+        }
     }
 }
 

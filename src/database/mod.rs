@@ -6,6 +6,7 @@ use diesel_migrations::embed_migrations;
 use diesel_migrations::EmbeddedMigrations;
 use diesel_migrations::MigrationHarness;
 use lazy_static::lazy_static;
+use tracing::info;
 
 use crate::SETTINGS;
 
@@ -18,6 +19,7 @@ pub type PgPool = Pool<ConnectionManager<PgConnection>>;
 lazy_static! {
     static ref PG_POOL: PgPool = {
         let manager = ConnectionManager::<PgConnection>::new(&SETTINGS.database_url);
+        info!("Connecting to database");
         Pool::new(manager).expect("Failed to create pool.")
     };
 }
@@ -29,4 +31,5 @@ pub fn run_migrations() {
 
     conn.run_pending_migrations(MIGRATIONS)
         .expect("Failed to run migrations.");
+    info!("Migrations run successfully.");
 }
