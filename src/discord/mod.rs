@@ -45,14 +45,15 @@ impl EventHandler for Handler {
         let meeting_status = read.get::<MeetingStatus>().unwrap();
         let mut meeting_status = meeting_status.write().await;
 
-        if meeting_status.is_meeting_ongoing() {
-            if new.channel_id.is_some() && new.channel_id.unwrap() == SETTINGS.meeting.channel_id {
-                match Member::find_by_discord_id(new.user_id.0.to_string()) {
-                    Ok(member) => {
-                        meeting_status.add_member(member.id()).unwrap();
-                    }
-                    Err(e) => println!("User is not member of the organization: {:?}", e),
+        if meeting_status.is_meeting_ongoing()
+            && new.channel_id.is_some()
+            && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
+        {
+            match Member::find_by_discord_id(new.user_id.0.to_string()) {
+                Ok(member) => {
+                    meeting_status.add_member(member.id()).unwrap();
                 }
+                Err(e) => println!("User is not member of the organization: {:?}", e),
             }
         }
     }
