@@ -1,9 +1,12 @@
 use chrono::NaiveDateTime;
 use uuid::Uuid;
 
-use crate::diesel::RunQueryDsl;
 use crate::database::models::member::Member;
 use crate::database::schema::{meeting, meeting_members};
+use crate::diesel::ExpressionMethods;
+use crate::diesel::QueryDsl;
+use crate::diesel::RunQueryDsl;
+use crate::diesel::Table;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
@@ -12,7 +15,7 @@ pub struct Meeting {
     start_date: NaiveDateTime,
     end_date: Option<NaiveDateTime>,
     summary_id: Option<Uuid>,
-    scheduled_cron: String,
+    pub scheduled_cron: String,
 }
 
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
@@ -39,8 +42,22 @@ impl Meeting {
         }
     }
 
+    /// Returns meeting's id.
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
     pub fn end_meeting(&mut self, end_date: chrono::DateTime<chrono::Local>) {
         self.end_date = Some(end_date.naive_local());
+    }
+
+    pub fn get_latest_meeting() -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting::dsl::*;
+
+        Ok(meeting
+            .select(meeting::all_columns())
+            .order(start_date.desc())
+            .first(&mut crate::database::PG_POOL.get()?)?)
     }
 
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
@@ -49,6 +66,7 @@ impl Meeting {
             .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 }
+
 impl MeetingMembers {
     pub(crate) fn new(member_id: impl Into<Uuid>, meeting_id: impl Into<Uuid>) -> MeetingMembers {
         MeetingMembers {
