@@ -5,6 +5,7 @@ use serenity::{
     },
 };
 use std::fmt::Write;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::{database::models::member::Member, SETTINGS};
@@ -16,6 +17,7 @@ pub async fn add_member(
     command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Adding member");
     let member = Member::from(&option.options[..]);
     let member = member.insert()?;
     if member.discord_id().is_some() {
@@ -27,6 +29,8 @@ pub async fn add_member(
             .unwrap();
     }
 
+    info!("Member added: {:?}", member);
+
     Ok(format!("Added {}", member))
 }
 
@@ -35,6 +39,7 @@ pub async fn remove_member(
     command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Removing member");
     let id = option.options[0]
         .value
         .as_ref()
@@ -55,6 +60,8 @@ pub async fn remove_member(
 
     member.delete()?;
 
+    info!("Member removed: {:?}", member);
+
     Ok(format!("Removed {}", member))
 }
 
@@ -63,6 +70,7 @@ pub async fn update_member(
     command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Updating member");
     let updated_member = Member::from(&option.options[..]);
 
     let old_member = Member::find_by_id(updated_member.id())?;
@@ -88,12 +96,15 @@ pub async fn update_member(
         }
     }
 
+    info!("Member updated: {:?}", updated_member);
+
     Ok(format!("Updated {}", updated_member))
 }
 
 pub fn list_members(
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Listing members");
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
     let page_size =
         find_option_value(&option.options[..], "page_size").map(|v| v.as_i64().unwrap());

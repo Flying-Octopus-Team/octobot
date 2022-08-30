@@ -5,6 +5,7 @@ use serenity::{
     },
 };
 use std::fmt::Write;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::database::models::{member::Member, report::Report};
@@ -16,6 +17,7 @@ pub(crate) fn add_report(
     command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Adding report");
     let member_dc_id = match find_option_value(&option.options[..], "member") {
         Some(member_id) => String::from(member_id.as_str().unwrap()),
         None => command
@@ -42,12 +44,15 @@ pub(crate) fn add_report(
 
     let report = Report::insert(member.id(), content)?;
 
+    info!("Report added: {:?}", report);
+
     Ok(format!("Report added: {}", report))
 }
 
 pub(crate) fn remove_report(
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Removing report");
     let report_id = match find_option_value(&option.options[..], "id") {
         Some(report_id) => Uuid::parse_str(report_id.as_str().unwrap()),
         None => return Ok("No report specified".to_string()),
@@ -60,8 +65,14 @@ pub(crate) fn remove_report(
 
     match report.delete() {
         Ok(deleted) => match deleted {
-            true => Ok("Report deleted".to_string()),
-            false => Ok("Deleted 0 reports".to_string()),
+            true => {
+                info!("Report removed: {:?}", report);
+                Ok("Report deleted".to_string())
+            }
+            false => {
+                info!("Removed 0 reports");
+                Ok("Deleted 0 reports".to_string())
+            }
         },
         Err(err) => Err(err),
     }
@@ -70,6 +81,7 @@ pub(crate) fn remove_report(
 pub(crate) fn list_reports(
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Listing reports");
     let page = match find_option_value(&option.options[..], "page") {
         Some(page) => page.as_i64().unwrap(),
         None => 1,
@@ -103,6 +115,7 @@ pub(crate) fn update_report(
     _command: &ApplicationCommandInteraction,
     option: &ApplicationCommandInteractionDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Updating report");
     let mut old_report = match find_option_value(&option.options[..], "id") {
         Some(report_id) => {
             let report_id = Uuid::parse_str(report_id.as_str().unwrap())?;
@@ -127,6 +140,8 @@ pub(crate) fn update_report(
 
     let report = old_report.update()?;
 
+    info!("Report updated: {:?}", report);
+
     Ok(format!("Report updated: {}", report))
 }
 
@@ -135,6 +150,7 @@ pub(crate) async fn summary(
     _command: &ApplicationCommandInteraction,
     publish: bool,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Summarizing reports");
     let mut reports = Report::get_unpublished_reports()?;
 
     let mut output = String::new();
@@ -165,9 +181,11 @@ pub(crate) async fn summary(
         previous_report = Some(report);
     }
 
-    if output == String::new() {
+    if output.is_empty() {
+        info!("No reports to summarize");
         Ok("No unpublished reports".to_string())
     } else {
+        info!("Summary generated");
         Ok(output)
     }
 }
