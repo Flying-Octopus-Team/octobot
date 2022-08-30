@@ -1,11 +1,8 @@
 use serde_json::Value;
-use serenity::{
-    builder::CreateApplicationCommands,
-    client::Context,
-};
 use serenity::model::application::command::CommandOptionType;
-use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::{builder::CreateApplicationCommands, client::Context};
 use tracing::warn;
 
 use crate::meeting::MeetingStatus;
@@ -290,19 +287,13 @@ pub fn create_application_commands(
     })
 }
 
-pub fn find_option_value<'a>(
-    options: &'a [CommandDataOption],
-    name: &str,
-) -> Option<&'a Value> {
+pub fn find_option_value<'a>(options: &'a [CommandDataOption], name: &str) -> Option<&'a Value> {
     options
         .iter()
         .find(|option| option.name.as_str() == name)
         .and_then(|option| option.value.as_ref())
 }
 
-pub fn find_option_as_string(
-    options: &[CommandDataOption],
-    name: &str,
-) -> Option<String> {
+pub fn find_option_as_string(options: &[CommandDataOption], name: &str) -> Option<String> {
     find_option_value(options, name).map(|value| value.as_str().unwrap().to_string())
 }
