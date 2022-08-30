@@ -36,8 +36,8 @@ pub async fn create_meeting_job(
 ) -> Result<Arc<RwLock<MeetingStatus>>, Box<dyn std::error::Error>> {
     let meeting_status = Arc::new(RwLock::new(MeetingStatus::new()));
     let meeting_status_clone = meeting_status.clone();
-    let schedule = Schedule::from_str(SETTINGS.meeting.cron.as_str()).unwrap();
-    
+    let schedule = get_schedule()?;
+
     tokio::spawn(async move {
         let meeting_status = meeting_status_clone;
         while let Some(datetime) = schedule.upcoming(Local).next() {
@@ -46,34 +46,52 @@ pub async fn create_meeting_job(
                 .to_std()
                 .unwrap();
             tokio::time::sleep(duration).await;
-            run_job(&meeting_status, datetime, &cache).await;
+            match run_job(&meeting_status, datetime, &cache).await {
+                Ok(_) => {}
+                Err(e) => println!("Error creating meeting job: {:?}", e),
+            }
         }
     });
 
     Ok(meeting_status)
 }
 
+pub(crate) fn get_schedule() -> Result<Schedule, Box<dyn std::error::Error>> {
+    let schedule = if let Ok(latest_meeting) = Meeting::get_latest_meeting() {
+        Schedule::from_str(&latest_meeting.scheduled_cron)?
+    } else {
+        Schedule::from_str(&SETTINGS.meeting.cron)?
+    };
+    Ok(schedule)
+}
+
 async fn run_job(
     meeting_status: &Arc<RwLock<MeetingStatus>>,
     datetime: chrono::DateTime<Local>,
     cache: &Arc<Cache>,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut meeting_status = meeting_status.write().await;
     meeting_status.is_meeting_ongoing.store(true, SeqCst);
     meeting_status.meeting_data = Some(Meeting::new(datetime, SETTINGS.meeting.cron.clone()));
-    let channel = cache.guild_channel(SETTINGS.meeting.channel_id).unwrap();
-    meeting_status.members = channel
-        .members(cache)
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|member| {
-            let member_id = Member::find_by_discord_id(member.user.id.0.to_string())
-                .unwrap()
-                .id();
-            MeetingMembers::new(member_id, meeting_status.meeting_data.as_ref().unwrap().id)
-        })
-        .collect();
+    let channel = cache
+        .guild_channel(SETTINGS.meeting.channel_id)
+        .expect("Channel not found");
+    let meeting_id = meeting_status.meeting_id().expect("Meeting id not found");
+    for member in channel.members(cache).await?.into_iter() {
+        let member_id = {
+            let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
+            match member_result {
+                Ok(t) => t,
+                Err(_) => continue,
+            }
+        }
+        .id();
+        meeting_status
+            .members
+            .push(MeetingMembers::new(member_id, meeting_id));
+    }
+
+    Ok(())
 }
 
 impl MeetingStatus {
@@ -89,6 +107,12 @@ impl MeetingStatus {
 
     pub fn meeting_data(&self) -> Option<&Meeting> {
         self.meeting_data.as_ref()
+    }
+
+    /// Returns an id of the meeting if it is ongoing.
+    /// Returns None otherwise.
+    pub fn meeting_id(&self) -> Option<Uuid> {
+        self.meeting_data.as_ref().map(|meeting| meeting.id())
     }
 
     /// Ends the meeting and inserts data to the database.
