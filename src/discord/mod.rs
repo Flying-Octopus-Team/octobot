@@ -3,7 +3,7 @@ use serenity::client::{Context, EventHandler};
 use serenity::framework::StandardFramework;
 use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
-use serenity::model::interactions::Interaction;
+use serenity::model::application::interaction::Interaction;
 use serenity::model::voice::VoiceState;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;

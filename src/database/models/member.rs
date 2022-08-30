@@ -7,7 +7,7 @@ use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
 use diesel::QueryDsl;
 use diesel::Table;
-use serenity::model::interactions::application_command::ApplicationCommandInteractionDataOption;
+use serenity::model::application::interaction::application_command::CommandDataOption;
 use uuid::Uuid;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
@@ -130,8 +130,8 @@ impl Display for Member {
     }
 }
 
-impl From<&[ApplicationCommandInteractionDataOption]> for Member {
-    fn from(options: &[ApplicationCommandInteractionDataOption]) -> Self {
+impl From<&[CommandDataOption]> for Member {
+    fn from(options: &[CommandDataOption]) -> Self {
         let id = match find_option_as_string(options, "id") {
             Some(id) => Uuid::parse_str(&id).unwrap(),
             None => Uuid::new_v4(),

@@ -1,9 +1,6 @@
-use serenity::{
-    client::Context,
-    model::interactions::application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
-    },
-};
+use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::prelude::Context;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -15,7 +12,7 @@ use super::find_option_value;
 pub(crate) fn add_report(
     _ctx: &Context,
     command: &ApplicationCommandInteraction,
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding report");
     let member_dc_id = match find_option_value(&option.options[..], "member") {
@@ -50,7 +47,7 @@ pub(crate) fn add_report(
 }
 
 pub(crate) fn remove_report(
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Removing report");
     let report_id = match find_option_value(&option.options[..], "id") {
@@ -79,7 +76,7 @@ pub(crate) fn remove_report(
 }
 
 pub(crate) fn list_reports(
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing reports");
     let page = match find_option_value(&option.options[..], "page") {
@@ -113,7 +110,7 @@ pub(crate) fn list_reports(
 pub(crate) fn update_report(
     _ctx: &Context,
     _command: &ApplicationCommandInteraction,
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating report");
     let mut old_report = match find_option_value(&option.options[..], "id") {
