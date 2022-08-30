@@ -286,8 +286,8 @@ pub fn create_application_commands(
 
     commands.create_application_command(|command| {
         command
-        .name("end-meeting")
-        .description("End the current meeting")
+            .name("end-meeting")
+            .description("End the current meeting")
     })
 }
 
