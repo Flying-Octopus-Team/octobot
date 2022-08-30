@@ -1,8 +1,6 @@
-use serenity::{
-    client::Context,
-};
-use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::CommandDataOption;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -100,9 +98,7 @@ pub async fn update_member(
     Ok(format!("Updated {}", updated_member))
 }
 
-pub fn list_members(
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing members");
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
     let page_size =

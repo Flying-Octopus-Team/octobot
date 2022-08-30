@@ -1,5 +1,5 @@
-use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
+use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
 use std::fmt::Write;
 use tracing::info;
