@@ -7,7 +7,7 @@ use serenity::{
         ApplicationCommandOptionType,
     },
 };
-use tracing::debug;
+use tracing::warn;
 
 mod member;
 mod report;
@@ -24,12 +24,12 @@ pub async fn handle_interaction_command<'a>(
                 "update" => member::update_member(ctx, command, option).await,
                 "list" => member::list_members(option),
                 _ => {
-                    debug!("Unknown member option: {}", option.name);
+                    warn!("Unknown member option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
                 }
             },
             None => {
-                debug!("No member options");
+                warn!("No member options");
                 Ok(String::from("No subcommand specified"))
             }
         },
@@ -40,12 +40,12 @@ pub async fn handle_interaction_command<'a>(
                 "list" => report::list_reports(option),
                 "update" => report::update_report(ctx, command, option),
                 _ => {
-                    debug!("Unknown report option: {}", option.name);
+                    warn!("Unknown report option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
                 }
             },
             None => {
-                debug!("No report options");
+                warn!("No report options");
                 Ok(String::from("No subcommand specified"))
             }
         },
@@ -58,7 +58,7 @@ pub async fn handle_interaction_command<'a>(
             report::summary(ctx, command, publish).await
         }
         _ => {
-            debug!("Unknown command: {}", command.data.name);
+            warn!("Unknown command: {}", command.data.name);
             Ok(String::from("Unknown command"))
         }
     }

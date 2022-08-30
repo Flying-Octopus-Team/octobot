@@ -8,7 +8,7 @@ use serenity::model::id::GuildId;
 use serenity::model::interactions::Interaction;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info};
 
 use crate::SETTINGS;
 
@@ -50,7 +50,7 @@ impl EventHandler for Handler {
         .await
         .expect("Error creating global application command");
 
-        trace!("{:?}", guild_command);
+        debug!("{:?}", guild_command);
     }
 }
 
