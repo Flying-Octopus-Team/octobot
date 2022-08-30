@@ -13,6 +13,9 @@ diesel_migrations = "2.0.0-rc.1"
 tokio = { version = "1.19", features = ["full"] }
 chrono = "0.4"
 serde_json = "1.0.82"
+tracing = "0.1.36"
+tracing-subscriber = { version = "0.3.15", features = ["json", "env-filter"] }
+tracing-appender = "0.2.2"
 
 [dependencies.serenity]
 version = "0.11"
