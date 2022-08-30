@@ -3,6 +3,7 @@ use config::ConfigError;
 use config::File;
 use serde::Deserialize;
 use serenity::model::prelude::ChannelId;
+use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
@@ -13,7 +14,7 @@ pub struct Settings {
     pub meeting: Meeting,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Meeting {
     pub channel_id: ChannelId,
     pub cron: String,
