@@ -63,7 +63,7 @@ impl EventHandler for Handler {
 
         let guild_id = GuildId(SETTINGS.server_id);
 
-        let _guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        let guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands::create_application_commands(commands)
         })
         .await
