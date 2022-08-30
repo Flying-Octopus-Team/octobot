@@ -2,11 +2,10 @@ use serde_json::Value;
 use serenity::{
     builder::CreateApplicationCommands,
     client::Context,
-    model::interactions::application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
-        ApplicationCommandOptionType,
-    },
 };
+use serenity::model::application::command::CommandOptionType;
+use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use tracing::warn;
 
 use crate::meeting::MeetingStatus;
@@ -84,94 +83,94 @@ pub fn create_application_commands(
                 option
                     .name("add")
                     .description("Add member to the organization")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("discord_id")
                             .description("Add member by their Discord ID")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::User)
+                            .kind(CommandOptionType::User)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("trello_id")
                             .description("Add member by their Trello ID")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("trello_report_card_id")
                             .description("Add member by their Trello Report Card ID")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
             })
             .create_option(|option| {
                 option
                     .name("remove")
                     .description("Remove member from the organization")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("id")
                             .description("Remove member by their ID")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
             })
             .create_option(|option| {
                 option
                     .name("list")
                     .description("List all members of the organization")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("page")
                             .description("Page number")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::Integer)
+                            .kind(CommandOptionType::Integer)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("page_size")
                             .description("Number of members per page")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::Integer)
+                            .kind(CommandOptionType::Integer)
                     })
             })
             .create_option(|option| {
                 option
                     .name("update")
                     .description("Update member's information")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("id")
                             .description("Update member by their ID")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("discord_id")
                             .description("Update member's Discord ID")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::User)
+                            .kind(CommandOptionType::User)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("trello_id")
                             .description("Update member's Trello ID")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("trello_report_card_id")
                             .description("Update member's Trello Report Card ID")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
             })
     });
@@ -184,87 +183,87 @@ pub fn create_application_commands(
                 option
                     .name("add")
                     .description("Add report")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("content")
                             .description("Report content")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("member")
                             .description("Add report for member")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::User)
+                            .kind(CommandOptionType::User)
                     })
             })
             .create_option(|option| {
                 option
                     .name("remove")
                     .description("Remove report")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("id")
                             .description("Remove report by ID")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
             })
             .create_option(|option| {
                 option
                     .name("list")
                     .description("List all reports")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("page")
                             .description("Page number")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::Integer)
+                            .kind(CommandOptionType::Integer)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("page_size")
                             .description("Number of reports per page")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::Integer)
+                            .kind(CommandOptionType::Integer)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("member")
                             .description("List reports for member")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::User)
+                            .kind(CommandOptionType::User)
                     })
             })
             .create_option(|option| {
                 option
                     .name("update")
                     .description("Update report")
-                    .kind(ApplicationCommandOptionType::SubCommand)
+                    .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("id")
                             .description("Update report by ID")
                             .required(true)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("content")
                             .description("Update report content")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::String)
+                            .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("member")
                             .description("Update report for member")
                             .required(false)
-                            .kind(ApplicationCommandOptionType::User)
+                            .kind(CommandOptionType::User)
                     })
             })
     });
@@ -279,7 +278,7 @@ pub fn create_application_commands(
                     .description(
                         "Mark reports as published and do not display them in the next summary",
                     )
-                    .kind(ApplicationCommandOptionType::Boolean)
+                    .kind(CommandOptionType::Boolean)
                     .required(false)
             })
     });
@@ -292,7 +291,7 @@ pub fn create_application_commands(
 }
 
 pub fn find_option_value<'a>(
-    options: &'a [ApplicationCommandInteractionDataOption],
+    options: &'a [CommandDataOption],
     name: &str,
 ) -> Option<&'a Value> {
     options
@@ -302,7 +301,7 @@ pub fn find_option_value<'a>(
 }
 
 pub fn find_option_as_string(
-    options: &[ApplicationCommandInteractionDataOption],
+    options: &[CommandDataOption],
     name: &str,
 ) -> Option<String> {
     find_option_value(options, name).map(|value| value.as_str().unwrap().to_string())

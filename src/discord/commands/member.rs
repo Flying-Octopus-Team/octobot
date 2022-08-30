@@ -1,9 +1,8 @@
 use serenity::{
     client::Context,
-    model::interactions::application_command::{
-        ApplicationCommandInteraction, ApplicationCommandInteractionDataOption,
-    },
 };
+use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -15,7 +14,7 @@ use super::find_option_value;
 pub async fn add_member(
     ctx: &Context,
     command: &ApplicationCommandInteraction,
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
     let member = Member::from(&option.options[..]);
@@ -37,7 +36,7 @@ pub async fn add_member(
 pub async fn remove_member(
     ctx: &Context,
     command: &ApplicationCommandInteraction,
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Removing member");
     let id = option.options[0]
@@ -68,7 +67,7 @@ pub async fn remove_member(
 pub async fn update_member(
     ctx: &Context,
     command: &ApplicationCommandInteraction,
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating member");
     let updated_member = Member::from(&option.options[..]);
@@ -102,7 +101,7 @@ pub async fn update_member(
 }
 
 pub fn list_members(
-    option: &ApplicationCommandInteractionDataOption,
+    option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing members");
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
