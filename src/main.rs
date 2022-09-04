@@ -33,12 +33,15 @@ fn setup_tracing() -> WorkerGuard {
     let file_appender = tracing_appender::rolling::daily(dir, "octobot.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
-    let mut layer = Layer::new().with_writer(non_blocking);
-    layer.set_ansi(false);
+    let mut file_layer = Layer::new().with_writer(non_blocking);
+    file_layer.set_ansi(false);
+
+    let std_layer = Layer::new().pretty().with_writer(std::io::stdout);
+
     let subscriber = tracing_subscriber::registry()
         .with(EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into()))
-        .with(Layer::new().pretty().with_writer(std::io::stdout))
-        .with(layer);
+        .with(file_layer)
+        .with(std_layer);
 
     tracing::subscriber::set_global_default(subscriber).expect("Unable to set a global subscriber");
 
