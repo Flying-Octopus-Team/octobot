@@ -5,8 +5,11 @@ use crate::database::schema::report::dsl;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
+use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use uuid::Uuid;
+
+use super::summary::Summary;
 
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(belongs_to(Member))]
@@ -102,6 +105,43 @@ impl Report {
 
         Ok(report
             .find(uuid)
+            .get_result(&mut crate::database::PG_POOL.get()?)?)
+    }
+
+    /// Returns formatted list of reports since last summary.
+    /// To not publish reports, set publish to false.
+    /// Adds
+    pub(crate) async fn report_summary(
+        summary: Option<Summary>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut reports = Report::get_unpublished_reports()?;
+        let mut output = String::new();
+        reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
+        let mut previous_report: Option<Report> = None;
+        for report in reports {
+            let member = Member::find_by_id(report.member_id)?;
+
+            // if report is from the same member as the previous report, don't print the member's name
+
+            if previous_report.is_some() && previous_report.unwrap().member_id == report.member_id {
+                write!(&mut output, " {}", report.content)?;
+            } else {
+                write!(&mut output, "\n**{}:** {}", member.name(), report.content)?;
+            }
+
+            if let Some(summary) = &summary {
+                report.publish()?;
+                report.set_summary_id(summary.id())?;
+            }
+
+            previous_report = Some(report);
+        }
+        Ok(output)
+    }
+
+    fn set_summary_id(&self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+        Ok(diesel::update(&self)
+            .set(dsl::summary_id.eq(Some(id)))
             .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 }
