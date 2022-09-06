@@ -63,15 +63,14 @@ async fn start_meeting(
         .guild_channel(SETTINGS.meeting.channel_id)
         .unwrap_or_else(|| panic!("Channel not found {}", SETTINGS.meeting.channel_id));
     for member in channel.members(cache).await? {
-        let member_id = {
+        let member = {
             let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
             match member_result {
                 Ok(t) => t,
                 Err(_) => continue,
             }
-        }
-        .id();
-        meeting_status.add_member(member_id)?;
+        };
+        meeting_status.add_member(&member)?;
     }
 
     Ok(())
@@ -210,23 +209,20 @@ impl MeetingStatus {
         Ok(self)
     }
 
-    pub fn add_member(
-        &mut self,
-        member_id: impl Into<Uuid>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
         self.members
-            .push(MeetingMembers::new(member_id, self.meeting_id()));
+            .push(MeetingMembers::new(member.id(), self.meeting_id()));
 
-        Ok(())
+        let meeting = self.meeting();
+        meeting.add_member(member)
     }
 
-    pub fn _remove_member(
-        &mut self,
-        member_id: impl Into<Uuid>,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
+    pub fn remove_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+        self.members.retain(|m| m.member_id() != member.id());
+
         let meeting = self.meeting();
 
-        meeting.remove_member(member_id.into())
+        meeting.remove_member(member)
     }
 
     /// Generate summary for the given meeting
@@ -243,10 +239,13 @@ impl MeetingStatus {
     fn load_next_meeting() -> Result<Self, Box<dyn std::error::Error>> {
         let meeting_data = Meeting::load_next_meeting()?;
         let s = String::from(meeting_data.scheduled_cron());
+
+        let members = MeetingMembers::load_members(meeting_data.id())?;
+
         let meeting_status = Self {
             is_ongoing: Arc::new(AtomicBool::new(false)),
             meeting_data,
-            members: vec![],
+            members,
             handle: None,
             schedule: Schedule::from_str(&s)?,
         };
