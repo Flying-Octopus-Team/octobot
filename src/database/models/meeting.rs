@@ -355,7 +355,9 @@ impl MeetingMembers {
         member.name()
     }
 
-    pub(crate) fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn load_members(
+        find_meeting_id: Uuid,
+    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let members = meeting_members
