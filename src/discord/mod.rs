@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use serenity::async_trait;
 use serenity::client::{Context, EventHandler};
 use serenity::framework::StandardFramework;
@@ -7,7 +9,7 @@ use serenity::model::id::GuildId;
 use serenity::model::voice::VoiceState;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::SETTINGS;
 
@@ -29,31 +31,75 @@ impl EventHandler for Handler {
                 Ok(content) => content,
                 Err(e) => format!("{:?}", e),
             };
-            if let Err(why) = command
+            // separate content into chunks of 2000 characters
+            // separate on newlines
+            let mut content_chunks = content.split("\n ");
+
+            let mut output = String::new();
+
+            while let Some(content_chunk) = content_chunks.next() {
+                if output.len() + content_chunk.len() > 2000 {
+                    match command
+                        .create_interaction_response(&ctx.http, |response| {
+                            response.interaction_response_data(|message| message.content(&content))
+                        })
+                        .await
+                        .map_err(|e| format!("Error sending interaction response: {}", e))
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("{}", e);
+                        }
+                    }
+                    output = String::new();
+                }
+
+                output.push_str(content_chunk);
+                match writeln!(output) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("{}", e);
+                    }
+                }
+            }
+
+            match command
                 .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|message| message.content(content))
+                    response.interaction_response_data(|message| message.content(&content))
                 })
                 .await
+                .map_err(|e| format!("Error sending interaction response: {}", e))
             {
-                error!("Error creating interaction response: {:?}", why);
+                Ok(_) => {}
+                Err(e) => {
+                    error!("{}", e);
+                }
             }
-        }
+        };
     }
 
-    async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
+    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
         let read = ctx.data.read().await;
         let meeting_status = read.get::<MeetingStatus>().unwrap();
         let mut meeting_status = meeting_status.write().await;
 
         if meeting_status.is_meeting_ongoing()
+            && old.is_none()
             && new.channel_id.is_some()
             && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
         {
             match Member::find_by_discord_id(new.user_id.0.to_string()) {
                 Ok(member) => {
-                    meeting_status.add_member(member.id()).unwrap();
+                    let output = match meeting_status.add_member(&member) {
+                        Ok(msg) => msg,
+                        Err(e) => format!("{} could not join the meeting: {}", member.name(), e),
+                    };
+                    info!("{}", output);
                 }
-                Err(e) => println!("User is not member of the organization: {:?}", e),
+                Err(e) => warn!(
+                    "User {} is not member of the organization: {:?}",
+                    new.user_id.0, e
+                ),
             }
         }
     }

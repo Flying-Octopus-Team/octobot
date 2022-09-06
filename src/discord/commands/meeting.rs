@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::{str::FromStr, sync::Arc};
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
@@ -9,6 +10,7 @@ use crate::database::models::meeting::Meeting;
 use crate::database::models::member::Member;
 use crate::discord::find_option_as_string;
 use crate::meeting::MeetingStatus;
+use crate::SETTINGS;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
 pub(crate) async fn end_meeting(
@@ -31,14 +33,48 @@ pub(crate) async fn end_meeting(
 
     let summary = meeting_status.generate_summary(note.clone()).await?;
 
-    *meeting_status = meeting_status.end_meeting(note)?;
+    if summary.is_empty() {
+        info!("Generated empty summary");
+        *meeting_status = meeting_status.end_meeting(note)?;
+        Ok("Summary is empty. Nothing was sent".to_string())
+    } else {
+        // separate summary into chunks of 2000 characters
+        // separate on newlines
+        let mut summary_chunks = summary.lines();
 
-    Ok(summary)
+        let mut output = String::new();
+
+        let channel_id = SETTINGS.meeting.summary_channel;
+
+        while let Some(summary_chunk) = summary_chunks.next() {
+            if output.len() + summary_chunk.len() > 2000 {
+                channel_id
+                    .say(&ctx.http, output)
+                    .await
+                    .map_err(|e| format!("Error sending summary: {}", e))?;
+                output = String::new();
+            }
+
+            output.push_str(summary_chunk);
+            writeln!(output)?;
+        }
+
+        channel_id
+            .say(&ctx.http, output)
+            .await
+            .map_err(|e| format!("Error sending summary: {}", e))?;
+
+        *meeting_status = meeting_status.end_meeting(note)?;
+
+        Ok("Summary was generated and sent to the channel".to_string())
+    }
 }
 
 /// Return the current or future meeting status.
 pub(crate) async fn status_meeting(ctx: &Context) -> Result<String, Box<dyn std::error::Error>> {
     let mut output = String::new();
+
+    info!("Received status-meeting command");
 
     let data_read = ctx.data.read().await;
     let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
@@ -71,6 +107,8 @@ pub(crate) async fn status_meeting(ctx: &Context) -> Result<String, Box<dyn std:
     output.push_str("\nMonitoring channel: <#");
     output.push_str(meeting_status.channel());
     output.push('>');
+
+    info!("Generated meeting status: \n{}", output);
 
     Ok(output)
 }
