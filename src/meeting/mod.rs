@@ -115,8 +115,14 @@ impl MeetingStatus {
         Ok(())
     }
 
-    pub fn change_channel(&mut self, channel_id: String) {
-        self.meeting_data.set_channel_id(channel_id);
+    pub fn change_channel(&mut self, channel_id: String) -> Result<(), Box<dyn std::error::Error>> {
+        match self.meeting_data.set_channel_id(channel_id) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                error!("Error while changing channel: {}", e);
+                Err(e)
+            }
+        }
     }
 
     pub fn change_summary_note(

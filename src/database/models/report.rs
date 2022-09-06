@@ -1,8 +1,8 @@
-use crate::database::PG_POOL;
 use crate::database::models::member::Member;
 use crate::database::pagination::Paginate;
 use crate::database::schema::report;
 use crate::database::schema::report::dsl;
+use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
@@ -83,8 +83,7 @@ impl Report {
             query = query.per_page(per_page);
         };
 
-        let (reports, total_pages) =
-            query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
+        let (reports, total_pages) = query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
         Ok((reports, total_pages))
     }
 
@@ -123,9 +122,7 @@ impl Report {
 
         let uuid = find_id.into();
 
-        Ok(report
-            .find(uuid)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(report.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
     /// Returns formatted list of reports since last summary.

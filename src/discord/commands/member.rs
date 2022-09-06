@@ -39,7 +39,14 @@ pub async fn add_member(
             }
         };
 
-        member.set_name(new_name);
+        match member.set_name(new_name) {
+            Ok(_) => {}
+            Err(why) => {
+                let error_msg = format!("Failed to update member name: {}", why);
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        }
 
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
@@ -95,7 +102,14 @@ pub async fn update_member(
     let mut updated_member = Member::from(&option.options[..]);
 
     if let Some(name) = find_option_as_string(&option.options[..], "name") {
-        updated_member.set_name(name);
+        match updated_member.set_name(name) {
+            Ok(_) => {}
+            Err(why) => {
+                let error_msg = format!("Failed to update member name: {}", why);
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        }
     }
 
     let old_member = Member::find_by_id(updated_member.id())?;
