@@ -53,7 +53,7 @@ impl Report {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(report::table)
+        Ok(diesel::update(self)
             .set(self)
             .get_result(&mut PG_POOL.get()?)?)
     }

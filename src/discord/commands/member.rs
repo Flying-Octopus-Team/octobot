@@ -47,6 +47,22 @@ pub async fn add_member(
             .unwrap();
     }
 
+    // check if member is already in the database
+    if let Ok(member) = Member::find_by_discord_id(member.discord_id().unwrap()) {
+        let mut msg = String::new();
+        write!(
+            msg,
+            "Member with this Discord ID already exists in the database with the following information:
+            Name: {}
+            Discord ID: {}
+            UUID: {}",
+            member.name(),
+            member.discord_id().unwrap(),
+            member.id()
+        )?;
+        return Ok(msg);
+    }
+
     let mut member = match member.insert() {
         Ok(member) => member,
         Err(e) => {
