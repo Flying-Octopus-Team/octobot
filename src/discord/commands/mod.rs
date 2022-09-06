@@ -161,6 +161,13 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
+                            .name("name")
+                            .description("Display name of the member")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
                             .name("discord_id")
                             .description("Update member's Discord ID")
                             .required(false)
