@@ -21,12 +21,14 @@ pub struct Member {
 
 impl Member {
     pub fn new(
+        display_name: String,
         discord_id: Option<String>,
         trello_id: Option<String>,
         trello_report_card_id: Option<String>,
     ) -> Member {
         Member {
             id: Uuid::new_v4(),
+            display_name,
             discord_id,
             trello_id,
             trello_report_card_id,
