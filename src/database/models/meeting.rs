@@ -135,7 +135,7 @@ impl Meeting {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(meeting::table)
+        Ok(diesel::update(self)
             .set(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
