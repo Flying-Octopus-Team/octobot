@@ -17,7 +17,8 @@ pub async fn add_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
-    let mut member = Member::from(&option.options[..]);
+    let member = Member::from(&option.options[..]);
+    let mut new_name = String::new();
     if member.discord_id().is_some() {
         let user_id = member.discord_id().unwrap().parse().unwrap();
 
@@ -30,7 +31,7 @@ pub async fn add_member(
             }
         };
 
-        let new_name = if let Some(name) = find_option_as_string(&option.options[..], "name") {
+        new_name = if let Some(name) = find_option_as_string(&option.options[..], "name") {
             name
         } else {
             match dc_member.nick {
@@ -39,15 +40,6 @@ pub async fn add_member(
             }
         };
 
-        match member.set_name(new_name) {
-            Ok(_) => {}
-            Err(why) => {
-                let error_msg = format!("Failed to update member name: {}", why);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        }
-
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
             .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
@@ -55,7 +47,22 @@ pub async fn add_member(
             .unwrap();
     }
 
-    let member = member.insert()?;
+    let mut member = match member.insert() {
+        Ok(member) => member,
+        Err(e) => {
+            error!("Error while adding member: {}", e);
+            return Err(e.into());
+        }
+    };
+
+    match member.set_name(new_name) {
+        Ok(_) => {}
+        Err(why) => {
+            let error_msg = format!("Failed to update member name: {}", why);
+            error!("{}", error_msg);
+            return Err(error_msg.into());
+        }
+    }
 
     info!("Member added: {:?}", member);
 
