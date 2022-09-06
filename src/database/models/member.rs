@@ -102,6 +102,14 @@ impl Member {
     pub fn id(&self) -> Uuid {
         self.id
     }
+
+    pub(crate) fn name(&self) -> String {
+        self.display_name.clone()
+    }
+
+    pub(crate) fn set_name(&mut self, new_name: String) {
+        self.display_name = new_name;
+    }
 }
 
 impl Display for Member {
@@ -124,8 +132,8 @@ impl Display for Member {
         };
         write!(
             f,
-            "Member: {}, discord_id: {}, trello_id: {}, trello_report_card: {}",
-            self.id, discord_id, trello_id, trello_report_card_id
+            "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}",
+            self.display_name, self.id, discord_id, trello_id, trello_report_card_id
         )
     }
 }
@@ -139,9 +147,14 @@ impl From<&[CommandDataOption]> for Member {
         let discord_id = find_option_as_string(options, "discord_id");
         let trello_id = find_option_as_string(options, "trello_id");
         let trello_report_card_id = find_option_as_string(options, "trello_report_card");
+        let display_name = match find_option_as_string(options, "display_name") {
+            Some(display_name) => display_name,
+            None => "None".to_string(),
+        };
 
         Member {
             id,
+            display_name,
             discord_id,
             trello_id,
             trello_report_card_id,
