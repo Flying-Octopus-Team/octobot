@@ -334,13 +334,13 @@ pub fn create_application_commands(
             })
             .create_option(|option| {
                 option
-                    .name("set-summary")
+                    .name("set-note")
                     .description("Edit past/current meeting")
                     .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("summary")
-                            .description("Update past/current meeting summary content")
+                            .name("note")
+                            .description("Update past/current meeting summary note")
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
