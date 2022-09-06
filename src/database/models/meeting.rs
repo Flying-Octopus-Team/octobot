@@ -14,8 +14,9 @@ pub struct Meeting {
     pub id: Uuid,
     start_date: NaiveDateTime,
     end_date: Option<NaiveDateTime>,
-    summary_id: Option<Uuid>,
     pub scheduled_cron: String,
+    pub summary_id: Uuid,
+    channel_id: String,
 }
 
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
@@ -32,12 +33,16 @@ impl Meeting {
     pub(crate) fn new(
         datetime: chrono::DateTime<chrono::Local>,
         scheduled_cron: String,
+        channel_id: String,
     ) -> Meeting {
+        let summary = Summary::new("".to_string(), datetime.date().naive_local());
+
         Meeting {
             id: Uuid::new_v4(),
             start_date: datetime.naive_local(),
             end_date: None,
-            summary_id: None,
+            summary_id: summary.insert().unwrap().id(),
+            channel_id,
             scheduled_cron,
         }
     }
@@ -51,6 +56,14 @@ impl Meeting {
         self.end_date = Some(end_date.naive_local());
     }
 
+
+    pub fn channel_id(&self) -> &str {
+        self.channel_id.as_ref()
+    }
+
+    pub fn set_channel_id(&mut self, channel_id: String) {
+        self.channel_id = channel_id;
+    }
     pub fn get_latest_meeting() -> Result<Self, Box<dyn std::error::Error>> {
         use crate::database::schema::meeting::dsl::*;
 

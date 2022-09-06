@@ -3,7 +3,8 @@ table! {
         id -> Uuid,
         start_date -> Timestamp,
         end_date -> Nullable<Timestamp>,
-        summary_id -> Nullable<Uuid>,
+        summary_id -> Uuid,
+        channel_id -> Text,
         scheduled_cron -> Text,
     }
 }
