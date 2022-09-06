@@ -125,6 +125,8 @@ pub async fn update_member(
     info!("Updating member");
     let mut updated_member = Member::from(&option.options[..]);
 
+    let old_member = Member::find_by_id(updated_member.id())?;
+
     if let Some(name) = find_option_as_string(&option.options[..], "name") {
         match updated_member.set_name(name) {
             Ok(_) => {}
@@ -135,8 +137,6 @@ pub async fn update_member(
             }
         }
     }
-
-    let old_member = Member::find_by_id(updated_member.id())?;
 
     let updated_member = updated_member.update()?;
 
