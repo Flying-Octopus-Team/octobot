@@ -99,6 +99,10 @@ impl MeetingStatus {
         Self {
             ..Default::default()
         }
+
+    pub fn change_channel(&mut self, channel_id: String) {
+        self.meeting_data.set_channel_id(channel_id);
+    }
     }
 
     pub fn is_meeting_ongoing(&self) -> bool {
