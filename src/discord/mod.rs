@@ -85,11 +85,9 @@ impl EventHandler for Handler {
 pub async fn start_bot() {
     let token = &SETTINGS.discord_token;
 
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
+    let intents = GatewayIntents::non_privileged()
         | GatewayIntents::MESSAGE_CONTENT
-        | GatewayIntents::GUILD_VOICE_STATES
-        | GatewayIntents::GUILDS
+        | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_MEMBERS;
 
     let framework = StandardFramework::new().configure(|c| c.prefix("~"));
