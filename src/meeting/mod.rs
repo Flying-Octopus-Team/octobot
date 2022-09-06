@@ -224,7 +224,10 @@ impl MeetingStatus {
     }
 
     /// Generate summary for the given meeting
-    pub async fn generate_summary(&self, note: String) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn generate_summary(
+        &self,
+        note: String,
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let summary = Summary::find_by_id(self.summary_id()).unwrap();
 
         summary.generate_summary(self, note).await
