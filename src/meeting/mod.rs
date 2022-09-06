@@ -70,7 +70,12 @@ async fn start_meeting(
                 Err(_) => continue,
             }
         };
-        meeting_status.add_member(&member)?;
+        match meeting_status.add_member(&member) {
+            Ok(_) => {}
+            Err(e) => {
+                error!("Error adding member to meeting: {}", e);
+            }
+        }
     }
 
     Ok(())
@@ -193,33 +198,36 @@ impl MeetingStatus {
             }
         }
 
-        meeting.meeting_data.end_meeting(Local::now());
+        match meeting.meeting_data.end_meeting(Local::now()) {
+            Ok(_) => {}
+            Err(e) => {
+                let error = format!("Error inserting meeting: {}", e);
+                error!("{}", error);
+                return Err(error.into());
+            }
+        };
 
         let scheduled_cron = String::from(meeting.meeting_data.scheduled_cron());
 
         let channel_id = meeting.channel().to_string();
 
-        meeting.insert()?;
-
         MeetingStatus::new(&scheduled_cron, channel_id)
     }
 
-    pub fn insert(self) -> Result<Self, Box<dyn std::error::Error>> {
-        self.meeting_data.update()?;
-
-        for member in &self.members {
-            member.insert()?;
-        }
-
-        Ok(self)
-    }
-
     pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
-        self.members
-            .push(MeetingMembers::new(member.id(), self.meeting_id()));
-
         let meeting = self.meeting();
-        meeting.add_member(member)
+        match meeting.add_member(member) {
+            Ok(msg) => {
+                println!("{} joined", member.name());
+                self.members
+                .push(MeetingMembers::new(member.id(), self.meeting_id()));
+                    Ok(msg)
+            }
+            Err(e) => {
+                error!("Error adding member to meeting: {}", e);
+                Err(e)
+            }
+        }
     }
 
     pub fn remove_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {

@@ -83,8 +83,17 @@ impl Meeting {
     }
 
     /// Saves current time as meeting's end date. Struct has to be manually inserted into the database.
-    pub fn end_meeting(&mut self, end_date: chrono::DateTime<chrono::Local>) {
-        self.end_date = Some(end_date.naive_local());
+    pub fn end_meeting(
+        &mut self,
+        new_end_date: chrono::DateTime<chrono::Local>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting::dsl::*;
+
+        self.end_date = Some(new_end_date.naive_local());
+
+        Ok(diesel::update(meeting.filter(id.eq(self.id)))
+            .set(end_date.eq(self.end_date))
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
@@ -365,5 +374,11 @@ impl MeetingMembers {
             .load::<MeetingMembers>(&mut PG_POOL.get()?)?;
 
         Ok(members)
+    }
+}
+
+impl PartialEq for MeetingMembers {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
