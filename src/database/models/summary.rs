@@ -102,21 +102,24 @@ impl Summary {
         let date_format = "%d.%m.%Y";
         write!(
             summary,
-            "**Raport ze spotkania {}:**",
+            "**Raport ze spotkania {}**\n\n",
             meeting_status.start_date().format(date_format)
         )?;
 
-        summary.push_str("**Na spotkaniu pojawili się:**");
+        summary.push_str("**Na spotkaniu pojawili się:** ");
         for member in &meeting_status.members() {
             summary.push_str(&member.member_name());
-            summary.push_str(", ");
+            // print comma if not last element
+            if member != meeting_status.members().last().unwrap() {
+                summary.push_str(", ");
+            }
         }
 
-        summary.push_str("**Raporty:**\n");
+        summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
         let save_summary = Summary::find_by_id(meeting_status.summary_id())?;
         summary.push_str(&Report::report_summary(Some(save_summary)).await?);
 
-        summary.push_str("**Notatka:**\n");
+        summary.push_str("\n**Notatka ze spotkania:**\n");
         summary.push_str(&note);
         Ok(summary)
     }
