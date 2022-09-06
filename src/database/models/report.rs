@@ -127,7 +127,6 @@ impl Report {
 
     /// Returns formatted list of reports since last summary.
     /// To not publish reports, set publish to false.
-    /// Adds
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
     ) -> Result<String, Box<dyn std::error::Error>> {
@@ -140,10 +139,15 @@ impl Report {
 
             // if report is from the same member as the previous report, don't print the member's name
 
-            if previous_report.is_some() && previous_report.unwrap().member_id == report.member_id {
+            if previous_report.is_some()
+                && previous_report.as_ref().unwrap().member_id == report.member_id
+            {
                 write!(&mut output, " {}", report.content)?;
             } else {
-                write!(&mut output, "\n**{}:** {}", member.name(), report.content)?;
+                if previous_report.is_some() {
+                    writeln!(&mut output)?;
+                }
+                write!(&mut output, "**{}:** {}", member.name(), report.content)?;
             }
 
             if let Some(summary) = &summary {
