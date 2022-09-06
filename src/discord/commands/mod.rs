@@ -47,7 +47,7 @@ pub async fn handle_interaction_command<'a>(
                 Ok(String::from("No subcommand specified"))
             }
         },
-        "summary" => summary::generate_summary().await,
+        "summary" => summary::generate_summary(ctx).await,
         "meeting" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
                 "end" => meeting::end_meeting(option, ctx).await,
