@@ -27,7 +27,7 @@ pub(crate) fn add_report(
 
     let find_by_discord_id = Member::find_by_discord_id(member_dc_id);
     let member = if let Err(why) = find_by_discord_id {
-        return Ok(format!("Member not found: {}", why));
+        return Ok(format!("Member not found in the database: {}", why));
     } else {
         find_by_discord_id?
     };
