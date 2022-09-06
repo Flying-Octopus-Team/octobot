@@ -1,6 +1,5 @@
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
-use serenity::prelude::Context;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -10,7 +9,6 @@ use crate::database::models::{member::Member, report::Report};
 use super::find_option_value;
 
 pub(crate) fn add_report(
-    _ctx: &Context,
     command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -108,8 +106,6 @@ pub(crate) fn list_reports(
 }
 
 pub(crate) fn update_report(
-    _ctx: &Context,
-    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating report");
@@ -140,49 +136,4 @@ pub(crate) fn update_report(
     info!("Report updated: {:?}", report);
 
     Ok(format!("Report updated: {}", report))
-}
-
-pub(crate) async fn summary(
-    ctx: &Context,
-    _command: &ApplicationCommandInteraction,
-    publish: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Summarizing reports");
-    let mut reports = Report::get_unpublished_reports()?;
-
-    let mut output = String::new();
-
-    reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
-
-    let mut previous_report: Option<Report> = None;
-
-    for report in reports {
-        let member = Member::find_by_id(report.member_id)?;
-        let member = ctx
-            .http
-            .get_user(member.discord_id().unwrap().parse()?)
-            .await?;
-
-        // if report is from the same member as the previous report, don't print the member's name
-
-        if previous_report.is_some() && previous_report.unwrap().member_id == report.member_id {
-            write!(&mut output, " {}", report.content)?;
-        } else {
-            write!(&mut output, "\n**{}:** {}", member.name, report.content)?;
-        }
-
-        if publish {
-            report.publish()?;
-        }
-
-        previous_report = Some(report);
-    }
-
-    if output.is_empty() {
-        info!("No reports to summarize");
-        Ok("No unpublished reports".to_string())
-    } else {
-        info!("Summary generated");
-        Ok(output)
-    }
 }
