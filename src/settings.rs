@@ -20,7 +20,7 @@ pub struct Settings {
 pub struct Meeting {
     pub channel_id: ChannelId,
     pub cron: String,
-    pub summary_channel: ChannelId
+    pub summary_channel: ChannelId,
 }
 
 impl Settings {

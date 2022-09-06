@@ -7,8 +7,8 @@ use crate::diesel::RunQueryDsl;
 use crate::meeting::MeetingStatus;
 use chrono::NaiveDate;
 use diesel::Table;
-use uuid::Uuid;
 use std::fmt::Write;
+use uuid::Uuid;
 
 use super::report::Report;
 
