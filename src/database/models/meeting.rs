@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use chrono::NaiveDateTime;
 use cron::Schedule;
-use tracing::warn;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::database::models::member::Member;
@@ -184,17 +184,20 @@ impl Meeting {
         &self,
         user_id: Uuid,
     ) -> Result<MeetingMembers, Box<dyn std::error::Error>> {
-        use crate::database::schema::meeting_members::dsl::*;
-
         let meeting_member = MeetingMembers {
             id: Uuid::new_v4(),
             member_id: user_id,
             meeting_id: self.id,
         };
 
-        Ok(diesel::insert_into(meeting_members)
-            .values(&meeting_member)
-            .get_result(&mut PG_POOL.get()?)?)
+        match meeting_member.insert() {
+            Ok(_) => Ok(meeting_member),
+            Err(e) => {
+                let error = format!("Error while adding member to meeting: {}", e);
+                error!("{}", error);
+                Err(error.into())
+            }
+        }
     }
 
     /// Check if meeting exists in the database.
