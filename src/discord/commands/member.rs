@@ -50,8 +50,9 @@ pub async fn add_member(
     let mut member = match member.insert() {
         Ok(member) => member,
         Err(e) => {
-            error!("Error while adding member: {}", e);
-            return Err(e.into());
+            let error_msg = format!("Failed to insert member into database: {}", e);
+            error!("{}", error_msg);
+            return Err(error_msg.into());
         }
     };
 
