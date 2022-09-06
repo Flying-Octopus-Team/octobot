@@ -39,7 +39,7 @@ table! {
 table! {
     summary (id) {
         id -> Uuid,
-        content -> Text,
+        note -> Text,
         create_date -> Date,
     }
 }
