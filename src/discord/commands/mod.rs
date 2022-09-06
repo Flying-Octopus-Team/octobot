@@ -284,9 +284,104 @@ pub fn create_application_commands(
         command
             .name("end-meeting")
             .description("End the current meeting")
+    });
+
+    commands.create_application_command(|command| {
+        command
+            .name("meeting")
+            .description("Manage meetings")
+            .create_option(|option| {
+                option
+                    .name("status")
+                    .description("Show current meeting's status")
+                    .kind(CommandOptionType::SubCommand)
+            })
+            .create_option(|option| {
+                option
+                    .name("plan")
+                    .description("Plan future meetings")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("schedule")
+                            .description("Update next meetings schedule")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("channel")
+                            .description("Update next meetings channel")
+                            .required(false)
+                            .kind(CommandOptionType::Channel)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("set-summary")
+                    .description("Edit past/current meeting")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("summary")
+                            .description("Update past/current meeting summary content")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("meeting-id")
+                            .description("Select past/current meeting by ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("add-member")
+                    .description("Add member to the past/current meeting")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("member")
+                            .description("Add member to the meeting")
+                            .required(true)
+                            .kind(CommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("meeting-id")
+                            .description("Add member to meeting by ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("remove-member")
+                    .description(
+                        "Remove member from the current meeting. Default to current meeting",
+                    )
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("member")
+                            .description("Remove member from the meeting")
+                            .required(true)
+                            .kind(CommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("meeting-id")
+                            .description("Remove member from meeting by ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+            })
     })
 }
 
+/// Find specified option's value by looking at the first option with the same name.
 pub fn find_option_value<'a>(options: &'a [CommandDataOption], name: &str) -> Option<&'a Value> {
     options
         .iter()
