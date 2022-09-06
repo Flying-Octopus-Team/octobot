@@ -172,7 +172,51 @@ impl Meeting {
         Ok(meeting.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn remove_member(&self, user_id: Uuid) -> Result<usize, Box<dyn std::error::Error>> {
+    /// Removes member from the database and from the meeting.
+    /// Returns the formatted string with the result.
+    pub(crate) fn remove_member(
+        &self,
+        member: &Member,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let member_dc_id = member.discord_id().unwrap();
+        let mut output = String::new();
+        if !match MeetingMembers::is_user_in_meeting(self.id(), member.id()) {
+            Ok(is_in_meeting) => is_in_meeting,
+            Err(why) => {
+                let error_msg = format!(
+                    "Error checking if user is in meeting: {}\nReason: {}",
+                    self.id(),
+                    why
+                );
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        } {
+            let error_msg = format!("Member <@{}> is not in meeting {}", member_dc_id, self.id());
+            warn!("{}", error_msg);
+            return Err(error_msg.into());
+        }
+        match self._remove_member(member.id()) {
+            Ok(_) => {
+                output.push_str("Removed member <@");
+                output.push_str(member_dc_id);
+                output.push('>');
+            }
+            Err(why) => {
+                let error_msg = format!(
+                    "Error removing member <@{}> from meeting: {}\nReason: {}",
+                    member_dc_id,
+                    self.id(),
+                    why
+                );
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        }
+        Ok(output)
+    }
+
+    fn _remove_member(&self, user_id: Uuid) -> Result<usize, Box<dyn std::error::Error>> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let rows = diesel::delete(meeting_members.filter(member_id.eq(user_id)))
@@ -180,10 +224,52 @@ impl Meeting {
         Ok(rows)
     }
 
-    pub(crate) fn add_member(
-        &self,
-        user_id: Uuid,
-    ) -> Result<MeetingMembers, Box<dyn std::error::Error>> {
+    /// Adds member from the database and from the meeting.
+    /// Returns the formatted string with the result.
+    pub(crate) fn add_member(&self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+        let member_dc_id = member.discord_id().unwrap();
+        let mut output = String::new();
+        if match MeetingMembers::is_user_in_meeting(self.id(), member.id()) {
+            Ok(is_in_meeting) => is_in_meeting,
+            Err(why) => {
+                let error_msg = format!(
+                    "Error checking if user is in meeting: {}\nReason: {}",
+                    self.id(),
+                    why
+                );
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        } {
+            let error_msg = format!(
+                "Member <@{}> is already in meeting {}",
+                member_dc_id,
+                self.id()
+            );
+            warn!("{}", error_msg);
+            return Err(error_msg.into());
+        }
+        match self._add_member(member.id()) {
+            Ok(_) => {
+                output.push_str("Added member <@");
+                output.push_str(&member_dc_id.to_string());
+                output.push('>');
+            }
+            Err(why) => {
+                let error_msg = format!(
+                    "Error adding member <@{}> to meeting: {}\nReason: {}",
+                    member_dc_id,
+                    self.id(),
+                    why
+                );
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        }
+        Ok(output)
+    }
+
+    fn _add_member(&self, user_id: Uuid) -> Result<MeetingMembers, Box<dyn std::error::Error>> {
         let meeting_member = MeetingMembers {
             id: Uuid::new_v4(),
             member_id: user_id,
@@ -243,7 +329,7 @@ impl MeetingMembers {
             .to_string())
     }
 
-    pub(crate) fn _member_id(&self) -> Uuid {
+    pub(crate) fn member_id(&self) -> Uuid {
         self.member_id
     }
 
@@ -267,5 +353,15 @@ impl MeetingMembers {
     pub(crate) fn member_name(&self) -> String {
         let member = Member::find_by_id(self.member_id).unwrap();
         member.name()
+    }
+
+    pub(crate) fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting_members::dsl::*;
+
+        let members = meeting_members
+            .filter(meeting_id.eq(find_meeting_id))
+            .load::<MeetingMembers>(&mut PG_POOL.get()?)?;
+
+        Ok(members)
     }
 }

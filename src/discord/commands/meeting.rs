@@ -2,11 +2,10 @@ use std::{str::FromStr, sync::Arc};
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::database::models::meeting::Meeting;
-use crate::database::models::meeting::MeetingMembers;
 use crate::database::models::member::Member;
 use crate::discord::find_option_as_string;
 use crate::meeting::MeetingStatus;
@@ -142,7 +141,7 @@ pub(crate) async fn plan_meeting(
     Ok(output)
 }
 
-pub(crate) async fn set_summary(
+pub(crate) async fn set_note(
     ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -153,7 +152,7 @@ pub(crate) async fn set_summary(
     let meeting_status = meeting_status.clone();
     let mut meeting_status = meeting_status.write().await;
 
-    if let Some(new_summary) = find_option_as_string(&option.options, "summary") {
+    if let Some(new_summary) = find_option_as_string(&option.options, "note") {
         if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
             let meeting_id = Uuid::parse_str(&meeting).unwrap();
             let mut meeting = Meeting::find_by_id(meeting_id).unwrap();
@@ -211,108 +210,24 @@ pub(crate) async fn edit_meeting_members(
             };
 
             if remove {
-                output.push_str(&remove_member(&member, &meeting)?);
+                output.push_str(&meeting.remove_member(&member)?);
             } else {
-                output.push_str(&add_member(&member, &meeting)?);
+                output.push_str(&meeting.add_member(&member)?);
             }
         } else {
             let data_read = ctx.data.read().await;
             let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
-            let meeting_status = meeting_status.write().await;
+            let mut meeting_status = meeting_status.write().await;
 
             if remove {
-                output.push_str(&remove_member(&member, meeting_status.meeting())?);
+                output.push_str(&meeting_status.remove_member(&member).unwrap());
             } else {
-                output.push_str(&add_member(&member, meeting_status.meeting())?);
+                output.push_str(&meeting_status.add_member(&member).unwrap());
             }
         }
     } else {
         output.push_str("No member specified");
     }
 
-    Ok(output)
-}
-
-fn remove_member(member: &Member, meeting: &Meeting) -> Result<String, Box<dyn std::error::Error>> {
-    let member_dc_id = member.discord_id().unwrap();
-    let mut output = String::new();
-    if !match MeetingMembers::is_user_in_meeting(meeting.id(), member.id()) {
-        Ok(is_in_meeting) => is_in_meeting,
-        Err(why) => {
-            let error_msg = format!(
-                "Error checking if user is in meeting: {}\nReason: {}",
-                meeting.id(),
-                why
-            );
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    } {
-        let error_msg = format!(
-            "Member <@{}> is not in meeting {}",
-            member_dc_id, meeting.id
-        );
-        warn!("{}", error_msg);
-        return Err(error_msg.into());
-    }
-    match meeting.remove_member(member.id()) {
-        Ok(_) => {
-            output.push_str("Removed member <@");
-            output.push_str(member_dc_id);
-            output.push('>');
-        }
-        Err(why) => {
-            let error_msg = format!(
-                "Error removing member <@{}> from meeting: {}\nReason: {}",
-                member_dc_id,
-                meeting.id(),
-                why
-            );
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    }
-    Ok(output)
-}
-
-fn add_member(member: &Member, meeting: &Meeting) -> Result<String, Box<dyn std::error::Error>> {
-    let member_dc_id = member.discord_id().unwrap();
-    let mut output = String::new();
-    if match MeetingMembers::is_user_in_meeting(meeting.id(), member.id()) {
-        Ok(is_in_meeting) => is_in_meeting,
-        Err(why) => {
-            let error_msg = format!(
-                "Error checking if user is in meeting: {}\nReason: {}",
-                meeting.id(),
-                why
-            );
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    } {
-        let error_msg = format!(
-            "Member <@{}> is already in meeting {}",
-            member_dc_id, meeting.id
-        );
-        warn!("{}", error_msg);
-        return Err(error_msg.into());
-    }
-    match meeting.add_member(member.id()) {
-        Ok(_) => {
-            output.push_str("Added member <@");
-            output.push_str(&member_dc_id.to_string());
-            output.push('>');
-        }
-        Err(why) => {
-            let error_msg = format!(
-                "Error adding member <@{}> to meeting: {}\nReason: {}",
-                member_dc_id,
-                meeting.id(),
-                why
-            );
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    }
     Ok(output)
 }

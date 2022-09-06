@@ -53,7 +53,7 @@ pub async fn handle_interaction_command<'a>(
                 "end" => meeting::end_meeting(option, ctx).await,
                 "status" => meeting::status_meeting(ctx).await,
                 "plan" => meeting::plan_meeting(ctx, option).await,
-                "set-summary" => meeting::set_summary(ctx, option).await,
+                "set-note" => meeting::set_note(ctx, option).await,
                 "add-member" => meeting::edit_meeting_members(ctx, option, false).await,
                 "remove-member" => meeting::edit_meeting_members(ctx, option, true).await,
                 _ => {
