@@ -19,6 +19,7 @@ table! {
 table! {
     member (id) {
         id -> Uuid,
+        display_name -> Text,
         discord_id -> Nullable<Text>,
         trello_id -> Nullable<Text>,
         trello_report_card_id -> Nullable<Text>,

@@ -102,6 +102,13 @@ pub fn create_application_commands(
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("name")
+                            .description("Display name of the member")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
             })
             .create_option(|option| {
                 option

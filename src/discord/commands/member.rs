@@ -2,9 +2,11 @@ use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use std::fmt::Write;
+use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::discord::find_option_as_string;
 use crate::{database::models::member::Member, SETTINGS};
 
 use super::find_option_value;
@@ -15,16 +17,38 @@ pub async fn add_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
-    let member = Member::from(&option.options[..]);
-    let member = member.insert()?;
+    let mut member = Member::from(&option.options[..]);
     if member.discord_id().is_some() {
         let user_id = member.discord_id().unwrap().parse().unwrap();
+
+        let dc_member = match ctx.cache.member(SETTINGS.server_id, user_id) {
+            Some(dc_member) => dc_member,
+            None => {
+                let error_msg = format!("Member not found in the guild: {}", user_id);
+                error!("{}", error_msg);
+                return Err(error_msg.into());
+            }
+        };
+
+        let new_name = if let Some(name) = find_option_as_string(&option.options[..], "name") {
+            name
+        } else {
+            match dc_member.nick {
+                Some(name) => name,
+                None => dc_member.user.name,
+            }
+        };
+
+        member.set_name(new_name);
+
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
             .add_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
             .await
             .unwrap();
     }
+
+    let member = member.insert()?;
 
     info!("Member added: {:?}", member);
 
@@ -68,7 +92,11 @@ pub async fn update_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating member");
-    let updated_member = Member::from(&option.options[..]);
+    let mut updated_member = Member::from(&option.options[..]);
+
+    if let Some(name) = find_option_as_string(&option.options[..], "name") {
+        updated_member.set_name(name);
+    }
 
     let old_member = Member::find_by_id(updated_member.id())?;
 
