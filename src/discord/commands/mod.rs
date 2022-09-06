@@ -5,10 +5,10 @@ use serenity::model::application::interaction::application_command::CommandDataO
 use serenity::{builder::CreateApplicationCommands, client::Context};
 use tracing::warn;
 
-use crate::meeting::MeetingStatus;
-
+mod meeting;
 mod member;
 mod report;
+mod summary;
 
 pub async fn handle_interaction_command<'a>(
     ctx: &Context,
@@ -33,10 +33,10 @@ pub async fn handle_interaction_command<'a>(
         },
         "report" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
-                "add" => report::add_report(ctx, command, option),
+                "add" => report::add_report(command, option),
                 "remove" => report::remove_report(option),
                 "list" => report::list_reports(option),
-                "update" => report::update_report(ctx, command, option),
+                "update" => report::update_report(option),
                 _ => {
                     warn!("Unknown report option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
@@ -47,21 +47,25 @@ pub async fn handle_interaction_command<'a>(
                 Ok(String::from("No subcommand specified"))
             }
         },
-        "summary" => {
-            let publish = if let Some(option) = command.data.options.first() {
-                option.value.as_ref().unwrap().as_bool().unwrap()
-            } else {
-                false
-            };
-            report::summary(ctx, command, publish).await
-        }
-        "end-meeting" => {
-            let read = ctx.data.read().await;
-            let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
-            let mut meeting_status = meeting_status.write().await;
-            *meeting_status = meeting_status.end_meeting()?;
-            Ok(String::from("Meeting ended"))
-        }
+        "summary" => summary::generate_summary().await,
+        "meeting" => match command.data.options.first() {
+            Some(option) => match option.name.as_str() {
+                "end" => meeting::end_meeting(option, ctx).await,
+                "status" => meeting::status_meeting(ctx).await,
+                "plan" => meeting::plan_meeting(ctx, option).await,
+                "set-summary" => meeting::set_summary(ctx, option).await,
+                "add-member" => meeting::edit_meeting_members(ctx, option, false).await,
+                "remove-member" => meeting::edit_meeting_members(ctx, option, true).await,
+                _ => {
+                    warn!("Unknown meeting option: {}", option.name);
+                    Ok(String::from("Unknown subcommand"))
+                }
+            },
+            None => {
+                warn!("No meeting options");
+                Ok(String::from("No subcommand specified"))
+            }
+        },
         _ => {
             warn!("Unknown command: {}", command.data.name);
             Ok(String::from("Unknown command"))
@@ -276,21 +280,6 @@ pub fn create_application_commands(
         command
             .name("summary")
             .description("Show weekly summary containing unpublished reports")
-            .create_option(|option| {
-                option
-                    .name("publish")
-                    .description(
-                        "Mark reports as published and do not display them in the next summary",
-                    )
-                    .kind(CommandOptionType::Boolean)
-                    .required(false)
-            })
-    });
-
-    commands.create_application_command(|command| {
-        command
-            .name("end-meeting")
-            .description("End the current meeting")
     });
 
     commands.create_application_command(|command| {
@@ -302,6 +291,19 @@ pub fn create_application_commands(
                     .name("status")
                     .description("Show current meeting's status")
                     .kind(CommandOptionType::SubCommand)
+            })
+            .create_option(|option| {
+                option
+                    .name("end")
+                    .description("End the current meeting")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("note")
+                            .description("Note to add to the meeting")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
             })
             .create_option(|option| {
                 option
