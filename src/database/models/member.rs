@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-use crate::database::PG_POOL;
 use crate::database::pagination::Paginate;
 use crate::database::schema::member;
+use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
@@ -75,8 +75,7 @@ impl Member {
             query = query.per_page(per_page);
         };
 
-        let (vec, total_pages) =
-            query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
+        let (vec, total_pages) = query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
         Ok((vec, total_pages))
     }
 
@@ -85,9 +84,7 @@ impl Member {
 
         let uuid = find_id.into();
 
-        Ok(member
-            .find(uuid)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(member.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn find_by_discord_id(

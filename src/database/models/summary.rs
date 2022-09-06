@@ -1,5 +1,5 @@
-use crate::database::PG_POOL;
 use crate::database::schema::summary;
+use crate::database::PG_POOL;
 
 use crate::database::pagination::Paginate;
 use crate::diesel::ExpressionMethods;

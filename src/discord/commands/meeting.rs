@@ -126,7 +126,14 @@ pub(crate) async fn plan_meeting(
 
         let mut meeting_status = meeting_status.write().await;
 
-        meeting_status.change_channel(channel_id.to_string());
+        match meeting_status.change_channel(channel_id.to_string()) {
+            Ok(_) => {}
+            Err(e) => {
+                let error = format!("Error changing channel: {}", e);
+                error!("{}", error);
+                return Err(error.into());
+            }
+        }
         output.push_str("\nMeeting channel changed to <#");
         output.push_str(&channel_id.to_string());
         output.push('>');
