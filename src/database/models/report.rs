@@ -61,7 +61,7 @@ impl Report {
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::report::dsl::*;
 
-        Ok(diesel::delete(report.filter(id.eq(id)))
+        Ok(diesel::delete(report.filter(id.eq(self.id)))
             .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
     }
