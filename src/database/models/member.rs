@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use crate::database::PG_POOL;
 use crate::database::pagination::Paginate;
 use crate::database::schema::member;
 use crate::diesel::ExpressionMethods;
@@ -42,20 +43,20 @@ impl Member {
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::insert_into(member::table)
             .values(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::update(&self)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::delete(member.filter(id.eq(id)))
-            .execute(&mut crate::database::PG_POOL.get()?)
+            .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
     }
 
@@ -75,7 +76,7 @@ impl Member {
         };
 
         let (vec, total_pages) =
-            query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
+            query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
         Ok((vec, total_pages))
     }
 
@@ -86,7 +87,7 @@ impl Member {
 
         Ok(member
             .find(uuid)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn find_by_discord_id(
@@ -98,7 +99,7 @@ impl Member {
 
         Ok(member
             .filter(discord_id.eq(dc_id))
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
@@ -149,8 +150,17 @@ impl Member {
         self.display_name.clone()
     }
 
-    pub(crate) fn set_name(&mut self, new_name: String) {
+    pub(crate) fn set_name(&mut self, new_name: String) -> Result<(), Box<dyn std::error::Error>> {
         self.display_name = new_name;
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member name: {}", why);
+                error!("{}", error_msg);
+                Err(error_msg.into())
+            }
+        }
     }
 }
 

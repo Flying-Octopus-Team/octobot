@@ -8,6 +8,7 @@ use uuid::Uuid;
 use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
 use crate::database::schema::{meeting, meeting_members};
+use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
@@ -74,8 +75,7 @@ impl Meeting {
 
         let summary = Summary::find_by_id(self.summary_id)?;
 
-        let rows = diesel::delete(meeting.filter(id.eq(self.id)))
-            .execute(&mut crate::database::PG_POOL.get()?)?;
+        let rows = diesel::delete(meeting.filter(id.eq(self.id))).execute(&mut PG_POOL.get()?)?;
 
         summary.delete()?;
 
@@ -95,14 +95,27 @@ impl Meeting {
         self.channel_id.as_ref()
     }
 
-    pub fn set_channel_id(&mut self, channel_id: String) {
-        self.channel_id = channel_id;
+    pub fn set_channel_id(
+        &mut self,
+        new_channel_id: String,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        self.channel_id = new_channel_id;
+
+        match self.update() {
+            Ok(_) => Ok(self.clone()),
+            Err(e) => {
+                let error = format!("Error while updating meeting's channel id: {}", e);
+                warn!("{}", error);
+                Err(error.into())
+            }
+        }
     }
 
     /// Set summary note
     pub fn set_summary_note(&mut self, note: String) -> Result<(), Box<dyn std::error::Error>> {
         let summary = Summary::find_by_id(self.summary_id)?;
         summary.set_note(note)?;
+
         Ok(())
     }
 
@@ -112,19 +125,19 @@ impl Meeting {
         Ok(meeting
             .select(meeting::all_columns())
             .order(start_date.desc())
-            .first(&mut crate::database::PG_POOL.get()?)?)
+            .first(&mut PG_POOL.get()?)?)
     }
 
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::insert_into(meeting::table)
             .values(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::update(meeting::table)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn scheduled_cron(&self) -> &str {
@@ -156,16 +169,14 @@ impl Meeting {
 
         let uuid = find_id.into();
 
-        Ok(meeting
-            .find(uuid)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+        Ok(meeting.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
     pub(crate) fn remove_member(&self, user_id: Uuid) -> Result<usize, Box<dyn std::error::Error>> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let rows = diesel::delete(meeting_members.filter(member_id.eq(user_id)))
-            .execute(&mut crate::database::PG_POOL.get()?)?;
+            .execute(&mut PG_POOL.get()?)?;
         Ok(rows)
     }
 
@@ -183,7 +194,7 @@ impl Meeting {
 
         Ok(diesel::insert_into(meeting_members)
             .values(&meeting_member)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     /// Check if meeting exists in the database.
@@ -193,7 +204,7 @@ impl Meeting {
         let count: i64 = meeting
             .filter(id.eq(self.id))
             .count()
-            .get_result(&mut crate::database::PG_POOL.get()?)?;
+            .get_result(&mut PG_POOL.get()?)?;
 
         Ok(count > 0)
     }
@@ -219,7 +230,7 @@ impl MeetingMembers {
     pub(crate) fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::insert_into(meeting_members::table)
             .values(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub(crate) fn discord_id(&self) -> Result<String, Box<dyn std::error::Error>> {
@@ -244,7 +255,7 @@ impl MeetingMembers {
             .filter(meeting_id.eq(meeting))
             .filter(member_id.eq(user_id))
             .count()
-            .get_result(&mut crate::database::PG_POOL.get()?)?;
+            .get_result(&mut PG_POOL.get()?)?;
 
         Ok(count > 0)
     }
