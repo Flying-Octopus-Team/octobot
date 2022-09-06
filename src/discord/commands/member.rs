@@ -43,7 +43,7 @@ pub async fn add_member(
 
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
-            .add_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+            .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
             .await
             .unwrap();
     }
@@ -74,7 +74,7 @@ pub async fn remove_member(
         let user_id = member.discord_id().unwrap().parse().unwrap();
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
             .await
             .unwrap();
     }
@@ -107,7 +107,7 @@ pub async fn update_member(
             let user_id = old_member.discord_id().unwrap().parse().unwrap();
             let guild_id = *command.guild_id.unwrap().as_u64();
             ctx.http
-                .remove_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+                .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
                 .await
                 .unwrap();
         }
@@ -115,7 +115,7 @@ pub async fn update_member(
             let user_id = updated_member.discord_id().unwrap().parse().unwrap();
             let guild_id = *command.guild_id.unwrap().as_u64();
             ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.member_role_id, None)
+                .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
                 .await
                 .unwrap();
         }
