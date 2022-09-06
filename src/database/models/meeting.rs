@@ -197,6 +197,14 @@ impl Meeting {
 
         Ok(count > 0)
     }
+
+    pub(crate) fn summary_id(&self) -> Uuid {
+        self.summary_id
+    }
+
+    pub(crate) fn start_date(&self) -> chrono::NaiveDateTime {
+        self.start_date
+    }
 }
 
 impl MeetingMembers {
