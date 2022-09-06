@@ -1,3 +1,4 @@
+use crate::database::PG_POOL;
 use crate::database::models::member::Member;
 use crate::database::pagination::Paginate;
 use crate::database::schema::report;
@@ -7,6 +8,7 @@ use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
+use tracing::error;
 use uuid::Uuid;
 
 use super::summary::Summary;
@@ -47,20 +49,20 @@ impl Report {
 
         Ok(diesel::insert_into(report::table)
             .values(&new_report)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::update(&self)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::report::dsl::*;
 
         Ok(diesel::delete(report.filter(id.eq(id)))
-            .execute(&mut crate::database::PG_POOL.get()?)
+            .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
     }
 
@@ -82,20 +84,38 @@ impl Report {
         };
 
         let (reports, total_pages) =
-            query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?;
+            query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
         Ok((reports, total_pages))
     }
 
     pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
         Ok(dsl::report
             .filter(dsl::published.eq(false))
-            .load(&mut crate::database::PG_POOL.get()?)?)
+            .load(&mut PG_POOL.get()?)?)
     }
 
-    pub fn publish(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(&self)
-            .set(dsl::published.eq(true))
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+    pub fn set_publish(&mut self) -> Result<Self, Box<dyn std::error::Error>> {
+        self.published = true;
+        match self.update() {
+            Ok(report) => Ok(report),
+            Err(e) => {
+                let error = format!("Error publishing report: {}", e);
+                error!("{}", error);
+                Err(error.into())
+            }
+        }
+    }
+
+    fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+        self.summary_id = Some(id);
+        match self.update() {
+            Ok(report) => Ok(report),
+            Err(e) => {
+                let error = format!("Error setting summary id: {}", e);
+                error!("{}", error);
+                Err(error.into())
+            }
+        }
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
@@ -105,7 +125,7 @@ impl Report {
 
         Ok(report
             .find(uuid)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     /// Returns formatted list of reports since last summary.
@@ -118,7 +138,7 @@ impl Report {
         let mut output = String::new();
         reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
         let mut previous_report: Option<Report> = None;
-        for report in reports {
+        for mut report in reports {
             let member = Member::find_by_id(report.member_id)?;
 
             // if report is from the same member as the previous report, don't print the member's name
@@ -130,19 +150,13 @@ impl Report {
             }
 
             if let Some(summary) = &summary {
-                report.publish()?;
+                report.set_publish()?;
                 report.set_summary_id(summary.id())?;
             }
 
             previous_report = Some(report);
         }
         Ok(output)
-    }
-
-    fn set_summary_id(&self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(&self)
-            .set(dsl::summary_id.eq(Some(id)))
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
     }
 }
 

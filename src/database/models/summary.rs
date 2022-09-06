@@ -1,3 +1,4 @@
+use crate::database::PG_POOL;
 use crate::database::schema::summary;
 
 use crate::database::pagination::Paginate;
@@ -32,20 +33,20 @@ impl Summary {
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::insert_into(summary::table)
             .values(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(diesel::update(&self)
             .set(self)
-            .get_result(&mut crate::database::PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::summary::dsl::*;
 
         Ok(diesel::delete(summary.filter(id.eq(self.id)))
-            .execute(&mut crate::database::PG_POOL.get()?)
+            .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
     }
 
@@ -64,7 +65,7 @@ impl Summary {
             query = query.per_page(per_page);
         };
 
-        Ok(query.load_and_count_pages(&mut crate::database::PG_POOL.get().unwrap())?)
+        Ok(query.load_and_count_pages(&mut PG_POOL.get().unwrap())?)
     }
 
     pub(crate) fn id(&self) -> Uuid {
@@ -76,7 +77,7 @@ impl Summary {
 
         Ok(summary
             .filter(id.eq(summary_id))
-            .first(&mut crate::database::PG_POOL.get()?)?)
+            .first(&mut PG_POOL.get()?)?)
     }
 
     /// Set content. Returns the updated summary.

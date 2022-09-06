@@ -14,7 +14,10 @@ pub(crate) async fn generate_summary(ctx: &Context) -> Result<String, Box<dyn st
     } else {
         // send summary to the channel
         let channel_id = SETTINGS.meeting.summary_channel;
-        match channel_id.send_message(&ctx.http, |m| m.content(summary)).await {
+        match channel_id
+            .send_message(&ctx.http, |m| m.content(summary))
+            .await
+        {
             Ok(_) => {
                 info!("Generated summary and sent it to the channel");
                 Ok("Summary was sent".to_string())
