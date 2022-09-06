@@ -4,9 +4,13 @@ use crate::database::pagination::Paginate;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
+use crate::meeting::MeetingStatus;
 use chrono::NaiveDate;
 use diesel::Table;
 use uuid::Uuid;
+use std::fmt::Write;
+
+use super::report::Report;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = summary)]
@@ -84,5 +88,35 @@ impl Summary {
         };
 
         summary.update()
+    }
+
+    /// Generate summary for the meeting. Return the summary of reports and the list of members that were present.
+    pub(crate) async fn generate_summary(
+        &self,
+        meeting_status: &MeetingStatus,
+        note: String,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut summary = String::new();
+
+        let date_format = "%d.%m.%Y";
+        write!(
+            summary,
+            "**Raport ze spotkania {}:**",
+            meeting_status.start_date().format(date_format)
+        )?;
+
+        summary.push_str("**Na spotkaniu pojawili się:**");
+        for member in &meeting_status.members() {
+            summary.push_str(&member.member_name());
+            summary.push_str(", ");
+        }
+
+        summary.push_str("**Raporty:**\n");
+        let save_summary = Summary::find_by_id(meeting_status.summary_id())?;
+        summary.push_str(&Report::report_summary(Some(save_summary)).await?);
+
+        summary.push_str("**Notatka:**\n");
+        summary.push_str(&note);
+        Ok(summary)
     }
 }

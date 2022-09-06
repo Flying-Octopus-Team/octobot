@@ -161,4 +161,8 @@ impl MeetingStatus {
 
         Ok(())
     }
+
+    pub(crate) fn summary_id(&self) -> Uuid {
+        self.meeting_data.summary_id()
+    }
 }
