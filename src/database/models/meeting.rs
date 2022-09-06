@@ -98,6 +98,14 @@ impl Meeting {
     pub fn set_channel_id(&mut self, channel_id: String) {
         self.channel_id = channel_id;
     }
+
+    /// Set summary note
+    pub fn set_summary_note(&mut self, note: String) -> Result<(), Box<dyn std::error::Error>> {
+        let summary = Summary::find_by_id(self.summary_id)?;
+        summary.set_note(note)?;
+        Ok(())
+    }
+
     pub fn get_latest_meeting() -> Result<Self, Box<dyn std::error::Error>> {
         use crate::database::schema::meeting::dsl::*;
 
