@@ -1,10 +1,11 @@
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use chrono::Local;
 use cron::Schedule;
-use parking_lot::{Condvar, Mutex};
 use serenity::client::Cache;
-use serenity::prelude::TypeMapKey;
+use serenity::prelude::{Context, TypeMapKey};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -25,7 +26,7 @@ use crate::{
 /// Every call editing schedule will cancel the task and create a new one.
 #[derive(Debug)]
 pub struct MeetingStatus {
-    is_ongoing: Arc<(Mutex<bool>, Condvar)>,
+    is_ongoing: AtomicBool,
     meeting_data: Meeting,
     members: Vec<MeetingMembers>,
     handle: Option<JoinHandle<()>>,
@@ -37,48 +38,15 @@ impl TypeMapKey for MeetingStatus {
 }
 
 pub async fn create_meeting_job(
-    cache: Arc<Cache>,
+    ctx: &Context,
 ) -> Result<Arc<RwLock<MeetingStatus>>, Box<dyn std::error::Error>> {
     let meeting_status = MeetingStatus::load_next_meeting()?;
 
     let meeting_status = Arc::new(RwLock::new(meeting_status));
 
-    MeetingStatus::await_meeting(Arc::clone(&meeting_status), cache).await;
+    MeetingStatus::await_meeting(Arc::clone(&meeting_status), ctx).await;
 
     Ok(meeting_status)
-}
-
-async fn start_meeting(
-    meeting_status: &Arc<RwLock<MeetingStatus>>,
-    cache: &Arc<Cache>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut meeting_status = meeting_status.write().await;
-    {
-        let (is_ongoing, condvar) = meeting_status.is_ongoing.as_ref();
-        let mut lock = is_ongoing.lock();
-        *lock = true;
-        condvar.notify_all();
-    }
-    let channel = cache
-        .guild_channel(SETTINGS.meeting.channel_id)
-        .unwrap_or_else(|| panic!("Channel not found {}", SETTINGS.meeting.channel_id));
-    for member in channel.members(cache).await? {
-        let member = {
-            let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
-            match member_result {
-                Ok(t) => t,
-                Err(_) => continue,
-            }
-        };
-        match meeting_status.add_member(&member) {
-            Ok(_) => {}
-            Err(e) => {
-                error!("Error adding member to meeting: {}", e);
-            }
-        }
-    }
-
-    Ok(())
 }
 
 impl MeetingStatus {
@@ -87,7 +55,7 @@ impl MeetingStatus {
         channel_id: String,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let meeting_status = Self {
-            is_ongoing: Arc::new((Mutex::new(false), Condvar::new())),
+            is_ongoing: AtomicBool::new(false),
             meeting_data: Meeting::try_from_cron(scheduled_cron, channel_id)?,
             members: vec![],
             handle: None,
@@ -102,7 +70,7 @@ impl MeetingStatus {
     pub async fn change_schedule(
         meeting_status: Arc<RwLock<Self>>,
         scheduled_cron: &str,
-        cache: Arc<Cache>,
+        ctx: &Context,
     ) -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut meeting_status = meeting_status.write().await;
@@ -114,7 +82,7 @@ impl MeetingStatus {
                 Meeting::try_from_cron(scheduled_cron, meeting_status.channel().to_string())?;
         }
 
-        MeetingStatus::await_meeting(meeting_status, cache).await;
+        MeetingStatus::await_meeting(meeting_status, ctx).await;
 
         Ok(())
     }
@@ -150,8 +118,7 @@ impl MeetingStatus {
     }
 
     pub fn is_meeting_ongoing(&self) -> bool {
-        let (is_ongoing, _) = self.is_ongoing.as_ref();
-        *is_ongoing.lock()
+        self.is_ongoing.load(SeqCst)
     }
 
     pub fn meeting_id(&self) -> Uuid {
@@ -174,21 +141,17 @@ impl MeetingStatus {
         self.meeting_data.start_date()
     }
 
-    /// Ends the meeting and inserts data to the database.
+    /// Ends the meeting and inserts data to the database. Updates given meeting status.
     /// Clears the meeting data and members.
-    pub fn end_meeting(&self, summary_note: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let mut meeting = MeetingStatus {
-            meeting_data: self.meeting_data.clone(),
-            members: self.members.clone(),
-            is_ongoing: self.is_ongoing.clone(),
-            handle: None,
-            schedule: self.schedule()?,
-        };
-        {
-            let mut lock = meeting.is_ongoing.0.lock();
-            *lock = false;
-            meeting.is_ongoing.1.notify_all();
-        }
+    pub async fn end_meeting(
+        ctx: &Context,
+        meeting_status: Arc<RwLock<MeetingStatus>>,
+        summary_note: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut meeting = meeting_status.write().await;
+
+        meeting.set_is_ongoing(false);
+
         match meeting.change_summary_note(summary_note) {
             Ok(_) => {}
             Err(e) => {
@@ -211,7 +174,13 @@ impl MeetingStatus {
 
         let channel_id = meeting.channel().to_string();
 
-        MeetingStatus::new(&scheduled_cron, channel_id)
+        *meeting = MeetingStatus::new(&scheduled_cron, channel_id)?;
+
+        drop(meeting);
+
+        MeetingStatus::await_meeting(meeting_status.clone(), ctx).await;
+
+        Ok(())
     }
 
     pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
@@ -256,7 +225,7 @@ impl MeetingStatus {
         let members = MeetingMembers::load_members(meeting_data.id())?;
 
         let meeting_status = Self {
-            is_ongoing: Arc::new((Mutex::new(false), Condvar::new())),
+            is_ongoing: AtomicBool::new(false),
             meeting_data,
             members,
             handle: None,
@@ -268,73 +237,116 @@ impl MeetingStatus {
     /// Saves the meeting to the database and creates a task that will start the meeting.
     ///
     /// The task will be cancelled if the schedule is changed.
-    async fn await_meeting(meeting_status: Arc<RwLock<Self>>, cache: Arc<Cache>) {
+    async fn await_meeting(meeting_status: Arc<RwLock<Self>>, ctx: &Context) {
         let meeting_status_clone = Arc::clone(&meeting_status);
+        let cache = ctx.cache.clone();
         let join_handle = tokio::spawn(async move {
             let meeting_status = meeting_status_clone;
             info!(
                 "Awaiting meeting {}",
                 meeting_status.read().await.meeting_id()
             );
-            let schedule = match meeting_status.read().await.schedule() {
-                Ok(s) => s,
-                Err(e) => {
-                    error!("Error while getting schedule: {}", e);
-                    return;
-                }
-            };
-            while let Some(datetime) = schedule.upcoming(Local).next() {
-                let mut duration = datetime
-                    .signed_duration_since(Local::now())
-                    .to_std()
-                    .unwrap();
-                {
-                    // check if the given meeting data already exists in the database
-                    if meeting_status.read().await.meeting_data.exists().unwrap() {
-                        // if it does, update the meeting data
-                        duration = if meeting_status.read().await.meeting_data.start_date()
-                            > Local::now().naive_local()
-                            && !meeting_status.read().await.is_meeting_ongoing()
-                        {
-                            meeting_status
-                                .read()
-                                .await
-                                .meeting_data
-                                .start_date()
-                                .signed_duration_since(Local::now().naive_local())
-                                .to_std()
-                                .unwrap()
-                        } else {
-                            Duration::from_secs(0)
-                        };
-                        meeting_status.write().await.meeting_data.update().unwrap();
-                    } else {
-                        // if it doesn't, insert the meeting data
-                        meeting_status.write().await.meeting_data.insert().unwrap();
-                    }
-                }
 
-                if duration.as_secs() > 0 {
-                    info!("Waiting for meeting to start in {:?}", duration);
-                    tokio::time::sleep(duration).await;
-                }
+            let duration = meeting_status.read().await.load_duration().unwrap();
 
-                match start_meeting(&meeting_status, &cache).await {
-                    Ok(_) => {}
-                    Err(e) => error!("Error creating meeting job: {:?}", e),
+            if duration.as_secs() > 0 {
+                info!("Sleeping for {:?}", duration);
+                tokio::time::sleep(duration).await;
+            }
+
+            let mut meeting_status = meeting_status.write().await;
+
+            meeting_status.set_is_ongoing(true);
+
+            match meeting_status.start_meeting(&cache).await {
+                Ok(_) => {
+                    info!("Meeting started");
                 }
-                // wait for meeting to end
-                let is_ongoing;
-                {
-                    is_ongoing = meeting_status.read().await.is_ongoing.clone();
-                }
-                let mut lock = is_ongoing.0.lock();
-                if *lock {
-                    is_ongoing.1.wait(&mut lock);
-                }
+                Err(e) => error!("Error creating meeting job: {:?}", e),
             }
         });
         meeting_status.write().await.handle = Some(join_handle);
+    }
+
+    fn load_duration(&self) -> Result<Duration, Box<dyn std::error::Error>> {
+        let schedule = match self.schedule() {
+            Ok(s) => s,
+            Err(e) => {
+                let error = format!("Error while getting schedule: {}", e);
+                error!("{}", error);
+                return Err(error.into());
+            }
+        };
+
+        if let Some(datetime) = schedule.upcoming(Local).next() {
+            let mut duration = datetime
+                .signed_duration_since(Local::now())
+                .to_std()
+                .unwrap();
+
+            // check if the given meeting data already exists in the database
+            if self.meeting_data.exists().unwrap() {
+                // if it does, update the meeting data
+                duration = if self.meeting_data.start_date() > Local::now().naive_local()
+                    && !self.is_meeting_ongoing()
+                {
+                    let duration = self
+                        .meeting_data
+                        .start_date()
+                        .signed_duration_since(Local::now().naive_local())
+                        .to_std()
+                        .unwrap();
+                    duration
+                } else {
+                    Duration::from_secs(0)
+                };
+                self.meeting_data.update().unwrap();
+            } else {
+                // if it doesn't, insert the meeting data
+                self.meeting_data.insert().unwrap();
+            }
+
+            Ok(duration)
+        } else {
+            Err("No upcoming meeting".into())
+        }
+    }
+
+    /// Starts the meeting and saves current users in the meeting channel
+    async fn start_meeting(
+        &mut self,
+        cache: &Arc<Cache>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let channel = match cache.guild_channel(SETTINGS.meeting.channel_id) {
+            Some(c) => c,
+            None => {
+                error!("Error getting channel");
+                return Err("Error getting channel".into());
+            }
+        };
+
+        for member in channel.members(&cache).await? {
+            let member = {
+                let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
+                match member_result {
+                    Ok(m) => m,
+                    Err(e) => {
+                        error!("Error getting member: {}", e);
+                        continue;
+                    }
+                }
+            };
+            match self.add_member(&member) {
+                Ok(_) => {}
+                Err(e) => error!("Error adding member to meeting: {}", e),
+            }
+        }
+
+        Ok(())
+    }
+
+    fn set_is_ongoing(&mut self, new_value: bool) {
+        self.is_ongoing.store(new_value, SeqCst);
     }
 
     pub fn meeting(&self) -> &Meeting {
@@ -343,5 +355,33 @@ impl MeetingStatus {
 
     pub(crate) fn summary_id(&self) -> Uuid {
         self.meeting_data.summary_id()
+    }
+
+    pub(crate) fn summary_messages_id(&self) -> Option<Vec<String>> {
+        let summary = Summary::find_by_id(self.summary_id()).unwrap();
+        summary.messages_id()
+    }
+
+    pub(crate) fn set_summary_messages_id(
+        &self,
+        messages_id: Vec<String>,
+    ) -> Result<Summary, Box<dyn std::error::Error>> {
+        let summary = Summary::find_by_id(self.summary_id()).unwrap();
+        summary.set_messages_id(messages_id)
+    }
+}
+
+impl From<Meeting> for MeetingStatus {
+    fn from(meeting: Meeting) -> Self {
+        let members = MeetingMembers::load_members(meeting.id()).unwrap();
+
+        let s = String::from(meeting.scheduled_cron());
+        Self {
+            is_ongoing: AtomicBool::new(false),
+            meeting_data: meeting,
+            members,
+            handle: None,
+            schedule: Schedule::from_str(&s).unwrap(),
+        }
     }
 }

@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::{str::FromStr, sync::Arc};
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
@@ -8,9 +7,9 @@ use uuid::Uuid;
 
 use crate::database::models::meeting::Meeting;
 use crate::database::models::member::Member;
+use crate::database::models::summary::Summary;
 use crate::discord::find_option_as_string;
 use crate::meeting::MeetingStatus;
-use crate::SETTINGS;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
 pub(crate) async fn end_meeting(
@@ -23,51 +22,20 @@ pub(crate) async fn end_meeting(
 
     let read = ctx.data.read().await;
     let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
-    let mut meeting_status = meeting_status.write().await;
 
-    if !meeting_status.is_meeting_ongoing() {
+    if !meeting_status.read().await.is_meeting_ongoing() {
         let error = "No meeting is ongoing".to_string();
         error!("{}", error);
         return Err(error.into());
     }
 
-    let summary = meeting_status.generate_summary(note.clone()).await?;
+    let mut rw_lock_write_guard = meeting_status.write().await;
+    let summary_result = Summary::send_summary(&mut rw_lock_write_guard, ctx, &note, false).await?;
+    drop(rw_lock_write_guard);
 
-    if summary.is_empty() {
-        info!("Generated empty summary");
-        *meeting_status = meeting_status.end_meeting(note)?;
-        Ok("Summary is empty. Nothing was sent".to_string())
-    } else {
-        // separate summary into chunks of 2000 characters
-        // separate on newlines
-        let mut summary_chunks = summary.lines();
+    MeetingStatus::end_meeting(ctx, meeting_status, note).await?;
 
-        let mut output = String::new();
-
-        let channel_id = SETTINGS.summary_channel;
-
-        while let Some(summary_chunk) = summary_chunks.next() {
-            if output.len() + summary_chunk.len() > 2000 {
-                channel_id
-                    .say(&ctx.http, output)
-                    .await
-                    .map_err(|e| format!("Error sending summary: {}", e))?;
-                output = String::new();
-            }
-
-            output.push_str(summary_chunk);
-            writeln!(output)?;
-        }
-
-        channel_id
-            .say(&ctx.http, output)
-            .await
-            .map_err(|e| format!("Error sending summary: {}", e))?;
-
-        *meeting_status = meeting_status.end_meeting(note)?;
-
-        Ok("Summary was generated and sent to the channel".to_string())
-    }
+    Ok(summary_result)
 }
 
 /// Return the current or future meeting status.
@@ -137,13 +105,9 @@ pub(crate) async fn plan_meeting(
         };
         let next = schedule.upcoming(chrono::Local).next().unwrap();
 
-        MeetingStatus::change_schedule(
-            Arc::clone(&meeting_status),
-            &new_schedule,
-            ctx.cache.clone(),
-        )
-        .await
-        .unwrap();
+        MeetingStatus::change_schedule(Arc::clone(&meeting_status), &new_schedule, ctx)
+            .await
+            .unwrap();
         output.push_str("New schedule set to ");
         output.push_str(&new_schedule);
         output.push_str(" (next meeting on ");
@@ -190,13 +154,23 @@ pub(crate) async fn set_note(
     let meeting_status = meeting_status.clone();
     let mut meeting_status = meeting_status.write().await;
 
-    if let Some(new_summary) = find_option_as_string(&option.options, "note") {
+    if let Some(new_note) = find_option_as_string(&option.options, "note") {
         if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
             let meeting_id = Uuid::parse_str(&meeting).unwrap();
             let mut meeting = Meeting::find_by_id(meeting_id).unwrap();
-            meeting.set_summary_note(new_summary.clone()).unwrap();
+            meeting.set_summary_note(new_note.clone()).unwrap();
+            match Summary::send_summary(&mut MeetingStatus::from(meeting), ctx, &new_note, true)
+                .await
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    let error = format!("Error sending summary: {}", e);
+                    error!("{}", error);
+                    return Err(error.into());
+                }
+            }
         } else {
-            match meeting_status.change_summary_note(new_summary.clone()) {
+            match meeting_status.change_summary_note(new_note.clone()) {
                 Ok(_) => {}
                 Err(e) => {
                     let error_msg = format!("Error changing meeting summary: {}", e);
@@ -204,10 +178,18 @@ pub(crate) async fn set_note(
                     return Err(error_msg.into());
                 }
             }
+            match Summary::send_summary(&mut meeting_status, ctx, &new_note, true).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let error = format!("Error sending summary: {}", e);
+                    error!("{}", error);
+                    return Err(error.into());
+                }
+            }
         }
 
         output.push_str("\nMeeting summary changed to ");
-        output.push_str(&new_summary);
+        output.push_str(&new_note);
     } else {
         output.push_str("Meeting summary unchanged");
     };
