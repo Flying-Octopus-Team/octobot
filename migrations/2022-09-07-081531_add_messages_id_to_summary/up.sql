@@ -1,2 +1,2 @@
 ALTER TABLE IF EXISTS public.summary
-    ADD COLUMN message_id text[];
+    ADD COLUMN messages_id text[];
