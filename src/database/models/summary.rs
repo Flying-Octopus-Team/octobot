@@ -156,7 +156,7 @@ impl Summary {
             let channel_id = SETTINGS.summary_channel;
             let mut messages = Vec::new();
 
-            while let Some(summary_chunk) = summary_chunks.next() {
+            for summary_chunk in summary_chunks.by_ref() {
                 if output.len() + summary_chunk.len() > 2000 {
                     messages.push(output.clone());
                 }
