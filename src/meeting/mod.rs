@@ -220,8 +220,8 @@ impl MeetingStatus {
             Ok(msg) => {
                 println!("{} joined", member.name());
                 self.members
-                .push(MeetingMembers::new(member.id(), self.meeting_id()));
-                    Ok(msg)
+                    .push(MeetingMembers::new(member.id(), self.meeting_id()));
+                Ok(msg)
             }
             Err(e) => {
                 error!("Error adding member to meeting: {}", e);
