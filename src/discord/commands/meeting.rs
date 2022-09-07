@@ -44,7 +44,7 @@ pub(crate) async fn end_meeting(
 
         let mut output = String::new();
 
-        let channel_id = SETTINGS.meeting.summary_channel;
+        let channel_id = SETTINGS.summary_channel;
 
         while let Some(summary_chunk) = summary_chunks.next() {
             if output.len() + summary_chunk.len() > 2000 {

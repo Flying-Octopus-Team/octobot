@@ -14,13 +14,13 @@ pub struct Settings {
     pub member_role_id: RoleId,
     pub server_id: GuildId,
     pub meeting: Meeting,
+    pub summary_channel: ChannelId,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Meeting {
     pub channel_id: ChannelId,
     pub cron: String,
-    pub summary_channel: ChannelId,
 }
 
 impl Settings {
