@@ -82,18 +82,14 @@ impl Meeting {
         Ok(rows)
     }
 
-    /// Saves current time as meeting's end date. Struct has to be manually inserted into the database.
+    /// Saves current time as meeting's end date. And saves itself in the database
     pub fn end_meeting(
         &mut self,
         new_end_date: chrono::DateTime<chrono::Local>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        use crate::database::schema::meeting::dsl::*;
-
         self.end_date = Some(new_end_date.naive_local());
 
-        Ok(diesel::update(meeting.filter(id.eq(self.id)))
-            .set(end_date.eq(self.end_date))
-            .get_result(&mut PG_POOL.get()?)?)
+        self.update()
     }
 
     pub fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
@@ -111,7 +107,7 @@ impl Meeting {
         self.channel_id = new_channel_id;
 
         match self.update() {
-            Ok(_) => Ok(self.clone()),
+            Ok(s) => Ok(s),
             Err(e) => {
                 let error = format!("Error while updating meeting's channel id: {}", e);
                 warn!("{}", error);

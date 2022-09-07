@@ -117,9 +117,7 @@ impl EventHandler for Handler {
 
         debug!("{:?}", guild_command);
 
-        let meeting_status = crate::meeting::create_meeting_job(ctx.cache.clone())
-            .await
-            .unwrap();
+        let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
 
         ctx.data
             .write()
