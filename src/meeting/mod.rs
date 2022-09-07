@@ -290,13 +290,11 @@ impl MeetingStatus {
                 duration = if self.meeting_data.start_date() > Local::now().naive_local()
                     && !self.is_meeting_ongoing()
                 {
-                    let duration = self
-                        .meeting_data
+                    self.meeting_data
                         .start_date()
                         .signed_duration_since(Local::now().naive_local())
                         .to_std()
-                        .unwrap();
-                    duration
+                        .unwrap()
                 } else {
                     Duration::from_secs(0)
                 };

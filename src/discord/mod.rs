@@ -37,7 +37,7 @@ impl EventHandler for Handler {
 
             let mut output = String::new();
 
-            while let Some(content_chunk) = content_chunks.next() {
+            for content_chunk in content_chunks.by_ref() {
                 if output.len() + content_chunk.len() > 2000 {
                     match command
                         .create_interaction_response(&ctx.http, |response| {
