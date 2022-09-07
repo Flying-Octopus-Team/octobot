@@ -43,6 +43,7 @@ table! {
         id -> Uuid,
         note -> Text,
         create_date -> Date,
+        message_id -> Nullable<Array<Text>>,
     }
 }
 

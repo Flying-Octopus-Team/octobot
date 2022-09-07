@@ -19,6 +19,7 @@ pub(crate) struct Summary {
     id: Uuid,
     note: String,
     create_date: NaiveDate,
+    message_id: Option<Vec<String>>,
 }
 
 impl Summary {
@@ -27,6 +28,7 @@ impl Summary {
             id: Uuid::new_v4(),
             note: content,
             create_date,
+            message_id: None,
         }
     }
 
@@ -86,6 +88,7 @@ impl Summary {
             id: self.id,
             note: new_content,
             create_date: self.create_date,
+            message_id: self.message_id.clone(),
         };
 
         summary.update()
