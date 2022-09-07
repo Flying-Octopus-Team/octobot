@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS public.summary DROP COLUMN IF EXISTS message_id;
