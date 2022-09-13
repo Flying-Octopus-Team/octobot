@@ -131,6 +131,19 @@ impl Report {
         summary: Option<Summary>,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut reports = Report::get_unpublished_reports()?;
+
+        // get reports associated with summary
+        if let Some(summary) = &summary {
+            let summary_reports = Report::get_by_summary_id(summary.id())?;
+
+            for report in summary_reports {
+                reports.push(report);
+            }
+
+            // delete the same reports
+            reports.dedup_by(|a, b| a.id == b.id);
+        }
+
         let mut output = String::new();
         reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
         let mut previous_report: Option<Report> = None;
@@ -158,6 +171,14 @@ impl Report {
             previous_report = Some(report);
         }
         Ok(output)
+    }
+
+    fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+        use crate::database::schema::report::dsl::*;
+
+        Ok(report
+            .filter(summary_id.eq(find_id))
+            .load(&mut PG_POOL.get()?)?)
     }
 }
 

@@ -33,7 +33,7 @@ impl EventHandler for Handler {
             };
             // separate content into chunks of 2000 characters
             // separate on newlines
-            let mut content_chunks = content.split("\n ");
+            let mut content_chunks = content.lines();
 
             let mut output = String::new();
 
@@ -51,7 +51,7 @@ impl EventHandler for Handler {
                             error!("{}", e);
                         }
                     }
-                    output = String::new();
+                    output.clear();
                 }
 
                 output.push_str(content_chunk);
