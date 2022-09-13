@@ -10,6 +10,7 @@ use crate::meeting::MeetingStatus;
 use chrono::NaiveDate;
 use diesel::Table;
 use serenity::prelude::Context;
+use tracing::debug;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -159,6 +160,8 @@ impl Summary {
             for summary_chunk in summary_chunks.by_ref() {
                 if output.len() + summary_chunk.len() > 2000 {
                     messages.push(output.clone());
+                    debug!("Adding chunk to messages: {}", output);
+                    output.clear();
                 }
                 output.push_str(summary_chunk);
                 writeln!(output)?;

@@ -187,7 +187,7 @@ impl MeetingStatus {
         let meeting = self.meeting();
         match meeting.add_member(member) {
             Ok(msg) => {
-                println!("{} joined", member.name());
+                info!("{} joined", member.name());
                 self.members
                     .push(MeetingMembers::new(member.id(), self.meeting_id()));
                 Ok(msg)
@@ -243,7 +243,7 @@ impl MeetingStatus {
         let join_handle = tokio::spawn(async move {
             let meeting_status = meeting_status_clone;
             info!(
-                "Awaiting meeting {}",
+                "Waiting for the meeting {}",
                 meeting_status.read().await.meeting_id()
             );
 
