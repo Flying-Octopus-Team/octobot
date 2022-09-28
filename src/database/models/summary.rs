@@ -11,6 +11,8 @@ use chrono::NaiveDate;
 use diesel::Table;
 use serenity::prelude::Context;
 use tracing::debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
@@ -56,7 +58,7 @@ impl Summary {
             .map(|rows| rows != 0)?)
     }
 
-    pub fn _list(
+    pub fn list(
         page: i64,
         per_page: Option<i64>,
     ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
@@ -227,5 +229,15 @@ impl Summary {
         };
 
         summary.update()
+    }
+}
+
+impl Display for Summary {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Summary {{ id: {}, create_date: {}, messages_id: {:?} }}",
+            self.id, self.create_date, self.messages_id
+        )
     }
 }

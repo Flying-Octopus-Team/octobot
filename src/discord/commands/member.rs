@@ -168,7 +168,7 @@ pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::e
     info!("Listing members");
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
     let page_size =
-        find_option_value(&option.options[..], "page_size").map(|v| v.as_i64().unwrap());
+        find_option_value(&option.options[..], "page-size").map(|v| v.as_i64().unwrap());
 
     let (members, total_pages) = Member::list(page, page_size)?;
 

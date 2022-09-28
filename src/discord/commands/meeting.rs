@@ -1,4 +1,5 @@
 use std::{str::FromStr, sync::Arc};
+use std::fmt::Write;
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
@@ -8,7 +9,7 @@ use uuid::Uuid;
 use crate::database::models::meeting::Meeting;
 use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
-use crate::discord::find_option_as_string;
+use crate::discord::{find_option_as_string, find_option_value};
 use crate::meeting::MeetingStatus;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
@@ -248,6 +249,24 @@ pub(crate) async fn edit_meeting_members(
     } else {
         output.push_str("No member specified");
     }
+
+    Ok(output)
+}
+
+pub(crate) async fn list_meetings(option: &CommandDataOption) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Listing meetings");
+    let page = find_option_value(&option.options[..], "page").map_or(1, |page| page.as_i64().unwrap());
+
+    let page_size = find_option_value(&option.options[..], "page-size").map(|page_size| page_size.as_i64().unwrap());
+
+    let (meetings, total_pages) = Meeting::list(page, page_size)?;
+
+    let mut output = String::new();
+
+    for meeting in meetings {
+        writeln!(&mut output, "{}", meeting)?;
+    }
+    write!(output, "Page {}/{}", page, total_pages)?;
 
     Ok(output)
 }

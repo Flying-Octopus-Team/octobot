@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use chrono::NaiveDateTime;
@@ -7,6 +8,7 @@ use uuid::Uuid;
 
 use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
+use crate::database::pagination::Paginate;
 use crate::database::schema::{meeting, meeting_members};
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
@@ -310,6 +312,34 @@ impl Meeting {
     pub(crate) fn start_date(&self) -> chrono::NaiveDateTime {
         self.start_date
     }
+
+    pub(crate) fn list(
+        page: i64,
+        page_size: Option<i64>,
+    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting::dsl::*;
+
+        let mut query = meeting
+            .select(meeting::all_columns())
+            .into_boxed()
+            .paginate(page);
+
+        if let Some(page_size) = page_size {
+            query = query.per_page(page_size);
+        }
+
+        let result = query.load_and_count_pages::<Self>(&mut PG_POOL.get().unwrap())?;
+
+        Ok(result)
+    }
+
+    pub(crate) fn members(&self) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
+        let members = MeetingMembers::load_members(self.id).unwrap().into_iter()
+            .map(|m| Member::find_by_id(m.member_id))
+            .collect::<Result<Vec<Member>, Box<dyn std::error::Error>>>()?;
+
+        Ok(members)
+    }
 }
 
 impl MeetingMembers {
@@ -376,5 +406,19 @@ impl MeetingMembers {
 impl PartialEq for MeetingMembers {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl Display for Meeting {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Meeting ID: {} Summary: {} Start Date: {} End Date: {:?} Members: {}",
+            self.id,
+            self.summary_id,
+            self.start_date,
+            self.end_date,
+            self.members().unwrap().len()
+        )
     }
 }
