@@ -70,11 +70,16 @@ impl Report {
         page: i64,
         per_page: Option<i64>,
         member_dc_id: Option<Uuid>,
+        published: Option<bool>,
     ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
         let mut query = report::table.into_boxed();
 
         if let Some(member_dc_id) = member_dc_id {
             query = query.filter(dsl::member_id.eq(member_dc_id));
+        }
+
+        if let Some(published) = published {
+            query = query.filter(dsl::published.eq(published));
         }
 
         let mut query = query.paginate(page);

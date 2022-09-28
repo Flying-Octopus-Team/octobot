@@ -83,7 +83,7 @@ pub(crate) fn list_reports(
     };
 
     let page_size =
-        find_option_value(&option.options[..], "page_size").map(|v| v.as_i64().unwrap());
+        find_option_value(&option.options[..], "page-size").map(|v| v.as_i64().unwrap());
 
     let member = find_option_value(&option.options[..], "member").map(|member_id| {
         let member_dc_id = member_id.as_str().unwrap();
@@ -91,8 +91,10 @@ pub(crate) fn list_reports(
             .map(|member| member.id())
             .unwrap() /*Some(member.id())*/
     });
+    
+    let published = find_option_value(&option.options[..], "published").map(|published| published.as_bool().unwrap());
 
-    let (reports, total_pages) = Report::list(page, page_size, member)?;
+    let (reports, total_pages) = Report::list(page, page_size, member, published)?;
 
     let mut output = String::new();
 
