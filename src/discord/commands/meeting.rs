@@ -1,5 +1,5 @@
-use std::{str::FromStr, sync::Arc};
 use std::fmt::Write;
+use std::{str::FromStr, sync::Arc};
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
@@ -253,11 +253,15 @@ pub(crate) async fn edit_meeting_members(
     Ok(output)
 }
 
-pub(crate) async fn list_meetings(option: &CommandDataOption) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn list_meetings(
+    option: &CommandDataOption,
+) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing meetings");
-    let page = find_option_value(&option.options[..], "page").map_or(1, |page| page.as_i64().unwrap());
+    let page =
+        find_option_value(&option.options[..], "page").map_or(1, |page| page.as_i64().unwrap());
 
-    let page_size = find_option_value(&option.options[..], "page-size").map(|page_size| page_size.as_i64().unwrap());
+    let page_size = find_option_value(&option.options[..], "page-size")
+        .map(|page_size| page_size.as_i64().unwrap());
 
     let (meetings, total_pages) = Meeting::list(page, page_size)?;
 

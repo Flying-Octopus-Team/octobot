@@ -334,7 +334,9 @@ impl Meeting {
     }
 
     pub(crate) fn members(&self) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
-        let members = MeetingMembers::load_members(self.id).unwrap().into_iter()
+        let members = MeetingMembers::load_members(self.id)
+            .unwrap()
+            .into_iter()
             .map(|m| Member::find_by_id(m.member_id))
             .collect::<Result<Vec<Member>, Box<dyn std::error::Error>>>()?;
 

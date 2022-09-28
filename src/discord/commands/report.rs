@@ -91,8 +91,9 @@ pub(crate) fn list_reports(
             .map(|member| member.id())
             .unwrap() /*Some(member.id())*/
     });
-    
-    let published = find_option_value(&option.options[..], "published").map(|published| published.as_bool().unwrap());
+
+    let published = find_option_value(&option.options[..], "published")
+        .map(|published| published.as_bool().unwrap());
 
     let (reports, total_pages) = Report::list(page, page_size, member, published)?;
 
