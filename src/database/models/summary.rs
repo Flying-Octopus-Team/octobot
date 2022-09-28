@@ -6,11 +6,11 @@ use crate::database::pagination::Paginate;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
+use crate::discord::split_message;
 use crate::meeting::MeetingStatus;
 use chrono::NaiveDate;
 use diesel::Table;
 use serenity::prelude::Context;
-use tracing::debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
@@ -150,26 +150,9 @@ impl Summary {
             info!("Generated empty summary");
             Ok("Summary is empty. Nothing was sent".to_string())
         } else {
-            // separate summary into chunks of 2000 characters
-            // separate on newlines
-            let mut summary_chunks = summary.lines();
-
-            let mut output = String::new();
+            let messages = split_message(summary)?;
 
             let channel_id = SETTINGS.summary_channel;
-            let mut messages = Vec::new();
-
-            for summary_chunk in summary_chunks.by_ref() {
-                if output.len() + summary_chunk.len() > 2000 {
-                    messages.push(output.clone());
-                    debug!("Adding chunk to messages: {}", output);
-                    output.clear();
-                }
-                output.push_str(summary_chunk);
-                writeln!(output)?;
-            }
-
-            messages.push(output);
 
             if resend {
                 // edit old messages only if there are the same number of messages

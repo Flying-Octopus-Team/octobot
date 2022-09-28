@@ -9,6 +9,7 @@ use serenity::model::id::GuildId;
 use serenity::model::voice::VoiceState;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
+use tracing::log::trace;
 use tracing::{debug, error, info, warn};
 
 use crate::SETTINGS;
@@ -31,46 +32,37 @@ impl EventHandler for Handler {
                 Ok(content) => content,
                 Err(e) => format!("{:?}", e),
             };
-            // separate content into chunks of 2000 characters
-            // separate on newlines
-            let mut content_chunks = content.lines();
-
-            let mut output = String::new();
-
-            for content_chunk in content_chunks.by_ref() {
-                if output.len() + content_chunk.len() > 2000 {
-                    match command
-                        .create_interaction_response(&ctx.http, |response| {
-                            response.interaction_response_data(|message| message.content(&content))
-                        })
-                        .await
-                        .map_err(|e| format!("Error sending interaction response: {}", e))
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("{}", e);
-                        }
-                    }
-                    output.clear();
+            let mut content_chunks = match split_message(content) {
+                Ok(content_chunks) => content_chunks.into_iter(),
+                Err(e) => {
+                    error!("{}", e);
+                    return;
                 }
-
-                output.push_str(content_chunk);
-                match writeln!(output) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        error!("{}", e);
-                    }
-                }
-            }
+            };
 
             match command
                 .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|message| message.content(&content))
+                    response.interaction_response_data(|message| {
+                        message.content(content_chunks.next().unwrap())
+                    })
                 })
                 .await
                 .map_err(|e| format!("Error sending interaction response: {}", e))
             {
-                Ok(_) => {}
+                Ok(_) => {
+                    for content in content_chunks {
+                        match command
+                            .create_followup_message(&ctx.http, |message| message.content(content))
+                            .await
+                            .map_err(|e| format!("Error sending followup message: {}", e))
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("{}", e);
+                            }
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("{}", e);
                 }
@@ -146,5 +138,48 @@ pub async fn start_bot() {
 
     if let Err(why) = client.start().await {
         error!("An error occurred while running the client: {:?}", why);
+    }
+}
+
+pub(crate) fn split_message(message: String) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut message_chunks = message.lines();
+    let mut output = String::new();
+    let mut messages = Vec::new();
+    for message_chunk in message_chunks.by_ref() {
+        if output.len() + message_chunk.len() > 2000 {
+            output = output.trim_end().to_string();
+            messages.push(output.clone());
+            trace!("Adding chunk to messages: {}", output);
+            output.clear();
+        }
+        writeln!(output, "{}", message_chunk)?;
+    }
+    output = output.trim_end().to_string();
+    messages.push(output);
+    Ok(messages)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::discord::split_message;
+
+    #[test]
+    fn test_split_message() {
+        // string with over 2000 characters
+
+        let first_part = String::from("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Non diam phasellus vestibulum lorem sed. Velit euismod in pellentesque massa placerat. Tellus id interdum velit laoreet id. Sollicitudin ac orci phasellus egestas tellus rutrum tellus. Tempor id eu nisl nunc mi ipsum faucibus vitae aliquet. Turpis egestas integer eget aliquet nibh praesent. Enim lobortis scelerisque fermentum dui faucibus in. Pellentesque diam volutpat commodo sed egestas egestas fringilla phasellus faucibus. Sed blandit libero volutpat sed. Sollicitudin aliquam ultrices sagittis orci. Massa tempor nec feugiat nisl pretium fusce. Duis ut diam quam nulla porttitor massa id. Nibh ipsum consequat nisl vel pretium. Varius sit amet mattis vulputate enim nulla aliquet. Vestibulum sed arcu non odio euismod lacinia at quis. Sed vulputate mi sit amet. Elementum facilisis leo vel fringilla est ullamcorper eget.\n
+        In fermentum et sollicitudin ac orci phasellus egestas tellus. Est ante in nibh mauris cursus mattis molestie a. Vitae ultricies leo integer malesuada nunc vel risus commodo. In ornare quam viverra orci sagittis eu. Vulputate odio ut enim blandit volutpat maecenas volutpat blandit. Arcu risus quis varius quam quisque id diam vel. Id nibh tortor id aliquet lectus proin nibh nisl. Condimentum vitae sapien pellentesque habitant morbi tristique senectus et. Id diam maecenas ultricies mi eget mauris pharetra. Interdum varius sit amet mattis. Semper feugiat nibh sed pulvinar. Cras adipiscing enim eu turpis egestas pretium aenean pharetra. Condimentum lacinia quis vel eros donec ac odio tempor. Donec massa sapien faucibus et molestie. Aenean et tortor at risus viverra adipiscing at in tellus.");
+
+        let second_part = String::from("Duis convallis convallis tellus id interdum. Aliquet risus feugiat in ante. Tellus orci ac auctor augue. Nisi quis eleifend quam adipiscing vitae proin sagittis. Sed odio morbi quis commodo. Egestas purus viverra accumsan in nisl nisi scelerisque eu. Diam sollicitudin tempor id eu nisl nunc. Egestas maecenas pharetra convallis posuere morbi leo. Auctor augue mauris augue neque. Nullam non nisi est sit amet facilisis. Donec ultrices tincidunt arcu non sodales neque sodales.");
+
+        let message = format!("{}\n{}", first_part, second_part);
+
+        let messages = split_message(message).unwrap();
+
+        assert_eq!(messages.len(), 2);
+
+        assert_eq!(messages[0], first_part);
+
+        assert_eq!(messages[1], second_part);
     }
 }
