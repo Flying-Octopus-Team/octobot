@@ -253,6 +253,13 @@ pub fn create_application_commands(
                             .required(false)
                             .kind(CommandOptionType::User)
                     })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("published")
+                            .description("List (un)published reports")
+                            .required(false)
+                            .kind(CommandOptionType::Boolean)
+                    })
             })
             .create_option(|option| {
                 option
