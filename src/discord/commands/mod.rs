@@ -47,11 +47,21 @@ pub async fn handle_interaction_command<'a>(
                 Ok(String::from("No subcommand specified"))
             }
         },
-        "summary" => summary::generate_summary(ctx).await,
+        "summary" => match command.data.options.first() {
+            Some(option) => match option.name.as_str() {
+                "list" => summary::list_summaries(option),
+                _ => {
+                    warn!("Unknown summary option: {}", option.name);
+                    Ok(String::from("Unknown subcommand"))
+                }
+            },
+            None => summary::generate_summary(ctx).await,
+        },
         "meeting" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
                 "end" => meeting::end_meeting(option, ctx).await,
                 "status" => meeting::status_meeting(ctx).await,
+                "list" => meeting::list_meetings(option).await,
                 "plan" => meeting::plan_meeting(ctx, option).await,
                 "set-note" => meeting::set_note(ctx, option).await,
                 "add-member" => meeting::edit_meeting_members(ctx, option, false).await,
@@ -141,7 +151,7 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("page_size")
+                            .name("page-size")
                             .description("Number of members per page")
                             .required(false)
                             .kind(CommandOptionType::Integer)
@@ -241,7 +251,7 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("page_size")
+                            .name("page-size")
                             .description("Number of reports per page")
                             .required(false)
                             .kind(CommandOptionType::Integer)
@@ -294,6 +304,26 @@ pub fn create_application_commands(
         command
             .name("summary")
             .description("Show weekly summary containing unpublished reports")
+            .create_option(|option| {
+                option
+                    .name("list")
+                    .description("List all summaries")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page")
+                            .description("Page number")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page-size")
+                            .description("Number of summaries per page")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
+                    })
+            })
     });
 
     commands.create_application_command(|command| {
@@ -321,6 +351,26 @@ pub fn create_application_commands(
             })
             .create_option(|option| {
                 option
+                    .name("list")
+                    .description("List all meetings")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page")
+                            .description("Page number")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("page-size")
+                            .description("Number of meetings per page")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
+                    })
+            })
+            .create_option(|option| {
+                option
                     .name("plan")
                     .description("Plan future meetings")
                     .kind(CommandOptionType::SubCommand)
@@ -342,19 +392,19 @@ pub fn create_application_commands(
             .create_option(|option| {
                 option
                     .name("set-note")
-                    .description("Edit past/current meeting")
+                    .description("Edit past/future meeting")
                     .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("note")
-                            .description("Update past/current meeting summary note")
+                            .description("Update past/future meeting summary note")
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
                             .name("meeting-id")
-                            .description("Select past/current meeting by ID")
+                            .description("Select past/future meeting by ID")
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
@@ -362,7 +412,7 @@ pub fn create_application_commands(
             .create_option(|option| {
                 option
                     .name("add-member")
-                    .description("Add member to the past/current meeting")
+                    .description("Add member to the past/future meeting")
                     .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
