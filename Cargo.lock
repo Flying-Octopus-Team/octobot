@@ -783,7 +783,6 @@ dependencies = [
  "diesel",
  "diesel_migrations",
  "lazy_static",
- "parking_lot",
  "serde",
  "serde_json",
  "serenity",
