@@ -7,7 +7,6 @@ use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::discord::split_message;
-use crate::meeting::MeetingStatus;
 use chrono::NaiveDate;
 use diesel::Table;
 use serenity::prelude::Context;
@@ -17,6 +16,7 @@ use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
 
+use super::meeting::Meeting;
 use super::report::Report;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
@@ -98,29 +98,32 @@ impl Summary {
     /// Generate summary for the meeting. Return the summary of reports and the list of members that were present.
     pub(crate) async fn generate_summary(
         &self,
-        meeting_status: &MeetingStatus,
         note: String,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut summary = String::new();
+
+        let meeting = Meeting::find_by_summary_id(self.id)?;
 
         let date_format = "%d.%m.%Y";
         write!(
             summary,
             "**Raport ze spotkania {}**\n\n",
-            meeting_status.start_date().format(date_format)
+            meeting.start_date().format(date_format)
         )?;
 
+        let members = meeting.members()?;
+
         summary.push_str("**Na spotkaniu pojawili się:** ");
-        for member in &meeting_status.members() {
-            summary.push_str(&member.member_name());
+        for member in &members {
+            summary.push_str(&member.name());
             // print comma if not last element
-            if member != meeting_status.members().last().unwrap() {
+            if member != members.last().unwrap() {
                 summary.push_str(", ");
             }
         }
 
         summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
-        let save_summary = Summary::find_by_id(meeting_status.summary_id())?;
+        let save_summary = Summary::find_by_id(meeting.summary_id())?;
         summary.push_str(&Report::report_summary(Some(save_summary)).await?);
 
         summary.push_str("\n**Notatka ze spotkania:**\n");
@@ -132,12 +135,12 @@ impl Summary {
     /// If set to resend. It will resend the summary to the summary channel.
     /// If there are no previous summaries messages to resend to or new summary is too long, it will return an error.
     pub(crate) async fn send_summary(
-        meeting_status: &mut MeetingStatus,
+        self,
         ctx: &Context,
-        note: &str,
+        note: String,
         resend: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let summary = meeting_status.generate_summary(note.to_string()).await?;
+        let summary = self.generate_summary(note).await?;
 
         if summary.is_empty() {
             info!("Generated empty summary");
@@ -149,7 +152,7 @@ impl Summary {
 
         if resend {
             // edit old messages only if there are the same number of messages
-            if let Some(messages_id) = meeting_status.summary_messages_id() {
+            if let Some(messages_id) = self.messages_id() {
                 if messages_id.len() == messages.len() {
                     for (message_id, message) in messages_id.iter().zip(messages.iter()) {
                         channel_id
@@ -181,7 +184,7 @@ impl Summary {
                 messages_id.push(message_id.to_string());
             }
 
-            match meeting_status.set_summary_messages_id(messages_id) {
+            match self.set_messages_id(messages_id) {
                 Ok(_) => {}
                 Err(e) => return Err(format!("Error saving summary: {}", e).into()),
             }

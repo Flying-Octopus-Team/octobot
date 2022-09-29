@@ -5,7 +5,7 @@ use std::fmt::Write;
 use tracing::{info, log::error};
 
 use crate::{
-    database::models::{meeting::Meeting, summary::Summary},
+    database::models::summary::Summary,
     discord::{find_option_as_string, find_option_value},
     meeting::MeetingStatus,
 };
@@ -81,10 +81,8 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let meeting = Meeting::find_by_summary_id(summary.id())?;
-
-    let output =
-        Summary::send_summary(&mut MeetingStatus::from(meeting), ctx, summary.note(), true).await?;
+    let note = summary.note().to_string();
+    let output = summary.send_summary(ctx, note, true).await?;
 
     Ok(output)
 }

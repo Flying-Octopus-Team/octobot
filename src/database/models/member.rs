@@ -14,7 +14,7 @@ use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
 
-#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
+#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Eq)]
 #[diesel(table_name = member)]
 pub struct Member {
     id: Uuid,
@@ -184,6 +184,12 @@ impl Display for Member {
             "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}",
             self.display_name, self.id, discord_id, trello_id, trello_report_card_id
         )
+    }
+}
+
+impl PartialEq for Member {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 
