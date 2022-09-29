@@ -137,10 +137,6 @@ impl MeetingStatus {
         self.meeting_data.channel_id()
     }
 
-    pub fn start_date(&self) -> chrono::NaiveDateTime {
-        self.meeting_data.start_date()
-    }
-
     /// Ends the meeting and inserts data to the database. Updates given meeting status.
     /// Clears the meeting data and members.
     pub async fn end_meeting(
@@ -214,7 +210,7 @@ impl MeetingStatus {
     ) -> Result<String, Box<dyn std::error::Error>> {
         let summary = Summary::find_by_id(self.summary_id()).unwrap();
 
-        summary.generate_summary(self, note).await
+        summary.generate_summary(note).await
     }
 
     /// Loads the next meeting from the database, or defaults to a new meeting.
@@ -353,19 +349,6 @@ impl MeetingStatus {
 
     pub(crate) fn summary_id(&self) -> Uuid {
         self.meeting_data.summary_id()
-    }
-
-    pub(crate) fn summary_messages_id(&self) -> Option<Vec<String>> {
-        let summary = Summary::find_by_id(self.summary_id()).unwrap();
-        summary.messages_id()
-    }
-
-    pub(crate) fn set_summary_messages_id(
-        &self,
-        messages_id: Vec<String>,
-    ) -> Result<Summary, Box<dyn std::error::Error>> {
-        let summary = Summary::find_by_id(self.summary_id()).unwrap();
-        summary.set_messages_id(messages_id)
     }
 }
 

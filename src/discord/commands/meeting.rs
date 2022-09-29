@@ -30,9 +30,13 @@ pub(crate) async fn end_meeting(
         return Err(error.into());
     }
 
-    let mut rw_lock_write_guard = meeting_status.write().await;
-    let summary_result = Summary::send_summary(&mut rw_lock_write_guard, ctx, &note, false).await?;
-    drop(rw_lock_write_guard);
+    let rw_lock_read_guard = meeting_status.read().await;
+
+    let meeting = Meeting::find_by_id(rw_lock_read_guard.meeting_id())?;
+    let summary = Summary::find_by_id(meeting.summary_id())?;
+
+    let summary_result = summary.send_summary(ctx, note.clone(), false).await?;
+    drop(rw_lock_read_guard);
 
     MeetingStatus::end_meeting(ctx, meeting_status, note).await?;
 
@@ -156,13 +160,17 @@ pub(crate) async fn set_note(
     let mut meeting_status = meeting_status.write().await;
 
     if let Some(new_note) = find_option_as_string(&option.options, "note") {
+        output.push_str("Meeting summary changed to ");
+        output.push_str(&new_note);
+
         if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
             let meeting_id = Uuid::parse_str(&meeting).unwrap();
             let mut meeting = Meeting::find_by_id(meeting_id).unwrap();
             meeting.set_summary_note(new_note.clone()).unwrap();
-            match Summary::send_summary(&mut MeetingStatus::from(meeting), ctx, &new_note, true)
-                .await
-            {
+
+            let summary = Summary::find_by_id(meeting.summary_id())?;
+
+            match summary.send_summary(ctx, new_note, true).await {
                 Ok(_) => {}
                 Err(e) => {
                     let error = format!("Error sending summary: {}", e);
@@ -179,7 +187,11 @@ pub(crate) async fn set_note(
                     return Err(error_msg.into());
                 }
             }
-            match Summary::send_summary(&mut meeting_status, ctx, &new_note, true).await {
+
+            let meeting = Meeting::find_by_id(meeting_status.meeting_id())?;
+            let summary = Summary::find_by_id(meeting.summary_id())?;
+
+            match summary.send_summary(ctx, new_note, true).await {
                 Ok(_) => {}
                 Err(e) => {
                     let error = format!("Error sending summary: {}", e);
@@ -188,9 +200,6 @@ pub(crate) async fn set_note(
                 }
             }
         }
-
-        output.push_str("\nMeeting summary changed to ");
-        output.push_str(&new_note);
     } else {
         output.push_str("Meeting summary unchanged");
     };

@@ -394,12 +394,6 @@ impl MeetingMembers {
         Ok(count > 0)
     }
 
-    /// Returns member's display name
-    pub(crate) fn member_name(&self) -> String {
-        let member = Member::find_by_id(self.member_id).unwrap();
-        member.name()
-    }
-
     pub(crate) fn load_members(
         find_meeting_id: Uuid,
     ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
