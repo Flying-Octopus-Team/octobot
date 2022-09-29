@@ -89,17 +89,10 @@ impl Summary {
     }
 
     /// Set content. Returns the updated summary.
-    ///
-    /// If the summary was sent to the summary channel, it will be updated.
-    pub(crate) fn set_note(&self, note: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let summary = Summary {
-            id: self.id,
-            note,
-            create_date: self.create_date,
-            messages_id: self.messages_id.clone(),
-        };
+    pub(crate) fn set_note(&mut self, note: String) -> Result<Self, Box<dyn std::error::Error>> {
+        self.note = note;
 
-        summary.update()
+        self.update()
     }
 
     /// Generate summary for the meeting. Return the summary of reports and the list of members that were present.
