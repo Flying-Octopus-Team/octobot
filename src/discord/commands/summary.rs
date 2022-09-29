@@ -97,8 +97,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let note = summary.note().to_string();
-    let output = summary.send_summary(ctx, note, true).await?;
+    let output = summary.send_summary(ctx, true).await?;
 
     Ok(output)
 }

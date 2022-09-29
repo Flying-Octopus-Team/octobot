@@ -96,20 +96,6 @@ impl MeetingStatus {
         }
     }
 
-    pub fn change_summary_note(
-        &mut self,
-        summary: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        match self.meeting_data.set_summary_note(summary) {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                let error = format!("Error while changing summary: {}", e);
-                error!("{}", error);
-                Err(error.into())
-            }
-        }
-    }
-
     fn abort_meeting(&self) {
         info!("Removing meeting from the database {:?}", self.meeting_data);
         self.meeting_data.delete().unwrap();
@@ -141,20 +127,10 @@ impl MeetingStatus {
     pub async fn end_meeting(
         ctx: &Context,
         meeting_status: Arc<RwLock<MeetingStatus>>,
-        summary_note: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut meeting = meeting_status.write().await;
 
         meeting.set_is_ongoing(false);
-
-        match meeting.change_summary_note(summary_note) {
-            Ok(_) => {}
-            Err(e) => {
-                let error = format!("Error inserting summary: {}", e);
-                error!("{}", error);
-                return Err(error.into());
-            }
-        }
 
         match meeting.meeting_data.end_meeting(Local::now()) {
             Ok(_) => {}
