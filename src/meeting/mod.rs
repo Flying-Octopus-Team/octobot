@@ -10,7 +10,6 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::database::models::summary::Summary;
 use crate::{
     database::models::{
         meeting::{Meeting, MeetingMembers},
@@ -201,16 +200,6 @@ impl MeetingStatus {
         let meeting = self.meeting();
 
         meeting.remove_member(member)
-    }
-
-    /// Generate summary for the given meeting
-    pub async fn generate_summary(
-        &self,
-        note: String,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let summary = Summary::find_by_id(self.summary_id()).unwrap();
-
-        summary.generate_summary(note).await
     }
 
     /// Loads the next meeting from the database, or defaults to a new meeting.

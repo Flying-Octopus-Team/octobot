@@ -51,12 +51,16 @@ pub async fn handle_interaction_command<'a>(
             Some(option) => match option.name.as_str() {
                 "list" => summary::list_summaries(option),
                 "resend" => summary::resend_summary(ctx, option).await,
+                "preview" => summary::preview_summary(ctx, option).await,
                 _ => {
                     warn!("Unknown summary option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
                 }
             },
-            None => summary::generate_summary(ctx).await,
+            None => {
+                warn!("No summary options");
+                Ok(String::from("No subcommand specified"))
+            }
         },
         "meeting" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
@@ -335,6 +339,26 @@ pub fn create_application_commands(
                             .name("id")
                             .description("Resend summary by ID")
                             .required(true)
+                            .kind(CommandOptionType::String)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("preview")
+                    .description("Sends summary preview with generated member reports and note")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Preview summary by ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("note")
+                            .description("Summary note to be sent")
+                            .required(false)
                             .kind(CommandOptionType::String)
                     })
             })

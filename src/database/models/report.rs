@@ -131,8 +131,11 @@ impl Report {
     }
 
     /// Returns formatted list of reports since last summary.
+    ///
+    /// If the summary is Some and publish is true, it will set the reports as published and set the summary id.
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
+        publish: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut reports = Report::get_unpublished_reports()?;
 
@@ -166,10 +169,11 @@ impl Report {
                 }
                 write!(&mut output, "**{}:** {}", member.name(), report.content)?;
             }
-
-            if let Some(summary) = &summary {
-                report.set_publish()?;
-                report.set_summary_id(summary.id())?;
+            if publish {
+                if let Some(summary) = &summary {
+                    report.set_publish()?;
+                    report.set_summary_id(summary.id())?;
+                }
             }
 
             previous_report = Some(report);
