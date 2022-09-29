@@ -342,6 +342,14 @@ impl Meeting {
 
         Ok(members)
     }
+
+    pub(crate) fn find_by_summary_id(find_id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting::dsl::*;
+
+        Ok(meeting
+            .filter(summary_id.eq(find_id))
+            .get_result(&mut PG_POOL.get()?)?)
+    }
 }
 
 impl MeetingMembers {

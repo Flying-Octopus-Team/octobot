@@ -213,6 +213,10 @@ impl Summary {
 
         summary.update()
     }
+
+    pub(crate) fn note(&self) -> &str {
+        &self.note
+    }
 }
 
 impl Display for Summary {
