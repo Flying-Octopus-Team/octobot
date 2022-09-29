@@ -50,6 +50,7 @@ pub async fn handle_interaction_command<'a>(
         "summary" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
                 "list" => summary::list_summaries(option),
+                "resend" => summary::resend_summary(ctx, option).await,
                 _ => {
                     warn!("Unknown summary option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
@@ -322,6 +323,19 @@ pub fn create_application_commands(
                             .description("Number of summaries per page")
                             .required(false)
                             .kind(CommandOptionType::Integer)
+                    })
+            })
+            .create_option(|option| {
+                option
+                    .name("resend")
+                    .description("Regenerate and resend summary to the channel")
+                    .kind(CommandOptionType::SubCommand)
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("id")
+                            .description("Resend summary by ID")
+                            .required(true)
+                            .kind(CommandOptionType::String)
                     })
             })
     });
