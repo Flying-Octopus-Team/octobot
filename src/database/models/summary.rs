@@ -148,52 +148,53 @@ impl Summary {
 
         if summary.is_empty() {
             info!("Generated empty summary");
-            Ok("Summary is empty. Nothing was sent".to_string())
-        } else {
-            let messages = split_message(summary)?;
+            return Ok("Summary is empty. Nothing was sent".to_string());
+        }
+        let messages = split_message(summary)?;
 
-            let channel_id = SETTINGS.summary_channel;
+        let channel_id = SETTINGS.summary_channel;
 
-            if resend {
-                // edit old messages only if there are the same number of messages
-                if let Some(messages_id) = meeting_status.summary_messages_id() {
-                    if messages_id.len() == messages.len() {
-                        for (message_id, message) in messages_id.iter().zip(messages.iter()) {
-                            channel_id
-                                .edit_message(&ctx.http, message_id.parse::<u64>().unwrap(), |m| {
-                                    m.content(message)
-                                })
-                                .await
-                                .map_err(|e| format!("Error editing summary: {}", e))?;
-                        }
-                    } else {
-                        // if there are different number of messages, return message notifying about it
-                        return Err(
+        if resend {
+            // edit old messages only if there are the same number of messages
+            if let Some(messages_id) = meeting_status.summary_messages_id() {
+                if messages_id.len() == messages.len() {
+                    for (message_id, message) in messages_id.iter().zip(messages.iter()) {
+                        channel_id
+                            .edit_message(&ctx.http, message_id.parse::<u64>().unwrap(), |m| {
+                                m.content(message)
+                            })
+                            .await
+                            .map_err(|e| format!("Error editing summary: {}", e))?;
+                    }
+                } else {
+                    // if there are different number of messages, return message notifying about it
+                    return Err(
                             "New summary is too long to fit in the old messages. Summary was not edited"
                                 .into(),
                         );
-                    }
                 }
             } else {
-                let mut messages_id = Vec::new();
-                for message in messages {
-                    let message_id = channel_id
-                        .say(&ctx.http, message)
-                        .await
-                        .map_err(|e| format!("Error sending summary: {}", e))?
-                        .id
-                        .0;
-                    messages_id.push(message_id.to_string());
-                }
-
-                match meeting_status.set_summary_messages_id(messages_id) {
-                    Ok(_) => {}
-                    Err(e) => return Err(format!("Error saving summary: {}", e).into()),
-                }
+                return Err("No previous summary messages to resend to".into());
+            }
+        } else {
+            let mut messages_id = Vec::new();
+            for message in messages {
+                let message_id = channel_id
+                    .say(&ctx.http, message)
+                    .await
+                    .map_err(|e| format!("Error sending summary: {}", e))?
+                    .id
+                    .0;
+                messages_id.push(message_id.to_string());
             }
 
-            Ok("Summary was generated and sent to the channel".to_string())
+            match meeting_status.set_summary_messages_id(messages_id) {
+                Ok(_) => {}
+                Err(e) => return Err(format!("Error saving summary: {}", e).into()),
+            }
         }
+
+        Ok("Summary was generated and sent to the channel".to_string())
     }
 
     pub(crate) fn messages_id(&self) -> Option<Vec<String>> {
