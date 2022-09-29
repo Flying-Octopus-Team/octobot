@@ -131,7 +131,6 @@ impl Report {
     }
 
     /// Returns formatted list of reports since last summary.
-    /// To not publish reports, set publish to false.
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
     ) -> Result<String, Box<dyn std::error::Error>> {

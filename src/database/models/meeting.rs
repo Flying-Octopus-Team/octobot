@@ -120,7 +120,7 @@ impl Meeting {
 
     /// Set summary note
     pub fn set_summary_note(&mut self, note: String) -> Result<(), Box<dyn std::error::Error>> {
-        let summary = Summary::find_by_id(self.summary_id)?;
+        let mut summary = Summary::find_by_id(self.summary_id)?;
         summary.set_note(note)?;
 
         Ok(())
