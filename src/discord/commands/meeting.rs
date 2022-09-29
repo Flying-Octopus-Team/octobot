@@ -33,12 +33,13 @@ pub(crate) async fn end_meeting(
     let rw_lock_read_guard = meeting_status.read().await;
 
     let meeting = Meeting::find_by_id(rw_lock_read_guard.meeting_id())?;
-    let summary = Summary::find_by_id(meeting.summary_id())?;
+    let mut summary = Summary::find_by_id(meeting.summary_id())?;
 
-    let summary_result = summary.send_summary(ctx, note.clone(), false).await?;
+    summary.set_note(note.clone())?;
+    let summary_result = summary.send_summary(ctx, false).await?;
     drop(rw_lock_read_guard);
 
-    MeetingStatus::end_meeting(ctx, meeting_status, note).await?;
+    MeetingStatus::end_meeting(ctx, meeting_status).await?;
 
     Ok(summary_result)
 }
@@ -157,47 +158,36 @@ pub(crate) async fn set_note(
     let data_read = ctx.data.read().await;
     let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
     let meeting_status = meeting_status.clone();
-    let mut meeting_status = meeting_status.write().await;
+    let meeting_status = meeting_status.read().await;
 
     if let Some(new_note) = find_option_as_string(&option.options, "note") {
         output.push_str("Meeting summary changed to ");
         output.push_str(&new_note);
 
-        if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
-            let meeting_id = Uuid::parse_str(&meeting).unwrap();
-            let mut meeting = Meeting::find_by_id(meeting_id).unwrap();
-            meeting.set_summary_note(new_note.clone()).unwrap();
-
-            let summary = Summary::find_by_id(meeting.summary_id())?;
-
-            match summary.send_summary(ctx, new_note, true).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let error = format!("Error sending summary: {}", e);
-                    error!("{}", error);
-                    return Err(error.into());
-                }
-            }
+        let meeting = if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
+            let meeting_id = Uuid::parse_str(&meeting)?;
+            Meeting::find_by_id(meeting_id)?
         } else {
-            match meeting_status.change_summary_note(new_note.clone()) {
-                Ok(_) => {}
-                Err(e) => {
-                    let error_msg = format!("Error changing meeting summary: {}", e);
-                    error!("{}", error_msg);
-                    return Err(error_msg.into());
-                }
+            Meeting::find_by_id(meeting_status.meeting_id())?
+        };
+
+        let mut summary = Summary::find_by_id(meeting.summary_id())?;
+
+        match summary.set_note(new_note) {
+            Ok(_) => {}
+            Err(e) => {
+                let error_msg = format!("Error changing summary note: {}", e);
+                error!("{}", error_msg);
+                return Err(error_msg.into());
             }
+        }
 
-            let meeting = Meeting::find_by_id(meeting_status.meeting_id())?;
-            let summary = Summary::find_by_id(meeting.summary_id())?;
-
-            match summary.send_summary(ctx, new_note, true).await {
-                Ok(_) => {}
-                Err(e) => {
-                    let error = format!("Error sending summary: {}", e);
-                    error!("{}", error);
-                    return Err(error.into());
-                }
+        match summary.send_summary(ctx, true).await {
+            Ok(_) => {}
+            Err(e) => {
+                let error = format!("Error sending summary: {}", e);
+                error!("{}", error);
+                return Err(error.into());
             }
         }
     } else {

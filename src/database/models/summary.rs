@@ -143,10 +143,9 @@ impl Summary {
     pub(crate) async fn send_summary(
         self,
         ctx: &Context,
-        note: String,
         resend: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let summary = self.generate_summary(note, true).await?;
+        let summary = self.generate_summary(self.note().to_string(), true).await?;
 
         if summary.is_empty() {
             info!("Generated empty summary");
