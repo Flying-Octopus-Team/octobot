@@ -10,18 +10,34 @@ use crate::{
     meeting::MeetingStatus,
 };
 
-pub(crate) async fn generate_summary(ctx: &Context) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Generating summary");
+pub(crate) async fn preview_summary(
+    ctx: &Context,
+    option: &CommandDataOption,
+) -> Result<String, Box<dyn std::error::Error>> {
+    info!("Generating summary preview");
 
-    let read = ctx.data.read().await;
-    let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
-    let meeting_status = meeting_status.write().await;
+    let note = {
+        match find_option_as_string(&option.options[..], "note") {
+            Some(note) => note,
+            None => String::new(),
+        }
+    };
 
-    let summary = meeting_status.generate_summary("".to_string()).await?;
+    let summary = if let Some(summary_id) = find_option_as_string(&option.options[..], "id") {
+        Summary::find_by_id(uuid::Uuid::parse_str(&summary_id)?)?
+    } else {
+        let read = ctx.data.read().await;
+        let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
+        let meeting_status = meeting_status.write().await;
+
+        Summary::find_by_id(meeting_status.summary_id())?
+    };
+
+    let summary = summary.generate_summary(note, false).await?;
 
     if summary.is_empty() {
         info!("Generated empty summary");
-        Ok("Summary is empty. Nothing was sent".to_string())
+        Ok("Summary is empty".to_string())
     } else {
         Ok(summary)
     }

@@ -98,9 +98,14 @@ impl Summary {
     /// Generate summary for the meeting. Return the summary of reports and the list of members that were present.
     pub(crate) async fn generate_summary(
         &self,
-        note: String,
+        mut note: String,
+        publish: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut summary = String::new();
+
+        if note.is_empty() {
+            note = self.note().to_string();
+        }
 
         let meeting = Meeting::find_by_summary_id(self.id)?;
 
@@ -124,7 +129,8 @@ impl Summary {
 
         summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
         let save_summary = Summary::find_by_id(meeting.summary_id())?;
-        summary.push_str(&Report::report_summary(Some(save_summary)).await?);
+
+        summary.push_str(&Report::report_summary(Some(save_summary), publish).await?);
 
         summary.push_str("\n**Notatka ze spotkania:**\n");
         summary.push_str(&note);
@@ -140,7 +146,7 @@ impl Summary {
         note: String,
         resend: bool,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let summary = self.generate_summary(note).await?;
+        let summary = self.generate_summary(note, true).await?;
 
         if summary.is_empty() {
             info!("Generated empty summary");
