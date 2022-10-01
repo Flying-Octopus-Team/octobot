@@ -12,6 +12,7 @@ pub struct Settings {
     pub discord_token: String,
     pub database_url: String,
     pub member_role_id: RoleId,
+    pub apprentice_role_id: RoleId,
     pub server_id: GuildId,
     pub meeting: Meeting,
     pub summary_channel: ChannelId,
