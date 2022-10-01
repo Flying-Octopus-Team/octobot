@@ -136,6 +136,8 @@ pub async fn update_member(
                 return Err(error_msg.into());
             }
         }
+    } else {
+        updated_member.set_name(old_member.name().to_string())?;
     }
 
     let updated_member = updated_member.update()?;
