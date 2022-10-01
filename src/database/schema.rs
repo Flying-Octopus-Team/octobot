@@ -24,6 +24,7 @@ table! {
         discord_id -> Nullable<Text>,
         trello_id -> Nullable<Text>,
         trello_report_card_id -> Nullable<Text>,
+        is_apprentice -> Bool,
     }
 }
 

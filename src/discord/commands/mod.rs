@@ -102,21 +102,21 @@ pub fn create_application_commands(
                     .kind(CommandOptionType::SubCommand)
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("discord_id")
+                            .name("discord-id")
                             .description("Add member by their Discord ID")
                             .required(true)
                             .kind(CommandOptionType::User)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("trello_id")
+                            .name("trello-id")
                             .description("Add member by their Trello ID")
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("trello_report_card_id")
+                            .name("trello-report-card-id")
                             .description("Add member by their Trello Report Card ID")
                             .required(false)
                             .kind(CommandOptionType::String)
@@ -127,6 +127,15 @@ pub fn create_application_commands(
                             .description("Display name of the member")
                             .required(false)
                             .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("is-apprentice")
+                            .description(
+                                "Sets whether member is apprentice or not. Defaults to false",
+                            )
+                            .required(false)
+                            .kind(CommandOptionType::Boolean)
                     })
             })
             .create_option(|option| {
@@ -183,24 +192,31 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("discord_id")
+                            .name("discord-id")
                             .description("Update member's Discord ID")
                             .required(false)
                             .kind(CommandOptionType::User)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("trello_id")
+                            .name("trello-id")
                             .description("Update member's Trello ID")
                             .required(false)
                             .kind(CommandOptionType::String)
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("trello_report_card_id")
+                            .name("trello-report-card-id")
                             .description("Update member's Trello Report Card ID")
                             .required(false)
                             .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("is-apprentice")
+                            .description("Sets whether member is apprentice or not")
+                            .required(false)
+                            .kind(CommandOptionType::Boolean)
                     })
             })
     });
