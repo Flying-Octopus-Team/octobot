@@ -148,7 +148,7 @@ pub async fn update_member(
             }
         }
     } else {
-        updated_member.set_name(old_member.name().to_string())?;
+        updated_member.set_name(old_member.name())?;
     }
 
     let updated_member = updated_member.update()?;
