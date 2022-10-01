@@ -41,10 +41,15 @@ pub async fn add_member(
         };
 
         let guild_id = *command.guild_id.unwrap().as_u64();
-        ctx.http
-            .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-            .await
-            .unwrap();
+        if member.is_apprentice() {
+            ctx.http
+                .add_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+                .await?;
+        } else {
+            ctx.http
+                .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
+                .await?;
+        }
     }
 
     // check if member is already in the database
@@ -110,6 +115,10 @@ pub async fn remove_member(
             .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
             .await
             .unwrap();
+        ctx.http
+            .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+            .await
+            .unwrap();
     }
 
     member.delete()?;
@@ -144,22 +153,35 @@ pub async fn update_member(
 
     let updated_member = updated_member.update()?;
 
-    if old_member.discord_id() != updated_member.discord_id() {
-        if old_member.discord_id().is_some() {
-            let user_id = old_member.discord_id().unwrap().parse().unwrap();
-            let guild_id = *command.guild_id.unwrap().as_u64();
+    if old_member.discord_id() != updated_member.discord_id() && old_member.discord_id().is_some() {
+        let user_id = old_member.discord_id().unwrap().parse().unwrap();
+        let guild_id = *command.guild_id.unwrap().as_u64();
+        ctx.http
+            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
+            .await
+            .unwrap();
+        ctx.http
+            .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+            .await
+            .unwrap();
+    }
+    if updated_member.discord_id().is_some() {
+        let user_id = updated_member.discord_id().unwrap().parse().unwrap();
+        let guild_id = *command.guild_id.unwrap().as_u64();
+        if updated_member.is_apprentice() {
+            ctx.http
+                .add_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+                .await?;
             ctx.http
                 .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await
-                .unwrap();
-        }
-        if updated_member.discord_id().is_some() {
-            let user_id = updated_member.discord_id().unwrap().parse().unwrap();
-            let guild_id = *command.guild_id.unwrap().as_u64();
+                .await?;
+        } else {
             ctx.http
                 .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await
-                .unwrap();
+                .await?;
+            ctx.http
+                .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+                .await?;
         }
     }
 
