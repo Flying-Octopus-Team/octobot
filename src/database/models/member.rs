@@ -6,6 +6,7 @@ use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
+use crate::discord::find_option_value;
 use crate::SETTINGS;
 use diesel::QueryDsl;
 use diesel::Table;
@@ -22,6 +23,7 @@ pub struct Member {
     discord_id: Option<String>,
     trello_id: Option<String>,
     trello_report_card_id: Option<String>,
+    is_apprentice: bool,
 }
 
 impl Member {
@@ -30,6 +32,7 @@ impl Member {
         discord_id: Option<String>,
         trello_id: Option<String>,
         trello_report_card_id: Option<String>,
+        is_apprentice: bool,
     ) -> Member {
         Member {
             id: Uuid::new_v4(),
@@ -37,6 +40,7 @@ impl Member {
             discord_id,
             trello_id,
             trello_report_card_id,
+            is_apprentice,
         }
     }
 
@@ -159,6 +163,10 @@ impl Member {
             }
         }
     }
+
+    pub(crate) fn is_apprentice(&self) -> bool {
+        self.is_apprentice
+    }
 }
 
 impl Display for Member {
@@ -181,8 +189,8 @@ impl Display for Member {
         };
         write!(
             f,
-            "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}",
-            self.display_name, self.id, discord_id, trello_id, trello_report_card_id
+            "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Apprentice: {}",
+            self.display_name, self.id, discord_id, trello_id, trello_report_card_id, self.is_apprentice
         )
     }
 }
@@ -199,12 +207,16 @@ impl From<&[CommandDataOption]> for Member {
             Some(id) => Uuid::parse_str(&id).unwrap(),
             None => Uuid::new_v4(),
         };
-        let discord_id = find_option_as_string(options, "discord_id");
-        let trello_id = find_option_as_string(options, "trello_id");
-        let trello_report_card_id = find_option_as_string(options, "trello_report_card");
-        let display_name = match find_option_as_string(options, "display_name") {
+        let discord_id = find_option_as_string(options, "discord-id");
+        let trello_id = find_option_as_string(options, "trello-id");
+        let trello_report_card_id = find_option_as_string(options, "trello-report-card");
+        let display_name = match find_option_as_string(options, "display-name") {
             Some(display_name) => display_name,
             None => "None".to_string(),
+        };
+        let is_apprentice = match find_option_value(options, "is-apprentice") {
+            Some(is_apprentice) => is_apprentice.as_bool().unwrap(),
+            None => false,
         };
 
         Member {
@@ -213,6 +225,7 @@ impl From<&[CommandDataOption]> for Member {
             discord_id,
             trello_id,
             trello_report_card_id,
+            is_apprentice,
         }
     }
 }

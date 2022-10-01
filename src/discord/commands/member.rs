@@ -55,10 +55,12 @@ pub async fn add_member(
             "Member with this Discord ID already exists in the database with the following information:
             Name: {}
             Discord ID: {}
-            UUID: {}",
+            UUID: {}
+            Apprentice: {}",
             member.name(),
             member.discord_id().unwrap(),
-            member.id()
+            member.id(),
+            member.is_apprentice()
         )?;
         return Ok(msg);
     }
