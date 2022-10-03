@@ -219,6 +219,10 @@ impl Summary {
     pub(crate) fn note(&self) -> &str {
         &self.note
     }
+
+    pub(crate) fn is_published(&self) -> bool {
+        self.messages_id.is_some()
+    }
 }
 
 impl Display for Summary {

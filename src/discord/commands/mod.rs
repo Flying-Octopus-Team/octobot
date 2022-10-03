@@ -33,7 +33,7 @@ pub async fn handle_interaction_command<'a>(
         },
         "report" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
-                "add" => report::add_report(command, option),
+                "add" => report::add_report(ctx, command, option).await,
                 "remove" => report::remove_report(option),
                 "list" => report::list_reports(option),
                 "update" => report::update_report(option),
@@ -243,6 +243,13 @@ pub fn create_application_commands(
                             .description("Add report for member")
                             .required(false)
                             .kind(CommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("summary")
+                            .description("Add report for summary")
+                            .required(false)
+                            .kind(CommandOptionType::String)
                     })
             })
             .create_option(|option| {

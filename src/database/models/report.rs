@@ -110,7 +110,7 @@ impl Report {
         }
     }
 
-    fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
         self.summary_id = Some(id);
         match self.update() {
             Ok(report) => Ok(report),

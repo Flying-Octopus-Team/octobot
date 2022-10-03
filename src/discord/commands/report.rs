@@ -1,14 +1,18 @@
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::prelude::Context;
 use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::database::models::summary::Summary;
 use crate::database::models::{member::Member, report::Report};
+use crate::discord::find_option_as_string;
 
 use super::find_option_value;
 
-pub(crate) fn add_report(
+pub(crate) async fn add_report(
+    ctx: &Context,
     command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -25,11 +29,9 @@ pub(crate) fn add_report(
             .to_string(),
     };
 
-    let find_by_discord_id = Member::find_by_discord_id(member_dc_id);
-    let member = if let Err(why) = find_by_discord_id {
-        return Ok(format!("Member not found in the database: {}", why));
-    } else {
-        find_by_discord_id?
+    let member = match Member::find_by_discord_id(member_dc_id) {
+        Ok(member) => member,
+        Err(why) => return Ok(format!("Member not found in the database: {}", why)),
     };
 
     let content = match find_option_value(&option.options[..], "content") {
@@ -37,7 +39,24 @@ pub(crate) fn add_report(
         None => return Ok("No content specified".to_string()),
     };
 
-    let report = Report::insert(member.id(), content)?;
+    let summary = match find_option_as_string(&option.options[..], "summary") {
+        Some(meeting) => Some(uuid::Uuid::parse_str(&meeting)?),
+        None => None,
+    };
+
+    let mut report = Report::insert(member.id(), content)?;
+
+    if let Some(summary) = summary {
+        let summary = Summary::find_by_id(summary)?;
+
+        report.set_summary_id(summary.id())?;
+
+        if summary.is_published() {
+            report.set_publish()?;
+        }
+
+        summary.send_summary(ctx, true).await?;
+    }
 
     info!("Report added: {:?}", report);
 
