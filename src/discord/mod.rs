@@ -109,12 +109,15 @@ impl EventHandler for Handler {
 
         debug!("{:?}", guild_command);
 
-        let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
+        // insert new meeting only when, there's no another one
+        if let None = ctx.data.read().await.get::<MeetingStatus>() {
+            let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
 
-        ctx.data
-            .write()
-            .await
-            .insert::<MeetingStatus>(meeting_status);
+            ctx.data
+                .write()
+                .await
+                .insert::<MeetingStatus>(meeting_status);
+        }
     }
 }
 
