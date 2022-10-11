@@ -110,7 +110,7 @@ impl EventHandler for Handler {
         debug!("{:?}", guild_command);
 
         // insert new meeting only when, there's no another one
-        if let None = ctx.data.read().await.get::<MeetingStatus>() {
+        if ctx.data.read().await.get::<MeetingStatus>().is_none() {
             let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
 
             ctx.data
