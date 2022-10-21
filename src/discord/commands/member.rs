@@ -2,12 +2,10 @@ use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use std::fmt::Write;
-use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
 use crate::database::models::member::Member as DbMember;
-use crate::discord::find_option_as_string;
 use crate::framework::member::Member;
 use crate::framework::member::MemberBuilder;
 use crate::SETTINGS;

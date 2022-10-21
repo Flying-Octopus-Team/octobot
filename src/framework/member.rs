@@ -368,7 +368,7 @@ impl MemberBuilder {
                 Some(discord_user) => discord_user
                     .nick_in(cache_http, SETTINGS.server_id)
                     .await
-                    .unwrap_or(discord_user.name.clone()),
+                    .unwrap_or_else(|| discord_user.name.clone()),
                 None => String::from("None"),
             },
         };
