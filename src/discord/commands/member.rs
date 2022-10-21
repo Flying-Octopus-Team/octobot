@@ -20,76 +20,13 @@ pub async fn add_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
-    let member = DbMember::from(&option.options[..]);
-    let mut new_name = String::new();
-    if member.discord_id().is_some() {
-        let user_id = member.discord_id().unwrap().parse().unwrap();
 
-        let dc_member = match ctx.cache.member(SETTINGS.server_id, user_id) {
-            Some(dc_member) => dc_member,
-            None => {
-                let error_msg = format!("Member not found in the guild: {}", user_id);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        };
+    let member = MemberBuilder::from(option);
+    member.check_for_duplicates(ctx).await?;
 
-        new_name = if let Some(name) = find_option_as_string(&option.options[..], "name") {
-            name
-        } else {
-            match dc_member.nick {
-                Some(name) => name,
-                None => dc_member.user.name,
-            }
-        };
-
-        let guild_id = *command.guild_id.unwrap().as_u64();
-        if member.is_apprentice() {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-                .await?;
-        } else {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await?;
-        }
-    }
-
-    // check if member is already in the database
-    if let Ok(member) = DbMember::find_by_discord_id(member.discord_id().unwrap()) {
-        let mut msg = String::new();
-        write!(
-            msg,
-            "Member with this Discord ID already exists in the database with the following information:
-            Name: {}
-            Discord ID: {}
-            UUID: {}
-            Apprentice: {}",
-            member.name(),
-            member.discord_id().unwrap(),
-            member.id(),
-            member.is_apprentice()
-        )?;
-        return Ok(msg);
-    }
-
-    let mut member = match member.insert() {
-        Ok(member) => member,
-        Err(e) => {
-            let error_msg = format!("Failed to insert member into database: {}", e);
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    };
-
-    match member.set_name(new_name) {
-        Ok(_) => {}
-        Err(why) => {
-            let error_msg = format!("Failed to update member name: {}", why);
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    }
+    let mut member = member.build(ctx).await;
+    member.insert()?;
+    member.setup(ctx).await?;
 
     info!("Member added: {:?}", member);
 

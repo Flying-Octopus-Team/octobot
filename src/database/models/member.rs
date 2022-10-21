@@ -126,6 +126,18 @@ impl Member {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
+    pub(crate) fn find_by_trello_id(
+        find_id: impl Into<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        use crate::database::schema::member::dsl::*;
+
+        let find_id = find_id.into();
+
+        Ok(member
+            .filter(trello_id.eq(find_id))
+            .get_result(&mut PG_POOL.get()?)?)
+    }
+
     pub fn discord_id(&self) -> Option<&String> {
         self.discord_id.as_ref()
     }

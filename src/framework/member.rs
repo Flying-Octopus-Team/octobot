@@ -122,9 +122,14 @@ impl Member {
                 MemberRole::Normal
             },
         };
-        let db_member = DbMember::from(member.clone());
-        db_member.insert()?;
+        member.insert()?;
         Ok(member)
+    }
+
+    pub(crate) fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let db_member = DbMember::from(self.clone());
+        db_member.insert()?;
+        Ok(())
     }
 
     // Updates the member's information in the services
@@ -244,12 +249,41 @@ impl Member {
         })
     }
 
+    // Get member from the database by their discord id
+    pub(crate) async fn get_by_discord_id(
+        discord_id: u64,
+        cache_http: impl CacheHttp,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let db_member = DbMember::find_by_discord_id(format!("{}", discord_id))?;
+
+        Self::from_db_member(cache_http, db_member).await
+    }
+
+    async fn get_by_trello_id(
+        trello_id: &str,
+        cache_http: impl CacheHttp,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let db_member = DbMember::find_by_trello_id(trello_id)?;
+
+        Self::from_db_member(cache_http, db_member).await
+    }
+
     async fn swap_roles(
         &mut self,
         role: MemberRole,
         cache_http: &impl CacheHttp,
     ) -> Result<(), Box<dyn std::error::Error>> {
         role.swap_roles(self, cache_http).await
+    }
+
+    /// Set users Discord roles to match their member role
+    /// This is should be called when a member is created
+    pub(crate) async fn setup(
+        &mut self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let role = self.member_role;
+        role.add_role(self, cache_http).await
     }
 }
 
@@ -317,22 +351,72 @@ impl MemberBuilder {
         }
     }
 
-    pub(crate) async fn build(self, cache_http: impl CacheHttp) -> Member {
+    pub(crate) async fn build(self, cache_http: &impl CacheHttp) -> Member {
+        let discord_user = match &self.discord_id {
+            Some(discord_id) => Some(
+                UserId::from(discord_id.parse::<u64>().unwrap())
+                    .to_user(cache_http)
+                    .await
+                    .unwrap(),
+            ),
+            None => None,
+        };
+
+        let display_name = match self.display_name {
+            Some(display_name) => display_name,
+            None => match &discord_user {
+                Some(discord_user) => discord_user
+                    .nick_in(cache_http, SETTINGS.server_id)
+                    .await
+                    .unwrap_or(discord_user.name.clone()),
+                None => String::from("None"),
+            },
+        };
+
         Member {
             id: Uuid::new_v4(),
-            display_name: self.display_name.unwrap(),
-            discord_user: match &self.discord_id {
-                Some(discord_id) => Some(
-                    UserId::from(discord_id.parse::<u64>().unwrap())
-                        .to_user(cache_http)
-                        .await
-                        .unwrap(),
-                ),
-                None => None,
-            },
+            display_name,
+            discord_user,
             trello_id: self.trello_id,
             trello_report_card_id: self.trello_report_card_id,
-            member_role: self.member_role.unwrap(),
+            member_role: match self.member_role {
+                Some(member_role) => member_role,
+                None => MemberRole::Normal,
+            },
+        }
+    }
+
+    pub(crate) async fn check_for_duplicates(
+        &self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut duplicate = false;
+        let mut duplicate_message = String::from("Duplicate members found: ");
+
+        if let Some(discord_id) = &self.discord_id {
+            match Member::get_by_discord_id(discord_id.parse::<u64>().unwrap(), cache_http).await {
+                Ok(member) => {
+                    duplicate = true;
+                    duplicate_message.push_str(&format!("{} ", member.display_name));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        if let Some(trello_id) = &self.trello_id {
+            match Member::get_by_trello_id(trello_id, cache_http).await {
+                Ok(member) => {
+                    duplicate = true;
+                    duplicate_message.push_str(&format!("{} ", member.display_name));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        if duplicate {
+            Err(duplicate_message.into())
+        } else {
+            Ok(())
         }
     }
 

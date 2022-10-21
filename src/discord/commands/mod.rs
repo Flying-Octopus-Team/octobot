@@ -123,7 +123,7 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("name")
+                            .name("display-name")
                             .description("Display name of the member")
                             .required(false)
                             .kind(CommandOptionType::String)
@@ -213,7 +213,7 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("name")
+                            .name("display-name")
                             .description("Display name of the member")
                             .required(false)
                             .kind(CommandOptionType::String)
