@@ -20,7 +20,7 @@ pub async fn handle_interaction_command<'a>(
                 "add" => member::add_member(ctx, command, option).await,
                 "remove" => member::remove_member(ctx, command, option).await,
                 "update" => member::update_member(ctx, command, option).await,
-                "list" => member::list_members(option),
+                "list" => member::list_members(ctx, option).await,
                 _ => {
                     warn!("Unknown member option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))
@@ -169,6 +169,34 @@ pub fn create_application_commands(
                             .description("Number of members per page")
                             .required(false)
                             .kind(CommandOptionType::Integer)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("discord-id")
+                            .description("Filter by Discord ID")
+                            .required(false)
+                            .kind(CommandOptionType::User)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello-id")
+                            .description("Filter by Trello ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("trello-report-card-id")
+                            .description("Filter by Trello Report Card ID")
+                            .required(false)
+                            .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("is-apprentice")
+                            .description("Filter by apprentices")
+                            .required(false)
+                            .kind(CommandOptionType::Boolean)
                     })
             })
             .create_option(|option| {

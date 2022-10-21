@@ -12,12 +12,12 @@ use crate::SETTINGS;
 
 pub mod models;
 pub mod pagination;
-mod schema;
+pub(crate) mod schema;
 
 pub type PgPool = Pool<ConnectionManager<PgConnection>>;
 
 lazy_static! {
-    static ref PG_POOL: PgPool = {
+    pub static ref PG_POOL: PgPool = {
         let manager = ConnectionManager::<PgConnection>::new(&SETTINGS.database_url);
         info!("Connecting to database");
         Pool::new(manager).expect("Failed to create pool.")

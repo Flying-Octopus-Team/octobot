@@ -12,6 +12,7 @@ use tracing_subscriber::{
 
 mod database;
 mod discord;
+mod framework;
 mod meeting;
 mod settings;
 

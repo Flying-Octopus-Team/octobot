@@ -1,3 +1,5 @@
+use crate::database::pagination::Paginated;
+use crate::database::schema::member::BoxedQuery;
 use std::fmt::Display;
 
 use crate::database::pagination::Paginate;
@@ -8,22 +10,42 @@ use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
 use crate::SETTINGS;
+use diesel::pg::Pg;
 use diesel::QueryDsl;
-use diesel::Table;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
 
-#[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Eq)]
+type AllColumns = (
+    member::id,
+    member::display_name,
+    member::discord_id,
+    member::trello_id,
+    member::trello_report_card_id,
+    member::is_apprentice,
+);
+
+const ALL_COLUMNS: AllColumns = (
+    member::id,
+    member::display_name,
+    member::discord_id,
+    member::trello_id,
+    member::trello_report_card_id,
+    member::is_apprentice,
+);
+
+type All = diesel::dsl::Select<crate::database::schema::member::table, AllColumns>;
+
+#[derive(Queryable, Identifiable, Insertable, AsChangeset, Selectable, Debug, Eq)]
 #[diesel(table_name = member)]
 pub struct Member {
     id: Uuid,
-    display_name: String,
-    discord_id: Option<String>,
-    trello_id: Option<String>,
-    trello_report_card_id: Option<String>,
-    is_apprentice: bool,
+    pub display_name: String,
+    pub discord_id: Option<String>,
+    pub trello_id: Option<String>,
+    pub trello_report_card_id: Option<String>,
+    pub is_apprentice: bool,
 }
 
 impl Member {
@@ -42,6 +64,10 @@ impl Member {
             trello_report_card_id,
             is_apprentice,
         }
+    }
+
+    pub fn all() -> All {
+        member::table.select(ALL_COLUMNS)
     }
 
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
@@ -64,23 +90,21 @@ impl Member {
             .map(|rows| rows != 0)?)
     }
 
-    pub fn list(
+    /// Paginates the query.
+    ///
+    /// Returns wrapped query in a `Paginated` struct.
+    pub fn paginate(
+        query: BoxedQuery<'_, Pg>,
         page: i64,
         per_page: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
-        use crate::database::schema::member::dsl::*;
-
-        let mut query = member
-            .select(member::all_columns())
-            .into_boxed()
-            .paginate(page);
+    ) -> Paginated<BoxedQuery<'_, Pg>> {
+        let mut query = query.paginate(page);
 
         if let Some(per_page) = per_page {
             query = query.per_page(per_page);
         };
 
-        let (vec, total_pages) = query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
-        Ok((vec, total_pages))
+        query
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
@@ -171,25 +195,24 @@ impl Member {
 
 impl Display for Member {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let discord_id = if let Some(discord_id) = &self.discord_id {
-            discord_id.to_string()
-        } else {
-            "None".to_string()
+        let discord_id = match &self.discord_id {
+            Some(discord_id) => discord_id,
+            None => "None",
         };
-        let trello_id = if let Some(trello_id) = &self.trello_id {
-            trello_id.to_string()
-        } else {
-            "None".to_string()
+
+        let trello_id = match &self.trello_id {
+            Some(trello_id) => trello_id,
+            _ => "None",
         };
-        let trello_report_card_id = if let Some(trello_report_card_id) = &self.trello_report_card_id
-        {
-            trello_report_card_id.to_string()
-        } else {
-            "None".to_string()
+
+        let trello_report_card_id = match &self.trello_report_card_id {
+            Some(trello_report_card_id) => trello_report_card_id,
+            _ => "None",
         };
+
         write!(
             f,
-            "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Apprentice: {}",
+            "Member: {} ({}) Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Apprentice: {}",
             self.display_name, self.id, discord_id, trello_id, trello_report_card_id, self.is_apprentice
         )
     }
@@ -226,6 +249,19 @@ impl From<&[CommandDataOption]> for Member {
             trello_id,
             trello_report_card_id,
             is_apprentice,
+        }
+    }
+}
+
+impl From<crate::framework::member::Member> for Member {
+    fn from(mem: crate::framework::member::Member) -> Self {
+        Self {
+            id: mem.id,
+            display_name: mem.display_name,
+            discord_id: mem.discord_user.map(|user| user.id.to_string()),
+            trello_id: mem.trello_id,
+            trello_report_card_id: mem.trello_report_card_id,
+            is_apprentice: mem.member_role.is_apprentice(),
         }
     }
 }
