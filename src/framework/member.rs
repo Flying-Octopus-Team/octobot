@@ -2,13 +2,14 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     diesel::ExpressionMethods,
-    discord::{find_option_as_string, find_option_value}, SETTINGS,
+    discord::{find_option_as_string, find_option_value},
+    SETTINGS,
 };
 use diesel::{pg::Pg, QueryDsl};
 use serenity::{
     http::CacheHttp,
     model::{
-        prelude::{interaction::application_command::CommandDataOption, UserId, RoleId},
+        prelude::{interaction::application_command::CommandDataOption, RoleId, UserId},
         user::User,
     },
 };
@@ -22,7 +23,7 @@ use crate::database::PG_POOL;
 #[derive(Debug, Clone, Copy)]
 pub enum MemberRole {
     Normal,
-    Apprentice
+    Apprentice,
 }
 
 impl MemberRole {
@@ -33,23 +34,49 @@ impl MemberRole {
         }
     }
 
-    pub(crate) async fn remove_role(&self, member: &mut Member, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn remove_role(
+        &self,
+        member: &mut Member,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let role = self.discord_role();
-        let guild = cache_http.cache().expect("Failed to get cache").guild(SETTINGS.server_id).unwrap();
-        let mut member = guild.member(cache_http.http(), member.discord_user.as_ref().unwrap().id).await.unwrap();
+        let guild = cache_http
+            .cache()
+            .expect("Failed to get cache")
+            .guild(SETTINGS.server_id)
+            .unwrap();
+        let mut member = guild
+            .member(cache_http.http(), member.discord_user.as_ref().unwrap().id)
+            .await
+            .unwrap();
         member.remove_role(cache_http.http(), role).await?;
         Ok(())
     }
 
-    pub(crate) async fn add_role(&self, member: &mut Member, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn add_role(
+        &self,
+        member: &mut Member,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let role = self.discord_role();
-        let guild = cache_http.cache().expect("Failed to get cache").guild(SETTINGS.server_id).unwrap();
-        let mut member = guild.member(cache_http.http(), member.discord_user.as_ref().unwrap().id).await.unwrap();
+        let guild = cache_http
+            .cache()
+            .expect("Failed to get cache")
+            .guild(SETTINGS.server_id)
+            .unwrap();
+        let mut member = guild
+            .member(cache_http.http(), member.discord_user.as_ref().unwrap().id)
+            .await
+            .unwrap();
         member.add_role(cache_http.http(), role).await?;
         Ok(())
     }
 
-    pub(crate) async fn swap_roles(&self, member: &mut Member, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn swap_roles(
+        &self,
+        member: &mut Member,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let old_role = member.member_role;
         old_role.remove_role(member, cache_http).await?;
         self.add_role(member, cache_http).await?;
@@ -89,7 +116,11 @@ impl Member {
             discord_user,
             trello_id,
             trello_report_card_id,
-            member_role: if is_apprentice { MemberRole::Apprentice } else { MemberRole::Normal },
+            member_role: if is_apprentice {
+                MemberRole::Apprentice
+            } else {
+                MemberRole::Normal
+            },
         };
         let db_member = DbMember::from(member.clone());
         db_member.insert()?;
@@ -110,12 +141,22 @@ impl Member {
 
     /// Edits member's information. Does not update the database nor any of the services.
     /// In order to update the database, call `update()`.
-    pub async fn edit(&mut self, builder: MemberBuilder, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn edit(
+        &mut self,
+        builder: MemberBuilder,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(display_name) = builder.display_name {
             self.display_name = display_name;
         }
         if let Some(discord_id) = builder.discord_id {
-            self.discord_user = Some(cache_http.cache().expect("Failed to get cache").user(discord_id.parse::<u64>().unwrap()).unwrap());
+            self.discord_user = Some(
+                cache_http
+                    .cache()
+                    .expect("Failed to get cache")
+                    .user(discord_id.parse::<u64>().unwrap())
+                    .unwrap(),
+            );
         }
         if let Some(trello_id) = builder.trello_id {
             self.trello_id = Some(trello_id);
@@ -168,11 +209,18 @@ impl Member {
             discord_user,
             trello_id: db_member.trello_id,
             trello_report_card_id: db_member.trello_report_card_id,
-            member_role: if db_member.is_apprentice { MemberRole::Apprentice } else { MemberRole::Normal },
+            member_role: if db_member.is_apprentice {
+                MemberRole::Apprentice
+            } else {
+                MemberRole::Normal
+            },
         })
     }
 
-    pub(crate) async fn get(id: Uuid, cache_http: impl CacheHttp) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn get(
+        id: Uuid,
+        cache_http: impl CacheHttp,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let db_member = DbMember::find_by_id(id)?;
         Ok(Self {
             id: db_member.id(),
@@ -187,11 +235,19 @@ impl Member {
             },
             trello_id: db_member.trello_id,
             trello_report_card_id: db_member.trello_report_card_id,
-            member_role: if db_member.is_apprentice { MemberRole::Apprentice } else { MemberRole::Normal },
+            member_role: if db_member.is_apprentice {
+                MemberRole::Apprentice
+            } else {
+                MemberRole::Normal
+            },
         })
     }
 
-    async fn swap_roles(&mut self, role: MemberRole, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    async fn swap_roles(
+        &mut self,
+        role: MemberRole,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         role.swap_roles(self, cache_http).await
     }
 }

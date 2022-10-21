@@ -136,10 +136,15 @@ pub async fn update_member(
     command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Updating member");    
+    info!("Updating member");
     let updated_member = MemberBuilder::from(option);
 
-    let id = Uuid::parse_str(find_option_value(&option.options[..], "id").unwrap().as_str().unwrap())?;
+    let id = Uuid::parse_str(
+        find_option_value(&option.options[..], "id")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+    )?;
 
     let mut old_member = Member::get(id, ctx).await?;
 
