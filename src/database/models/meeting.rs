@@ -16,6 +16,7 @@ use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::diesel::Table;
 use crate::SETTINGS;
+use diesel::query_dsl::SaveChangesDsl;
 
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
@@ -142,9 +143,7 @@ impl Meeting {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn scheduled_cron(&self) -> &str {

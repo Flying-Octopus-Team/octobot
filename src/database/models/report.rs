@@ -5,6 +5,7 @@ use crate::database::schema::report::dsl;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use chrono::NaiveDate;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::{QueryDsl, RunQueryDsl};
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
@@ -53,9 +54,7 @@ impl Report {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {

@@ -11,6 +11,7 @@ use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
 use crate::SETTINGS;
 use diesel::pg::Pg;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::QueryDsl;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
@@ -77,9 +78,7 @@ impl Member {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {

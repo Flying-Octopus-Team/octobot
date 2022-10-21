@@ -8,6 +8,7 @@ use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::discord::split_message;
 use chrono::NaiveDate;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::Table;
 use serenity::prelude::Context;
 use std::fmt::Display;
@@ -45,9 +46,7 @@ impl Summary {
     }
 
     pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
