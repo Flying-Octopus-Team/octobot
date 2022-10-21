@@ -166,6 +166,7 @@ impl Member {
         }
         if let Some(member_role) = builder.member_role {
             self.swap_roles(member_role, cache_http).await.unwrap();
+            self.member_role = member_role;
         }
 
         Ok(())
