@@ -28,6 +28,7 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         debug!(?interaction, "Interaction created");
         if let Interaction::ApplicationCommand(command) = interaction {
+            command.defer(&ctx).await.unwrap();
             let content = match commands::handle_interaction_command(&ctx, &command).await {
                 Ok(content) => content,
                 Err(e) => format!("{:?}", e),
@@ -41,11 +42,9 @@ impl EventHandler for Handler {
             };
 
             match command
-                .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|message| {
-                        message.content(content_chunks.next().unwrap())
+                .edit_original_interaction_response(&ctx.http, |response| {
+                    response.content(content_chunks.next().unwrap())
                     })
-                })
                 .await
                 .map_err(|e| format!("Error sending interaction response: {}", e))
             {
