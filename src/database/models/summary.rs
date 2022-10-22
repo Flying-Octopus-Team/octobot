@@ -1,13 +1,16 @@
+use crate::database::pagination::Paginated;
 use crate::database::schema::summary;
 use crate::database::PG_POOL;
 use crate::SETTINGS;
 
 use crate::database::pagination::Paginate;
+use crate::database::schema::summary::BoxedQuery;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::discord::split_message;
 use chrono::NaiveDate;
+use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
 use diesel::Table;
 use serenity::prelude::Context;
@@ -75,6 +78,16 @@ impl Summary {
         Ok(diesel::delete(summary.filter(id.eq(self.id)))
             .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
+    }
+
+    pub fn paginate(query: BoxedQuery<'_, Pg>, page: i64, per_page: Option<i64>) -> Paginated<BoxedQuery<'_, Pg>> {
+        let mut query = query.paginate(page);
+
+        if let Some(per_page) = per_page {
+            query = query.per_page(per_page);
+        }
+
+        query
     }
 
     pub fn list(
