@@ -20,6 +20,22 @@ use uuid::Uuid;
 use super::meeting::Meeting;
 use super::report::Report;
 
+type AllColumns = (
+    summary::id,
+    summary::note,
+    summary::create_date,
+    summary::messages_id,
+);
+
+const ALL_COLUMNS: AllColumns = (
+    summary::id,
+    summary::note,
+    summary::create_date,
+    summary::messages_id,
+);
+
+type All = diesel::dsl::Select<crate::database::schema::summary::table, AllColumns>;
+
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = summary)]
 pub(crate) struct Summary {
@@ -37,6 +53,10 @@ impl Summary {
             create_date,
             messages_id: None,
         }
+    }
+
+    pub fn all() -> All {
+        summary::table.select(ALL_COLUMNS)
     }
 
     pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
