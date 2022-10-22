@@ -5,10 +5,8 @@ use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::member::Member as DbMember;
 use crate::framework::member::Member;
 use crate::framework::member::MemberBuilder;
-use crate::SETTINGS;
 
 use super::find_option_value;
 
@@ -45,21 +43,11 @@ pub async fn remove_member(
         .unwrap()
         .to_string();
 
-    let member = DbMember::find_by_id(Uuid::parse_str(&id)?)?;
-    if member.discord_id().is_some() {
-        let user_id = member.discord_id().unwrap().parse().unwrap();
-        let guild_id = *command.guild_id.unwrap().as_u64();
-        ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-            .await
-            .unwrap();
-        ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-            .await
-            .unwrap();
-    }
+    let id = Uuid::parse_str(&id)?;
 
-    member.delete()?;
+    let mut member = Member::get(id, ctx).await?;
+
+    member.delete(ctx).await?;
 
     info!("Member removed: {:?}", member);
 

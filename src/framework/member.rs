@@ -144,6 +144,20 @@ impl Member {
         Ok(self)
     }
 
+    pub async fn delete(&mut self, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+        let member = DbMember::from(self.clone());
+
+        match member.delete() {
+            Ok(_) => info!("Deleted member: {}", self.display_name),
+            Err(why) => error!("Failed to delete member: {}", why),
+        }
+
+        let member_role = self.member_role;
+        member_role.remove_role(self, cache_http).await?;
+
+        Ok(())
+    }
+
     /// Edits member's information. Does not update the database nor any of the services.
     /// In order to update the database, call `update()`.
     pub async fn edit(
