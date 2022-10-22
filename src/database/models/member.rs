@@ -17,6 +17,7 @@ use serenity::model::application::interaction::application_command::CommandDataO
 use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
+use diesel::result::OptionalExtension;
 
 type AllColumns = (
     member::id,
@@ -116,26 +117,26 @@ impl Member {
 
     pub fn find_by_discord_id(
         find_id: impl Into<String>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
         let dc_id = find_id.into();
 
         Ok(member
             .filter(discord_id.eq(dc_id))
-            .get_result(&mut PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?).optional()?)
     }
 
     pub(crate) fn find_by_trello_id(
         find_id: impl Into<String>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
         let find_id = find_id.into();
 
         Ok(member
             .filter(trello_id.eq(find_id))
-            .get_result(&mut PG_POOL.get()?)?)
+            .get_result(&mut PG_POOL.get()?).optional()?)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
@@ -168,10 +169,20 @@ impl Member {
         };
 
         let result = match Member::find_by_discord_id(guild_member.user.id.to_string()) {
-            Ok(result) => result,
+            Ok(result) => match result {
+                Some(member) => member,
+                None => {
+                    let error_msg = format!(
+                        "Member not found in database: {}",
+                        member_id
+                    );
+                    error!("{}", error_msg);
+                    return Err(error_msg.into());
+                }
+            },
             Err(why) => {
                 let error_msg = format!(
-                    "Member not found in database: {}\nReason: {}",
+                    "Error while finding member in database: {}\nReason: {}",
                     member_id, why
                 );
                 error!("{}", error_msg);

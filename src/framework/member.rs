@@ -253,19 +253,31 @@ impl Member {
     pub(crate) async fn get_by_discord_id(
         discord_id: u64,
         cache_http: impl CacheHttp,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let db_member = DbMember::find_by_discord_id(format!("{}", discord_id))?;
 
-        Self::from_db_member(cache_http, db_member).await
+        match db_member {
+            Some(db_member) => {
+                let member = Self::from_db_member(cache_http, db_member).await?;
+                Ok(Some(member))
+            }
+            None => Ok(None),
+        }
     }
 
     async fn get_by_trello_id(
         trello_id: &str,
         cache_http: impl CacheHttp,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let db_member = DbMember::find_by_trello_id(trello_id)?;
 
-        Self::from_db_member(cache_http, db_member).await
+        match db_member {
+            Some(db_member) => {
+                let member = Self::from_db_member(cache_http, db_member).await?;
+                Ok(Some(member))
+            }
+            None => Ok(None),
+        }
     }
 
     async fn swap_roles(
@@ -396,8 +408,10 @@ impl MemberBuilder {
         if let Some(discord_id) = &self.discord_id {
             match Member::get_by_discord_id(discord_id.parse::<u64>().unwrap(), cache_http).await {
                 Ok(member) => {
-                    duplicate = true;
-                    duplicate_message.push_str(&format!("{} ", member.display_name));
+                    if let Some(member) = member {
+                        duplicate = true;
+                        duplicate_message.push_str(&format!("{} ", member));
+                    }
                 }
                 Err(err) => return Err(err),
             }
@@ -406,8 +420,10 @@ impl MemberBuilder {
         if let Some(trello_id) = &self.trello_id {
             match Member::get_by_trello_id(trello_id, cache_http).await {
                 Ok(member) => {
-                    duplicate = true;
-                    duplicate_message.push_str(&format!("{} ", member.display_name));
+                    if let Some(member) = member {
+                        duplicate = true;
+                        duplicate_message.push_str(&format!("{} ", member));
+                    }
                 }
                 Err(err) => return Err(err),
             }

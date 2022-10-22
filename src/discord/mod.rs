@@ -81,17 +81,26 @@ impl EventHandler for Handler {
             && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
         {
             match Member::find_by_discord_id(new.user_id.0.to_string()) {
-                Ok(member) => {
-                    let output = match meeting_status.add_member(&member) {
-                        Ok(msg) => msg,
-                        Err(e) => format!("{} could not join the meeting: {}", member.name(), e),
-                    };
-                    info!("{}", output);
+                Ok(member) => match member {
+                    Some(member) => {
+                        let output = match meeting_status.add_member(&member) {
+                            Ok(msg) => msg,
+                            Err(e) => {
+                                format!("{} could not join the meeting: {}", member.name(), e)
+                            }
+                        };
+                        info!("{}", output);
+                    }
+                    None => {
+                        warn!(
+                            "User {} is not member of the organization",
+                            new.user_id.0
+                        );
+                    }
+                },
+                Err(e) => {
+                    error!("Error finding member: {}", e);
                 }
-                Err(e) => warn!(
-                    "User {} is not member of the organization: {:?}",
-                    new.user_id.0, e
-                ),
             }
         }
     }

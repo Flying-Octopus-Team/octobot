@@ -288,7 +288,13 @@ impl MeetingStatus {
             let member = {
                 let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
                 match member_result {
-                    Ok(m) => m,
+                    Ok(m) => match m {
+                        Some(m) => m,
+                        None => {
+                            error!("Member not found in the database");
+                            return Err("Member not found in the database".into());
+                        }
+                    },
                     Err(e) => {
                         error!("Error getting member: {}", e);
                         continue;

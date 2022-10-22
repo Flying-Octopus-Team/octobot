@@ -30,8 +30,14 @@ pub(crate) async fn add_report(
     };
 
     let member = match Member::find_by_discord_id(member_dc_id) {
-        Ok(member) => member,
-        Err(why) => return Ok(format!("Member not found in the database: {}", why)),
+        Ok(option) => {
+            if let Some(member) = option {
+                member
+            } else {
+                return Err("Member not found in the database".into());
+            }
+        },
+        Err(why) => return Err(why.into()),
     };
 
     let content = match find_option_value(&option.options[..], "content") {
@@ -106,10 +112,20 @@ pub(crate) fn list_reports(
 
     let member = find_option_value(&option.options[..], "member").map(|member_id| {
         let member_dc_id = member_id.as_str().unwrap();
-        Member::find_by_discord_id(member_dc_id)
-            .map(|member| member.id())
-            .unwrap() /*Some(member.id())*/
-    });
+        match Member::find_by_discord_id(member_dc_id) {
+            Ok(option) => {
+                if let Some(member) = option {
+                    Some(member.id())
+                } else {
+                    return None;
+                }
+            },
+            Err(why) => {
+                info!("Can't find member with this ID: {why}");
+                None
+            },
+        }
+    }).flatten();
 
     let published = find_option_value(&option.options[..], "published")
         .map(|published| published.as_bool().unwrap());
@@ -150,6 +166,10 @@ pub(crate) fn update_report(
     if let Some(member) = find_option_value(&option.options[..], "member") {
         let member_dc_id = member.as_str().unwrap();
         let member = Member::find_by_discord_id(member_dc_id)?;
+        let member = match member {
+            Some(member) => member,
+            None => return Ok("Can't find member with this ID".to_string()),
+        };
         old_report.member_id = member.id();
     }
 
