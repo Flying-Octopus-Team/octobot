@@ -12,12 +12,12 @@ use crate::discord::find_option_value;
 use crate::SETTINGS;
 use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
+use diesel::result::OptionalExtension;
 use diesel::QueryDsl;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
-use diesel::result::OptionalExtension;
 
 type AllColumns = (
     member::id,
@@ -124,7 +124,8 @@ impl Member {
 
         Ok(member
             .filter(discord_id.eq(dc_id))
-            .get_result(&mut PG_POOL.get()?).optional()?)
+            .get_result(&mut PG_POOL.get()?)
+            .optional()?)
     }
 
     pub(crate) fn find_by_trello_id(
@@ -136,7 +137,8 @@ impl Member {
 
         Ok(member
             .filter(trello_id.eq(find_id))
-            .get_result(&mut PG_POOL.get()?).optional()?)
+            .get_result(&mut PG_POOL.get()?)
+            .optional()?)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
@@ -172,10 +174,7 @@ impl Member {
             Ok(result) => match result {
                 Some(member) => member,
                 None => {
-                    let error_msg = format!(
-                        "Member not found in database: {}",
-                        member_id
-                    );
+                    let error_msg = format!("Member not found in database: {}", member_id);
                     error!("{}", error_msg);
                     return Err(error_msg.into());
                 }

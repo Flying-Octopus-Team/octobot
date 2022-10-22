@@ -44,7 +44,7 @@ impl EventHandler for Handler {
             match command
                 .edit_original_interaction_response(&ctx.http, |response| {
                     response.content(content_chunks.next().unwrap())
-                    })
+                })
                 .await
                 .map_err(|e| format!("Error sending interaction response: {}", e))
             {
@@ -91,10 +91,7 @@ impl EventHandler for Handler {
                         info!("{}", output);
                     }
                     None => {
-                        warn!(
-                            "User {} is not member of the organization",
-                            new.user_id.0
-                        );
+                        warn!("User {} is not member of the organization", new.user_id.0);
                     }
                 },
                 Err(e) => {

@@ -144,7 +144,10 @@ impl Member {
         Ok(self)
     }
 
-    pub async fn delete(&mut self, cache_http: &impl CacheHttp) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn delete(
+        &mut self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let member = DbMember::from(self.clone());
 
         match member.delete() {
