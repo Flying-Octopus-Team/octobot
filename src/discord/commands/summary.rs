@@ -4,9 +4,11 @@ use serenity::{
 use std::fmt::Write;
 use tracing::{info, log::error};
 
+use crate::framework::summary::Summary;
 use crate::{
-    database::models::summary::Summary,
+    database::models::summary::Summary as DbSummary,
     discord::{find_option_as_string, find_option_value},
+    framework::summary::SummaryBuilder,
     meeting::MeetingStatus,
 };
 
@@ -24,13 +26,13 @@ pub(crate) async fn preview_summary(
     };
 
     let summary = if let Some(summary_id) = find_option_as_string(&option.options[..], "id") {
-        Summary::find_by_id(uuid::Uuid::parse_str(&summary_id)?)?
+        DbSummary::find_by_id(uuid::Uuid::parse_str(&summary_id)?)?
     } else {
         let read = ctx.data.read().await;
         let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
         let meeting_status = meeting_status.write().await;
 
-        Summary::find_by_id(meeting_status.summary_id())?
+        DbSummary::find_by_id(meeting_status.summary_id())?
     };
 
     let summary = summary.generate_summary(note, false).await?;
@@ -43,7 +45,8 @@ pub(crate) async fn preview_summary(
     }
 }
 
-pub(crate) fn list_summaries(
+pub(crate) async fn list_summaries(
+    ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing summaries");
@@ -54,7 +57,9 @@ pub(crate) fn list_summaries(
     let page_size = find_option_value(&option.options[..], "page-size")
         .map(|page_size| page_size.as_i64().unwrap());
 
-    let (summaries, total_pages) = Summary::list(page, page_size)?;
+    let summary_filter = SummaryBuilder::try_from(option)?;
+
+    let (summaries, total_pages) = Summary::list(summary_filter, ctx, page, page_size).await?;
 
     let mut output = String::new();
 
@@ -88,7 +93,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let summary = match Summary::find_by_id(id) {
+    let summary = match DbSummary::find_by_id(id) {
         Ok(summary) => summary,
         Err(why) => {
             let error_msg = format!("There's no summary with such ID: {id}. Error: {why}");

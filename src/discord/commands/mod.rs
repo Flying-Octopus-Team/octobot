@@ -49,7 +49,7 @@ pub async fn handle_interaction_command<'a>(
         },
         "summary" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
-                "list" => summary::list_summaries(option),
+                "list" => summary::list_summaries(ctx, option).await,
                 "resend" => summary::resend_summary(ctx, option).await,
                 "preview" => summary::preview_summary(ctx, option).await,
                 _ => {

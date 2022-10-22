@@ -45,7 +45,7 @@ pub(crate) struct Summary {
     id: Uuid,
     note: String,
     create_date: NaiveDate,
-    messages_id: Option<Vec<String>>,
+    pub(crate) messages_id: Option<Vec<String>>,
 }
 
 impl Summary {
@@ -80,7 +80,11 @@ impl Summary {
             .map(|rows| rows != 0)?)
     }
 
-    pub fn paginate(query: BoxedQuery<'_, Pg>, page: i64, per_page: Option<i64>) -> Paginated<BoxedQuery<'_, Pg>> {
+    pub fn paginate(
+        query: BoxedQuery<'_, Pg>,
+        page: i64,
+        per_page: Option<i64>,
+    ) -> Paginated<BoxedQuery<'_, Pg>> {
         let mut query = query.paginate(page);
 
         if let Some(per_page) = per_page {
@@ -254,6 +258,10 @@ impl Summary {
 
     pub(crate) fn is_published(&self) -> bool {
         self.messages_id.is_some()
+    }
+
+    pub(crate) fn create_date(&self) -> NaiveDate {
+        self.create_date
     }
 }
 
