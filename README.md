@@ -74,7 +74,7 @@ Run the bot using cargo
 
 # Contributors
 
-Join our [Discord server](https://discord.gg/Q2DuSNY) to learn more about our plans for this tool and help us develop this tool!
+Join our [Discord server](https://discord.gg/Q2DuSNY) to learn more about our plans and help us develop this tool!
 
 # License 
 
