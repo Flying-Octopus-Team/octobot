@@ -180,7 +180,9 @@ impl Report {
         Ok(output)
     }
 
-    fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn get_by_summary_id(
+        find_id: Uuid,
+    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
         use crate::database::schema::report::dsl::*;
 
         Ok(report

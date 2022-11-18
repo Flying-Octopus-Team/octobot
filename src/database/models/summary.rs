@@ -274,3 +274,20 @@ impl Display for Summary {
         )
     }
 }
+
+impl From<crate::framework::summary::Summary> for Summary {
+    fn from(summary: crate::framework::summary::Summary) -> Self {
+        let messages = summary.messages_id;
+        let messages = if messages.is_empty() {
+            None
+        } else {
+            Some(messages.into_iter().map(|msg| msg.to_string()).collect())
+        };
+        Summary {
+            id: summary.id,
+            note: summary.note,
+            create_date: summary.create_date,
+            messages_id: messages,
+        }
+    }
+}

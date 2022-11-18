@@ -20,7 +20,7 @@ use crate::database::models::member::Member as DbMember;
 use crate::database::schema::member::BoxedQuery;
 use crate::database::PG_POOL;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemberRole {
     Normal,
     Apprentice,
@@ -91,7 +91,7 @@ impl MemberRole {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq)]
 pub(crate) struct Member {
     pub id: Uuid,
     pub display_name: String,
@@ -314,6 +314,10 @@ impl Member {
         let role = self.member_role;
         role.add_role(self, cache_http).await
     }
+
+    pub(crate) fn name(&self) -> String {
+        self.display_name.clone()
+    }
 }
 
 impl Display for Member {
@@ -338,6 +342,12 @@ impl Display for Member {
             "Member: {} ({}) Discord User: {}, Trello ID: {}, Trello Report Card ID: {}, Member Role: {}",
             self.display_name, self.id.simple(), discord_user, trello_id, trello_report_card_id, self.member_role
         )
+    }
+}
+
+impl PartialEq for Member {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
     }
 }
 

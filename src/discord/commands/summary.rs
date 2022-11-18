@@ -1,16 +1,15 @@
-use serenity::{
-    model::prelude::interaction::application_command::CommandDataOption, prelude::Context,
-};
 use std::fmt::Write;
-use tracing::{info, log::error};
 
+use serenity::model::prelude::interaction::application_command::CommandDataOption;
+use serenity::prelude::Context;
+use tracing::info;
+use tracing::log::error;
+
+use crate::discord::find_option_as_string;
+use crate::discord::find_option_value;
 use crate::framework::summary::Summary;
-use crate::{
-    database::models::summary::Summary as DbSummary,
-    discord::{find_option_as_string, find_option_value},
-    framework::summary::SummaryBuilder,
-    meeting::MeetingStatus,
-};
+use crate::framework::summary::SummaryBuilder;
+use crate::meeting::MeetingStatus;
 
 pub(crate) async fn preview_summary(
     ctx: &Context,
@@ -18,24 +17,20 @@ pub(crate) async fn preview_summary(
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Generating summary preview");
 
-    let note = {
-        match find_option_as_string(&option.options[..], "note") {
-            Some(note) => note,
-            None => String::new(),
-        }
-    };
+    let note = find_option_as_string(&option.options[..], "note");
 
     let summary = if let Some(summary_id) = find_option_as_string(&option.options[..], "id") {
-        DbSummary::find_by_id(uuid::Uuid::parse_str(&summary_id)?)?
+        let id = uuid::Uuid::parse_str(&summary_id)?;
+        Summary::get(ctx, id).await?
     } else {
         let read = ctx.data.read().await;
         let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
         let meeting_status = meeting_status.write().await;
 
-        DbSummary::find_by_id(meeting_status.summary_id())?
+        Summary::get(ctx, meeting_status.summary_id()).await?
     };
 
-    let summary = summary.generate_summary(note, false).await?;
+    let summary = summary.generate_summary(ctx, note).await?;
 
     if summary.is_empty() {
         info!("Generated empty summary");
@@ -59,7 +54,7 @@ pub(crate) async fn list_summaries(
 
     let summary_filter = SummaryBuilder::try_from(option)?;
 
-    let (summaries, total_pages) = Summary::list(summary_filter, ctx, page, page_size).await?;
+    let (summaries, total_pages) = Summary::list(ctx, summary_filter, page, page_size).await?;
 
     let mut output = String::new();
 
@@ -93,7 +88,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let summary = match DbSummary::find_by_id(id) {
+    let mut summary = match Summary::get(ctx, id).await {
         Ok(summary) => summary,
         Err(why) => {
             let error_msg = format!("There's no summary with such ID: {id}. Error: {why}");
@@ -102,7 +97,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let output = summary.send_summary(ctx, true).await?;
+    let output = summary.send_summary(ctx).await?;
 
     Ok(output)
 }

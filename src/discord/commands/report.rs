@@ -110,23 +110,18 @@ pub(crate) fn list_reports(
     let page_size =
         find_option_value(&option.options[..], "page-size").map(|v| v.as_i64().unwrap());
 
-    let member = find_option_value(&option.options[..], "member")
-        .and_then(|member_id| {
-            let member_dc_id = member_id.as_str().unwrap();
-            match Member::find_by_discord_id(member_dc_id) {
-                Ok(option) => {
-                    if let Some(member) = option {
-                        Some(member.id())
-                    } else {
-                        None
-                    }
-                }
-                Err(why) => {
-                    info!("Can't find member with this ID: {why}");
-                    None
-                }
+    let member = find_option_value(&option.options[..], "member").and_then(|member_id| {
+        let member_dc_id = member_id.as_str().unwrap();
+        match Member::find_by_discord_id(member_dc_id) {
+            Ok(option) => {
+                option.map(|member| member.id())
             }
-        });
+            Err(why) => {
+                info!("Can't find member with this ID: {why}");
+                None
+            }
+        }
+    });
 
     let published = find_option_value(&option.options[..], "published")
         .map(|published| published.as_bool().unwrap());

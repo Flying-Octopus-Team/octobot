@@ -1,30 +1,36 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Write;
 
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use diesel::ExpressionMethods;
 use diesel::QueryDsl;
-use serde::Serialize;
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::{http::CacheHttp, model::prelude::MessageId};
 use uuid::Uuid;
 
+use crate::database::models::meeting::Meeting;
+use crate::database::models::report::Report;
 use crate::database::models::summary::Summary as DbSummary;
 use crate::database::schema::summary::BoxedQuery;
 use crate::database::PG_POOL;
+use crate::discord::split_message;
+use crate::framework::member::Member;
 use crate::SETTINGS;
 
+#[derive(Clone)]
 pub(crate) struct Summary {
-    id: Uuid,
-    note: String,
-    create_date: NaiveDate,
-    messages_id: Vec<MessageId>,
+    pub id: Uuid,
+    pub note: String,
+    pub create_date: NaiveDate,
+    pub messages_id: Vec<MessageId>,
 }
 
 impl Summary {
     pub async fn list(
-        filter: SummaryBuilder,
         cache_http: &impl CacheHttp,
+        filter: SummaryBuilder,
         page: i64,
         per_page: Option<i64>,
     ) -> Result<(Vec<Summary>, i64), Box<dyn std::error::Error>> {
@@ -84,6 +90,115 @@ impl Summary {
             create_date,
             messages_id: messages,
         })
+    }
+
+    pub(crate) async fn get(
+        cache_http: &impl CacheHttp,
+        id: Uuid,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let db_summary = DbSummary::find_by_id(id)?;
+        Self::from_db_summary(cache_http, db_summary).await
+    }
+
+    pub(crate) async fn generate_summary(
+        &self,
+        cache_http: &impl CacheHttp,
+        note: Option<String>,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut summary = String::new();
+
+        let note = note.unwrap_or_else(|| self.note.clone());
+
+        let date_format = "%d.%m.%Y";
+        write!(
+            summary,
+            "**Raport ze spotkania {}**\n\n",
+            self.create_date.format(date_format)
+        )?;
+
+        summary.push_str("**Na spotkaniu pojawili się:** ");
+        let members = self.members(cache_http).await?;
+
+        for member in &members {
+            summary.push_str(&member.name());
+            if member != members.last().unwrap() {
+                summary.push_str(", ");
+            }
+        }
+
+        summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
+        summary.push_str(&self.generate_reports(cache_http).await?);
+
+        summary.push_str("\n**Notatka ze spotkania:**\n");
+        summary.push_str(&note);
+
+        Ok(summary)
+    }
+
+    async fn members(
+        &self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
+        let meeting = Meeting::find_by_summary_id(self.id)?;
+        let mut members = Vec::new();
+
+        let vec = meeting.members()?;
+
+        for db_member in vec.into_iter() {
+            let member = Member::from_db_member(cache_http, db_member).await?;
+            members.push(member);
+        }
+
+        Ok(members)
+    }
+
+    async fn generate_reports(
+        &self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let mut reports = Report::get_by_summary_id(self.id)?;
+
+        let mut summary = String::new();
+
+        reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
+
+        let mut last_member_id = Uuid::nil();
+        for report in reports {
+            if last_member_id != report.member_id {
+                let member = Member::get(report.member_id, cache_http).await?;
+                summary.push_str(&format!("**{}:**", member.name()));
+            }
+            write!(summary, " {}", report.content)?;
+            last_member_id = report.member_id;
+        }
+
+        Ok(summary)
+    }
+
+    pub(crate) async fn send_summary(
+        &mut self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let summary = self.generate_summary(cache_http, None).await?;
+
+        let messages = split_message(summary)?;
+
+        for message in messages {
+            let channel_id = SETTINGS.summary_channel;
+
+            let message = channel_id.say(cache_http.http(), message).await?;
+
+            self.messages_id.push(message.id);
+        }
+
+        self.update().await?;
+        Ok("Summary was generated and sent to the channel".to_string())
+    }
+
+    async fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let db_summary = DbSummary::from(self.clone());
+        db_summary.update()?;
+        Ok(())
     }
 }
 
