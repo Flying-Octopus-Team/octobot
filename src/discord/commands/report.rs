@@ -118,9 +118,7 @@ pub(crate) async fn list_reports(
         .map(|published| published.as_bool().unwrap());
 
     let mut filter = Report::filter();
-    filter
-        .member_id(member)
-        .published(published);
+    filter.member_id(member).published(published);
 
     let (reports, total_pages) = Report::list(filter, ctx, page, page_size).await?;
 
@@ -161,7 +159,6 @@ pub(crate) async fn update_report(
     }
 
     if let Some(member) = find_option_value(&option.options[..], "member") {
-
         let member_dc_id = member.as_u64().unwrap();
         let member = Member::get_by_discord_id(member_dc_id, ctx).await?;
 

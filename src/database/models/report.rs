@@ -1,7 +1,7 @@
 use crate::database::models::member::Member;
 use crate::database::pagination::{Paginate, Paginated};
-use crate::database::schema::report::{self, BoxedQuery};
 use crate::database::schema::report::dsl;
+use crate::database::schema::report::{self, BoxedQuery};
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::framework::report::ReportBuilder;
@@ -31,7 +31,7 @@ const ALL_COLUMNS: AllColumns = (
     report::content,
     report::create_date,
     report::published,
-    report::summary_id
+    report::summary_id,
 );
 
 type All = diesel::dsl::Select<crate::database::schema::report::table, AllColumns>;
@@ -89,7 +89,11 @@ impl Report {
             .map(|rows| rows != 0)?)
     }
 
-    pub fn list(filter: impl Into<ReportFilter>, page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    pub fn list(
+        filter: impl Into<ReportFilter>,
+        page: i64,
+        per_page: Option<i64>,
+    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
         let filter = filter.into();
 
         let query = filter.apply(Report::all().into_boxed());
@@ -101,7 +105,11 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-        pub fn paginate(query: BoxedQuery<'_, Pg>, page: i64, per_page: Option<i64>) -> Paginated<BoxedQuery<'_, Pg>> {
+    pub fn paginate(
+        query: BoxedQuery<'_, Pg>,
+        page: i64,
+        per_page: Option<i64>,
+    ) -> Paginated<BoxedQuery<'_, Pg>> {
         let mut query = query.paginate(page);
 
         if let Some(per_page) = per_page {

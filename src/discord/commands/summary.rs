@@ -88,7 +88,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let mut summary = match Summary::get(ctx, id).await {
+    let summary = match Summary::get(ctx, id).await {
         Ok(summary) => summary,
         Err(why) => {
             let error_msg = format!("There's no summary with such ID: {id}. Error: {why}");
@@ -97,7 +97,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let output = summary.send_summary(ctx).await?;
+    let output = summary.resend_summary(ctx).await?;
 
     Ok(output)
 }

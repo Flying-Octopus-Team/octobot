@@ -1,15 +1,20 @@
 use std::fmt::Write;
-use std::{str::FromStr, sync::Arc};
+use std::str::FromStr;
+use std::sync::Arc;
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
-use tracing::{error, info};
+use tracing::error;
+use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::meeting::Meeting;
-use crate::database::models::member::Member;
-use crate::database::models::summary::Summary;
-use crate::discord::{find_option_as_string, find_option_value};
+use crate::database::models::meeting::MeetingFilter;
+use crate::discord::find_option_as_string;
+use crate::discord::find_option_value;
+use crate::framework::meeting::Meeting;
+use crate::framework::member::Member;
+use crate::framework::summary::Summary;
+use crate::framework::summary::SummaryBuilder;
 use crate::meeting::MeetingStatus;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
@@ -32,11 +37,12 @@ pub(crate) async fn end_meeting(
 
     let rw_lock_read_guard = meeting_status.read().await;
 
-    let meeting = Meeting::find_by_id(rw_lock_read_guard.meeting_id())?;
-    let mut summary = Summary::find_by_id(meeting.summary_id())?;
+    let mut meeting = Meeting::get(ctx, rw_lock_read_guard.meeting_id()).await?;
+    let summary = &mut meeting.summary;
+    let summary_builder = SummaryBuilder::new().note(note.clone());
 
-    summary.set_note(note.clone())?;
-    let summary_result = summary.send_summary(ctx, false).await?;
+    summary.edit(summary_builder).await?;
+    let summary_result = summary.send_summary(ctx).await?;
     drop(rw_lock_read_guard);
 
     MeetingStatus::end_meeting(ctx, meeting_status).await?;
@@ -166,23 +172,16 @@ pub(crate) async fn set_note(
 
         let meeting = if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
             let meeting_id = Uuid::parse_str(&meeting)?;
-            Meeting::find_by_id(meeting_id)?
+            Meeting::get(ctx, meeting_id).await?
         } else {
-            Meeting::find_by_id(meeting_status.meeting_id())?
+            Meeting::get(ctx, meeting_status.meeting_id()).await?
         };
 
-        let mut summary = Summary::find_by_id(meeting.summary_id())?;
+        let mut summary = Summary::get(ctx, meeting.summary().id).await?;
+        let summary_builder = SummaryBuilder::new().note(new_note.clone());
+        summary.edit(summary_builder).await?;
 
-        match summary.set_note(new_note) {
-            Ok(_) => {}
-            Err(e) => {
-                let error_msg = format!("Error changing summary note: {}", e);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        }
-
-        match summary.send_summary(ctx, true).await {
+        match summary.resend_summary(ctx).await {
             Ok(_) => {}
             Err(e) => {
                 let error = format!("Error sending summary: {}", e);
@@ -205,7 +204,9 @@ pub(crate) async fn edit_meeting_members(
     let mut output = String::new();
 
     if let Some(member) = find_option_as_string(&option.options, "member") {
-        let member = Member::from_discord_id(member, ctx)?;
+        let member = Member::get_by_discord_id(member.parse().unwrap(), ctx)
+            .await?
+            .unwrap();
 
         if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
             let meeting_id = match Uuid::parse_str(&meeting) {
@@ -217,7 +218,7 @@ pub(crate) async fn edit_meeting_members(
                 }
             };
 
-            let meeting = match Meeting::find_by_id(meeting_id) {
+            let mut meeting = match Meeting::get(ctx, meeting_id).await {
                 Ok(meeting) => meeting,
                 Err(why) => {
                     let error_msg = format!(
@@ -230,9 +231,9 @@ pub(crate) async fn edit_meeting_members(
             };
 
             if remove {
-                output.push_str(&meeting.remove_member(&member)?);
+                output.push_str(&meeting.remove_member(member).await?);
             } else {
-                output.push_str(&meeting.add_member(&member)?);
+                output.push_str(&meeting.add_member(member).await?);
             }
         } else {
             let data_read = ctx.data.read().await;
@@ -240,9 +241,9 @@ pub(crate) async fn edit_meeting_members(
             let mut meeting_status = meeting_status.write().await;
 
             if remove {
-                output.push_str(&meeting_status.remove_member(&member).unwrap());
+                output.push_str(&meeting_status.remove_member(&member.into()).unwrap());
             } else {
-                output.push_str(&meeting_status.add_member(&member).unwrap());
+                output.push_str(&meeting_status.add_member(&member.into()).unwrap());
             }
         }
     } else {
@@ -253,6 +254,7 @@ pub(crate) async fn edit_meeting_members(
 }
 
 pub(crate) async fn list_meetings(
+    ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing meetings");
@@ -262,7 +264,8 @@ pub(crate) async fn list_meetings(
     let page_size = find_option_value(&option.options[..], "page-size")
         .map(|page_size| page_size.as_i64().unwrap());
 
-    let (meetings, total_pages) = Meeting::list(page, page_size)?;
+    let filter = MeetingFilter::new();
+    let (meetings, total_pages) = Meeting::list(filter, ctx, page, page_size).await?;
 
     let mut output = String::new();
 

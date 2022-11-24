@@ -28,6 +28,25 @@ pub struct Summary {
 }
 
 impl Summary {
+    pub fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let db_summary = DbSummary::from(self.clone());
+        db_summary.update()?;
+        Ok(())
+    }
+
+    pub async fn edit(
+        &mut self,
+        builder: SummaryBuilder,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut summary = builder.build();
+
+        summary.id = self.id;
+        *self = summary;
+
+        self.update()?;
+        Ok(())
+    }
+
     pub async fn list(
         cache_http: &impl CacheHttp,
         filter: SummaryBuilder,
@@ -191,24 +210,18 @@ impl Summary {
             self.messages_id.push(message.id);
         }
 
-        self.update().await?;
+        self.update()?;
         Ok("Summary was generated and sent to the channel".to_string())
-    }
-
-    async fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let db_summary = DbSummary::from(self.clone());
-        db_summary.update()?;
-        Ok(())
     }
 
     pub(crate) fn is_published(&self) -> bool {
         !self.messages_id.is_empty()
     }
 
-    async fn resend_summary(
+    pub(crate) async fn resend_summary(
         &self,
         cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<String, Box<dyn std::error::Error>> {
         let summary = self.generate_summary(cache_http, None).await?;
 
         let messages = split_message(summary)?;
@@ -225,7 +238,7 @@ impl Summary {
                 .await?;
         }
 
-        Ok(())
+        Ok("Summary was generated and sent to the channel".to_string())
     }
 }
 

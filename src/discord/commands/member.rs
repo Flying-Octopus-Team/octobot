@@ -12,7 +12,7 @@ use super::find_option_value;
 
 pub async fn add_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
@@ -31,7 +31,7 @@ pub async fn add_member(
 
 pub async fn remove_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Removing member");
@@ -56,7 +56,7 @@ pub async fn remove_member(
 
 pub async fn update_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating member");

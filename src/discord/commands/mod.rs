@@ -66,7 +66,7 @@ pub async fn handle_interaction_command<'a>(
             Some(option) => match option.name.as_str() {
                 "end" => meeting::end_meeting(option, ctx).await,
                 "status" => meeting::status_meeting(ctx).await,
-                "list" => meeting::list_meetings(option).await,
+                "list" => meeting::list_meetings(ctx, option).await,
                 "plan" => meeting::plan_meeting(ctx, option).await,
                 "set-note" => meeting::set_note(ctx, option).await,
                 "add-member" => meeting::edit_meeting_members(ctx, option, false).await,

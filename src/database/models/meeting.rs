@@ -1,15 +1,21 @@
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::str::FromStr;
 
 use chrono::NaiveDateTime;
 use cron::Schedule;
-use tracing::{error, warn};
+use diesel::pg::Pg;
+use tracing::error;
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
 use crate::database::pagination::Paginate;
-use crate::database::schema::{meeting, meeting_members};
+use crate::database::pagination::Paginated;
+use crate::database::schema::meeting;
+use crate::database::schema::meeting::BoxedQuery;
+use crate::database::schema::meeting_members;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
@@ -17,6 +23,26 @@ use crate::diesel::RunQueryDsl;
 use crate::diesel::Table;
 use crate::SETTINGS;
 use diesel::query_dsl::SaveChangesDsl;
+
+type AllColumns = (
+    meeting::id,
+    meeting::start_date,
+    meeting::end_date,
+    meeting::summary_id,
+    meeting::channel_id,
+    meeting::scheduled_cron,
+);
+
+const ALL_COLUMNS: AllColumns = (
+    meeting::id,
+    meeting::start_date,
+    meeting::end_date,
+    meeting::summary_id,
+    meeting::channel_id,
+    meeting::scheduled_cron,
+);
+
+type All = diesel::dsl::Select<meeting::table, AllColumns>;
 
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
@@ -57,6 +83,10 @@ impl Meeting {
         }
     }
 
+    pub fn all() -> All {
+        meeting::table.select(ALL_COLUMNS)
+    }
+
     pub fn try_from_cron(
         scheduled_cron: &str,
         channel_id: String,
@@ -83,6 +113,36 @@ impl Meeting {
         summary.delete()?;
 
         Ok(rows)
+    }
+
+    pub(crate) fn list(
+        filter: impl Into<MeetingFilter>,
+        page: i64,
+        page_size: Option<i64>,
+    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+        let filter = filter.into();
+
+        let query = filter.apply(Meeting::all().into_boxed());
+
+        let query = Self::paginate(query, page, page_size);
+
+        let (meetings, total) = query.load_and_count_pages(&mut PG_POOL.get().unwrap())?;
+
+        Ok((meetings, total))
+    }
+
+    pub fn paginate(
+        query: BoxedQuery<'_, Pg>,
+        page: i64,
+        page_size: Option<i64>,
+    ) -> Paginated<BoxedQuery<'_, Pg>> {
+        let mut query = query.paginate(page);
+
+        if let Some(page_size) = page_size {
+            query = query.per_page(page_size);
+        }
+
+        query
     }
 
     /// Saves current time as meeting's end date. And saves itself in the database
@@ -312,24 +372,8 @@ impl Meeting {
         self.start_date
     }
 
-    pub(crate) fn list(
-        page: i64,
-        page_size: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
-        use crate::database::schema::meeting::dsl::*;
-
-        let mut query = meeting
-            .select(meeting::all_columns())
-            .into_boxed()
-            .paginate(page);
-
-        if let Some(page_size) = page_size {
-            query = query.per_page(page_size);
-        }
-
-        let result = query.load_and_count_pages::<Self>(&mut PG_POOL.get().unwrap())?;
-
-        Ok(result)
+    pub(crate) fn end_date(&self) -> Option<chrono::NaiveDateTime> {
+        self.end_date
     }
 
     pub(crate) fn members(&self) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
@@ -366,11 +410,35 @@ impl MeetingMembers {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
+    pub(crate) fn delete(&self) -> Result<usize, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting_members::dsl::*;
+
+        Ok(diesel::delete(meeting_members.filter(id.eq(self.id))).execute(&mut PG_POOL.get()?)?)
+    }
+
+    pub(crate) fn delete_by_meeting_and_member(
+        meeting: Uuid,
+        member: Uuid,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        use crate::database::schema::meeting_members::dsl::*;
+
+        Ok(diesel::delete(
+            meeting_members
+                .filter(meeting_id.eq(meeting))
+                .filter(member_id.eq(member)),
+        )
+        .execute(&mut PG_POOL.get()?)?)
+    }
+
     pub(crate) fn discord_id(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(Member::find_by_id(self.member_id)?
             .discord_id()
             .expect("Cannot find user in the database")
             .to_string())
+    }
+
+    pub(crate) fn id(&self) -> Uuid {
+        self.id
     }
 
     pub(crate) fn member_id(&self) -> Uuid {
@@ -423,5 +491,65 @@ impl Display for Meeting {
             self.end_date,
             self.members().unwrap().len()
         )
+    }
+}
+
+pub struct MeetingFilter {
+    start_date: Option<chrono::NaiveDateTime>,
+    end_date: Option<chrono::NaiveDateTime>,
+    summary_id: Option<Uuid>,
+    channel_id: Option<String>,
+}
+
+impl MeetingFilter {
+    pub fn new() -> MeetingFilter {
+        MeetingFilter {
+            start_date: None,
+            end_date: None,
+            summary_id: None,
+            channel_id: None,
+        }
+    }
+
+    fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
+        let mut query = query;
+
+        if let Some(start_date) = self.start_date {
+            query = query.filter(meeting::start_date.gt(start_date));
+        }
+
+        if let Some(end_date) = self.end_date {
+            query = query.filter(meeting::end_date.lt(end_date));
+        }
+
+        if let Some(summary_id) = self.summary_id {
+            query = query.filter(meeting::summary_id.eq(summary_id));
+        }
+
+        if let Some(channel_id) = self.channel_id {
+            query = query.filter(meeting::channel_id.eq(channel_id));
+        }
+
+        query
+    }
+
+    pub(crate) fn start_date(mut self, start_date: Option<chrono::NaiveDateTime>) -> Self {
+        self.start_date = start_date;
+        self
+    }
+
+    pub(crate) fn end_date(mut self, end_date: Option<chrono::NaiveDateTime>) -> Self {
+        self.end_date = end_date;
+        self
+    }
+
+    pub(crate) fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
+        self.summary_id = summary_id;
+        self
+    }
+
+    pub(crate) fn channel_id(mut self, channel_id: Option<String>) -> Self {
+        self.channel_id = channel_id;
+        self
     }
 }

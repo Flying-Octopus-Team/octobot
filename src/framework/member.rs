@@ -142,7 +142,7 @@ impl Member {
             Err(why) => {
                 error!("Failed to update member: {}", why);
                 Err(why)
-            },
+            }
         }
     }
 

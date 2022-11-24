@@ -9,11 +9,11 @@ use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::database::models::report::Report as DbReport;
 use crate::database::models::report::ReportFilter;
+use crate::database::schema::report::BoxedQuery;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
-use crate::database::models::report::Report as DbReport;
-use crate::database::schema::report::BoxedQuery;
 
 use super::member::Member;
 use super::summary::Summary;
@@ -57,12 +57,12 @@ impl Report {
 
     pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let db_report = DbReport::from(self.clone());
-        
+
         match db_report.update() {
             Ok(_) => {
                 info!("Report updated successfully.");
                 Ok(())
-            },
+            }
             Err(e) => {
                 error!("Failed to update report: {}", e);
                 Err(e)
@@ -87,7 +87,7 @@ impl Report {
 
     pub async fn edit(&mut self, builder: ReportBuilder) -> Result<(), Box<dyn std::error::Error>> {
         let report_builder = builder;
-        
+
         let mut report = report_builder.build().await?;
         report.id = self.id;
         *self = report;
@@ -102,9 +102,6 @@ impl Report {
         page: i64,
         per_page: Option<i64>,
     ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
-
-        let filter = filter.into();
-        
         let (db_reports, total_pages) = DbReport::list(filter, page, per_page)?;
 
         let mut reports = Vec::new();
@@ -227,9 +224,7 @@ impl ReportBuilder {
         self
     }
 
-    pub async fn build(
-        &self,
-    ) -> Result<Report, Box<dyn std::error::Error>> {
+    pub async fn build(&self) -> Result<Report, Box<dyn std::error::Error>> {
         let member = self.member.clone().ok_or("Member is required")?;
         let content = self.content.clone().ok_or("Content is required")?;
         let create_date = self
