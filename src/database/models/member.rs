@@ -195,23 +195,6 @@ impl Member {
     pub(crate) fn name(&self) -> String {
         self.display_name.clone()
     }
-
-    pub(crate) fn set_name(&mut self, new_name: String) -> Result<(), Box<dyn std::error::Error>> {
-        self.display_name = new_name;
-
-        match self.update() {
-            Ok(_) => Ok(()),
-            Err(why) => {
-                let error_msg = format!("Failed to update member name: {}", why);
-                error!("{}", error_msg);
-                Err(error_msg.into())
-            }
-        }
-    }
-
-    pub(crate) fn is_apprentice(&self) -> bool {
-        self.is_apprentice
-    }
 }
 
 impl Display for Member {

@@ -5,9 +5,11 @@ use std::fmt::Write;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::summary::Summary;
-use crate::database::models::{member::Member, report::Report};
 use crate::discord::find_option_as_string;
+use crate::framework::member::Member;
+use crate::framework::report::Report;
+use crate::framework::report::ReportBuilder;
+use crate::framework::summary::Summary;
 
 use super::find_option_value;
 
@@ -18,18 +20,11 @@ pub(crate) async fn add_report(
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding report");
     let member_dc_id = match find_option_value(&option.options[..], "member") {
-        Some(member_id) => String::from(member_id.as_str().unwrap()),
-        None => command
-            .member
-            .as_ref()
-            .unwrap()
-            .user
-            .id
-            .as_u64()
-            .to_string(),
+        Some(member_id) => member_id.as_u64().unwrap(),
+        None => *command.member.as_ref().unwrap().user.id.as_u64(),
     };
 
-    let member = match Member::find_by_discord_id(member_dc_id) {
+    let member = match Member::get_by_discord_id(member_dc_id, ctx).await {
         Ok(option) => {
             if let Some(member) = option {
                 member
@@ -45,31 +40,28 @@ pub(crate) async fn add_report(
         None => return Ok("No content specified".to_string()),
     };
 
-    let summary = match find_option_as_string(&option.options[..], "summary") {
-        Some(meeting) => Some(uuid::Uuid::parse_str(&meeting)?),
-        None => None,
+    let mut report_builder = ReportBuilder::new();
+    report_builder.member(member).content(content);
+
+    if let Some(meeting) = find_option_as_string(&option.options[..], "summary") {
+        let id = uuid::Uuid::parse_str(&meeting)?;
+        match Summary::get(ctx, id).await {
+            Ok(summary) => {
+                report_builder.summary(summary);
+            }
+            Err(why) => return Err(why),
+        }
     };
 
-    let mut report = Report::insert(member.id(), content)?;
-
-    if let Some(summary) = summary {
-        let summary = Summary::find_by_id(summary)?;
-
-        report.set_summary_id(summary.id())?;
-
-        if summary.is_published() {
-            report.set_publish()?;
-        }
-
-        summary.send_summary(ctx, true).await?;
-    }
+    let report = report_builder.build().await?;
 
     info!("Report added: {:?}", report);
 
     Ok(format!("Report added: {}", report))
 }
 
-pub(crate) fn remove_report(
+pub(crate) async fn remove_report(
+    ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Removing report");
@@ -78,7 +70,7 @@ pub(crate) fn remove_report(
         None => return Ok("No report specified".to_string()),
     }?;
 
-    let report = match Report::find_by_id(report_id) {
+    let mut report = match Report::get(ctx, report_id).await {
         Ok(report) => report,
         Err(why) => return Ok(format!("Can't find report with this ID: {why}")),
     };
@@ -98,7 +90,8 @@ pub(crate) fn remove_report(
     }
 }
 
-pub(crate) fn list_reports(
+pub(crate) async fn list_reports(
+    ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing reports");
@@ -110,23 +103,26 @@ pub(crate) fn list_reports(
     let page_size =
         find_option_value(&option.options[..], "page-size").map(|v| v.as_i64().unwrap());
 
-    let member = find_option_value(&option.options[..], "member").and_then(|member_id| {
-        let member_dc_id = member_id.as_str().unwrap();
-        match Member::find_by_discord_id(member_dc_id) {
-            Ok(option) => {
-                option.map(|member| member.id())
-            }
-            Err(why) => {
-                info!("Can't find member with this ID: {why}");
-                None
+    let member = match find_option_value(&option.options[..], "member") {
+        Some(member_id) => {
+            let member_id = Uuid::parse_str(member_id.as_str().unwrap())?;
+            match Member::get(member_id, ctx).await {
+                Ok(member) => Some(member.id),
+                Err(why) => return Err(why),
             }
         }
-    });
+        None => None,
+    };
 
     let published = find_option_value(&option.options[..], "published")
         .map(|published| published.as_bool().unwrap());
 
-    let (reports, total_pages) = Report::list(page, page_size, member, published)?;
+    let mut filter = Report::filter();
+    filter
+        .member_id(member)
+        .published(published);
+
+    let (reports, total_pages) = Report::list(filter, ctx, page, page_size).await?;
 
     let mut output = String::new();
 
@@ -139,14 +135,17 @@ pub(crate) fn list_reports(
     Ok(output)
 }
 
-pub(crate) fn update_report(
+pub(crate) async fn update_report(
+    ctx: &Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating report");
-    let mut old_report = match find_option_value(&option.options[..], "id") {
+
+    let mut update_report = match find_option_value(&option.options[..], "id") {
         Some(report_id) => {
             let report_id = Uuid::parse_str(report_id.as_str().unwrap())?;
-            if let Ok(report) = Report::find_by_id(report_id) {
+
+            if let Ok(report) = Report::get(ctx, report_id).await {
                 report
             } else {
                 return Ok("Can't find report with this ID".to_string());
@@ -155,23 +154,26 @@ pub(crate) fn update_report(
         None => return Ok("No report specified".to_string()),
     };
 
-    if let Some(content) = find_option_value(&option.options[..], "content") {
-        old_report.content = String::from(content.as_str().unwrap());
+    let mut report_builder = ReportBuilder::new();
+
+    if let Some(content) = find_option_as_string(&option.options[..], "content") {
+        report_builder.content(content);
     }
 
     if let Some(member) = find_option_value(&option.options[..], "member") {
-        let member_dc_id = member.as_str().unwrap();
-        let member = Member::find_by_discord_id(member_dc_id)?;
-        let member = match member {
-            Some(member) => member,
+
+        let member_dc_id = member.as_u64().unwrap();
+        let member = Member::get_by_discord_id(member_dc_id, ctx).await?;
+
+        match member {
+            Some(member) => report_builder.member(member),
             None => return Ok("Can't find member with this ID".to_string()),
         };
-        old_report.member_id = member.id();
     }
 
-    let report = old_report.update()?;
+    update_report.update()?;
 
-    info!("Report updated: {:?}", report);
+    info!("Report updated: {:?}", update_report);
 
-    Ok(format!("Report updated: {}", report))
+    Ok(format!("Report updated: {}", update_report))
 }

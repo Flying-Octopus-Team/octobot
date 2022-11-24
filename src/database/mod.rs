@@ -1,7 +1,6 @@
-use diesel::{
-    r2d2::{ConnectionManager, Pool},
-    PgConnection,
-};
+use diesel::r2d2::Pool;
+use diesel::r2d2::ConnectionManager;
+use diesel::PgConnection;
 use diesel_migrations::embed_migrations;
 use diesel_migrations::EmbeddedMigrations;
 use diesel_migrations::MigrationHarness;

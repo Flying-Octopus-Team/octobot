@@ -34,9 +34,9 @@ pub async fn handle_interaction_command<'a>(
         "report" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
                 "add" => report::add_report(ctx, command, option).await,
-                "remove" => report::remove_report(option),
-                "list" => report::list_reports(option),
-                "update" => report::update_report(option),
+                "remove" => report::remove_report(ctx, option).await,
+                "list" => report::list_reports(ctx, option).await,
+                "update" => report::update_report(ctx, option).await,
                 _ => {
                     warn!("Unknown report option: {}", option.name);
                     Ok(String::from("Unknown subcommand"))

@@ -1,24 +1,25 @@
-use std::fmt::{Display, Formatter};
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use crate::{
-    diesel::ExpressionMethods,
-    discord::{find_option_as_string, find_option_value},
-    SETTINGS,
-};
-use diesel::{pg::Pg, QueryDsl};
-use serenity::{
-    http::CacheHttp,
-    model::{
-        prelude::{interaction::application_command::CommandDataOption, RoleId, UserId},
-        user::User,
-    },
-};
-use tracing::{error, info};
+use diesel::pg::Pg;
+use diesel::QueryDsl;
+use serenity::http::CacheHttp;
+use serenity::model::prelude::interaction::application_command::CommandDataOption;
+use serenity::model::prelude::RoleId;
+use serenity::model::prelude::UserId;
+use serenity::model::user::User;
+use tracing::error;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::database::models::member::Member as DbMember;
 use crate::database::schema::member::BoxedQuery;
 use crate::database::PG_POOL;
+use crate::diesel::ExpressionMethods;
+use crate::discord::find_option_as_string;
+use crate::discord::find_option_value;
+use crate::SETTINGS;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemberRole {
@@ -92,7 +93,7 @@ impl MemberRole {
 }
 
 #[derive(Debug, Clone, Eq)]
-pub(crate) struct Member {
+pub struct Member {
     pub id: Uuid,
     pub display_name: String,
     pub discord_user: Option<User>,
@@ -137,11 +138,12 @@ impl Member {
         let member = DbMember::from(self.clone());
 
         match member.update() {
-            Ok(_) => info!("Updated member: {}", self.display_name),
-            Err(why) => error!("Failed to update member: {}", why),
+            Ok(_) => Ok(self),
+            Err(why) => {
+                error!("Failed to update member: {}", why);
+                Err(why)
+            },
         }
-
-        Ok(self)
     }
 
     pub async fn delete(
@@ -152,7 +154,10 @@ impl Member {
 
         match member.delete() {
             Ok(_) => info!("Deleted member: {}", self.display_name),
-            Err(why) => error!("Failed to delete member: {}", why),
+            Err(why) => {
+                error!("Failed to delete member: {}", why);
+                return Err(why);
+            }
         }
 
         let member_role = self.member_role;
@@ -348,6 +353,18 @@ impl Display for Member {
 impl PartialEq for Member {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl PartialOrd for Member {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.id.cmp(&other.id))
+    }
+}
+
+impl Ord for Member {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
     }
 }
 

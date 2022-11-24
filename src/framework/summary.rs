@@ -11,16 +11,16 @@ use serenity::{http::CacheHttp, model::prelude::MessageId};
 use uuid::Uuid;
 
 use crate::database::models::meeting::Meeting;
-use crate::database::models::report::Report;
 use crate::database::models::summary::Summary as DbSummary;
 use crate::database::schema::summary::BoxedQuery;
 use crate::database::PG_POOL;
 use crate::discord::split_message;
 use crate::framework::member::Member;
+use crate::framework::report::Report;
 use crate::SETTINGS;
 
-#[derive(Clone)]
-pub(crate) struct Summary {
+#[derive(Debug, Clone)]
+pub struct Summary {
     pub id: Uuid,
     pub note: String,
     pub create_date: NaiveDate,
@@ -156,20 +156,20 @@ impl Summary {
         &self,
         cache_http: &impl CacheHttp,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut reports = Report::get_by_summary_id(self.id)?;
+        let mut reports = Report::get_by_summary_id(cache_http, self.id).await?;
 
         let mut summary = String::new();
 
-        reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
+        reports.sort_by(|a, b| a.member.cmp(&b.member));
 
         let mut last_member_id = Uuid::nil();
         for report in reports {
-            if last_member_id != report.member_id {
-                let member = Member::get(report.member_id, cache_http).await?;
+            if last_member_id != report.member.id {
+                let member = Member::get(report.member.id, cache_http).await?;
                 summary.push_str(&format!("**{}:**", member.name()));
             }
             write!(summary, " {}", report.content)?;
-            last_member_id = report.member_id;
+            last_member_id = report.member.id;
         }
 
         Ok(summary)
@@ -198,6 +198,33 @@ impl Summary {
     async fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
         let db_summary = DbSummary::from(self.clone());
         db_summary.update()?;
+        Ok(())
+    }
+
+    pub(crate) fn is_published(&self) -> bool {
+        !self.messages_id.is_empty()
+    }
+
+    async fn resend_summary(
+        &self,
+        cache_http: &impl CacheHttp,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let summary = self.generate_summary(cache_http, None).await?;
+
+        let messages = split_message(summary)?;
+
+        if self.messages_id.len() != messages.len() {
+            return Err("Number of messages is different".into());
+        }
+
+        for (message, message_id) in messages.into_iter().zip(self.messages_id.iter()) {
+            let channel_id = SETTINGS.summary_channel;
+
+            channel_id
+                .edit_message(cache_http.http(), *message_id, |m| m.content(message))
+                .await?;
+        }
+
         Ok(())
     }
 }
