@@ -87,14 +87,14 @@ impl EventHandler for Handler {
                 Ok(member) => member,
                 Err(e) => {
                     error!("Error finding member: {}", e);
-                    return ();
+                    return;
                 }
             };
             let member = match member {
                 Some(member) => member,
                 None => {
                     warn!("User {} is not member of the organization", new.user_id.0);
-                    return ();
+                    return;
                 }
             };
             let output = match meeting_status.add_member(member.clone()).await {
