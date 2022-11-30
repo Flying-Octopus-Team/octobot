@@ -127,6 +127,20 @@ impl Summary {
         Self::from_db_summary(cache_http, db_summary).await
     }
 
+    async fn members(&self, cache_http: &impl CacheHttp) -> Result<Vec<Member>> {
+        let meeting = Meeting::find_by_summary_id(self.id)?;
+        let mut members = Vec::new();
+
+        let vec = meeting.members()?;
+
+        for db_member in vec.into_iter() {
+            let member = Member::from_db_member(cache_http, db_member).await?;
+            members.push(member);
+        }
+
+        Ok(members)
+    }
+
     pub(crate) async fn generate_summary(
         &self,
         cache_http: &impl CacheHttp,
@@ -155,7 +169,7 @@ impl Summary {
         }
 
         summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
-        summary.push_str(&self.generate_reports(cache_http).await?);
+        summary.push_str(&self.generate_report_summary(reports).await?);
 
         summary.push_str("\n**Notatka ze spotkania:**\n");
         summary.push_str(&note);
@@ -163,39 +177,13 @@ impl Summary {
         Ok(summary)
     }
 
-    async fn members(
-        &self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
-        let meeting = Meeting::find_by_summary_id(self.id)?;
-        let mut members = Vec::new();
-
-        let vec = meeting.members()?;
-
-        for db_member in vec.into_iter() {
-            let member = Member::from_db_member(cache_http, db_member).await?;
-            members.push(member);
-        }
-
-        Ok(members)
-    }
-
-    async fn generate_reports(
-        &self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut reports = Report::get_by_summary_id(cache_http, self.id).await?;
-
     async fn generate_report_summary(&self, reports: &Vec<Report>) -> Result<String> {
         let mut summary = String::new();
-
-        reports.sort_by(|a, b| a.member.cmp(&b.member));
 
         let mut last_member_id = Uuid::nil();
         for report in reports {
             if last_member_id != report.member.id {
-                let member = Member::get(report.member.id, cache_http).await?;
-                summary.push_str(&format!("**{}:**", member.name()));
+                summary.push_str(&format!("**{}:**", report.member.name()));
             }
             write!(summary, " {}", report.content)?;
             last_member_id = report.member.id;
@@ -204,33 +192,51 @@ impl Summary {
         Ok(summary)
     }
 
-    pub(crate) async fn send_summary(
-        &mut self,
+    async fn get_reports(
+        &self,
         cache_http: &impl CacheHttp,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let summary = self.generate_summary(cache_http, None).await?;
+        add_unpublished: bool,
+    ) -> Result<Vec<Report>> {
+        let mut reports = Report::get_by_summary_id(cache_http, self.id).await?;
+
+        if add_unpublished {
+            let unpublished = Report::get_unpublished(cache_http).await?;
+            reports.extend(unpublished);
+        }
+
+        reports.sort_by(|a, b| a.member.cmp(&b.member));
+
+        Ok(reports)
+    }
+
+    pub(crate) async fn send_summary(&mut self, cache_http: &impl CacheHttp) -> Result<String> {
+        let reports = self.get_reports(cache_http, true).await?;
+
+        let summary = self.generate_summary(cache_http, None, &reports).await?;
 
         let messages = split_message(summary)?;
 
-        for message in messages {
-            let channel_id = SETTINGS.summary_channel;
+        let channel_id = SETTINGS.summary_channel;
 
+        for message in messages {
             let message = channel_id.say(cache_http.http(), message).await?;
 
             self.messages_id.push(message.id);
+        }
+
+        for mut report in reports {
+            report.published = true;
+            report.update()?;
         }
 
         self.update()?;
         Ok("Summary was generated and sent to the channel".to_string())
     }
 
-    pub(crate) fn is_published(&self) -> bool {
-        !self.messages_id.is_empty()
-    }
     pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
         let reports = self.get_reports(cache_http, false).await?;
 
-        let summary = self.generate_summary(cache_http, None).await?;
+        let summary = self.generate_summary(cache_http, None, &reports).await?;
 
         let messages = split_message(summary)?;
 
@@ -238,7 +244,7 @@ impl Summary {
             return Err(anyhow::anyhow!("Number of messages is different"));
         }
 
-        for (message, message_id) in messages.into_iter().zip(self.messages_id.iter()) {
+        for (message, message_id) in messages.iter().zip(self.messages_id.iter()) {
             let channel_id = SETTINGS.summary_channel;
 
             channel_id
@@ -247,6 +253,18 @@ impl Summary {
         }
 
         Ok("Summary was generated and sent to the channel".to_string())
+    }
+
+    pub async fn preview_summary(
+        &self,
+        cache_http: &impl CacheHttp,
+        note: Option<String>,
+    ) -> Result<String> {
+        let reports = self.get_reports(cache_http, true).await?;
+
+        let summary = self.generate_summary(cache_http, note, &reports).await?;
+
+        Ok(summary)
     }
 
     pub(crate) fn find() -> SummaryFilter {

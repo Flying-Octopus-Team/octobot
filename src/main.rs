@@ -10,10 +10,11 @@ use tracing_subscriber::{
     prelude::__tracing_subscriber_SubscriberExt,
 };
 
+use crate::framework::meeting::Meeting;
+
 mod database;
 mod discord;
 mod framework;
-mod meeting;
 mod settings;
 
 lazy_static! {
@@ -25,7 +26,8 @@ async fn main() {
     let _guard = setup_tracing();
 
     database::run_migrations();
-    discord::start_bot().await;
+    let client = discord::start_bot().await;
+    Meeting::await_meeting(client.data, client.cache_and_http).await;
 }
 
 fn setup_tracing() -> WorkerGuard {

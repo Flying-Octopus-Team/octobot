@@ -75,34 +75,35 @@ impl EventHandler for Handler {
     }
 
     async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        let read = ctx.data.read().await;
-        let meeting_status = read.get::<MeetingStatus>().unwrap();
-        let mut meeting_status = meeting_status.write().await;
+        let mut meeting_status = Meeting::get_current_meeting(&ctx).await;
 
-        if meeting_status.is_meeting_ongoing()
+        if Meeting::is_meeting_ongoing(&ctx).await
             && old.is_none()
             && new.channel_id.is_some()
             && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
         {
-            match Member::find_by_discord_id(new.user_id.0.to_string()) {
-                Ok(member) => match member {
-                    Some(member) => {
-                        let output = match meeting_status.add_member(&member) {
-                            Ok(msg) => msg,
-                            Err(e) => {
-                                format!("{} could not join the meeting: {}", member.name(), e)
-                            }
-                        };
-                        info!("{}", output);
-                    }
-                    None => {
-                        warn!("User {} is not member of the organization", new.user_id.0);
-                    }
-                },
+            let get_by_discord_id = Member::get_by_discord_id(new.user_id.0, &ctx).await;
+            let member = match get_by_discord_id {
+                Ok(member) => member,
                 Err(e) => {
                     error!("Error finding member: {}", e);
+                    return ();
                 }
-            }
+            };
+            let member = match member {
+                Some(member) => member,
+                None => {
+                    warn!("User {} is not member of the organization", new.user_id.0);
+                    return ();
+                }
+            };
+            let output = match meeting_status.add_member(member.clone()).await {
+                Ok(msg) => msg,
+                Err(e) => {
+                    format!("{} could not join the meeting: {}", member.name(), e)
+                }
+            };
+            info!("{}", output);
         }
     }
 
@@ -118,20 +119,10 @@ impl EventHandler for Handler {
         .expect("Error creating global application command");
 
         debug!("{:?}", guild_command);
-
-        // insert new meeting only when, there's no another one
-        if ctx.data.read().await.get::<MeetingStatus>().is_none() {
-            let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
-
-            ctx.data
-                .write()
-                .await
-                .insert::<MeetingStatus>(meeting_status);
-        }
     }
 }
 
-pub async fn start_bot() {
+pub async fn start_bot() -> Client {
     let token = &SETTINGS.discord_token;
 
     let intents = GatewayIntents::non_privileged()
@@ -152,6 +143,8 @@ pub async fn start_bot() {
     if let Err(why) = client.start().await {
         error!("An error occurred while running the client: {:?}", why);
     }
+
+    client
 }
 
 pub(crate) fn split_message(message: String) -> Result<Vec<String>> {

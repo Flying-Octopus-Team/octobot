@@ -159,6 +159,17 @@ impl Report {
         Ok(reports)
     }
 
+    pub(crate) async fn get_unpublished(cache_http: &impl CacheHttp) -> Result<Vec<Report>> {
+        let db_reports = DbReport::get_unpublished_reports()?;
+        let mut reports = Vec::new();
+
+        for db_report in db_reports {
+            reports.push(Report::from_db_report(cache_http, db_report).await?);
+        }
+
+        Ok(reports)
+    }
+
     pub(crate) fn find() -> ReportFilter {
         ReportFilter::default()
     }

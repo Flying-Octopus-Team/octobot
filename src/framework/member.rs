@@ -428,34 +428,22 @@ impl MemberBuilder {
         let mut duplicate_message = String::from("Duplicate members found: ");
 
         if let Some(discord_id) = &self.discord_id {
-            match Member::get_by_discord_id(discord_id.parse::<u64>().unwrap(), cache_http).await {
-                Ok(member) => {
-                    if let Some(member) = member {
-                        duplicate = true;
-                        duplicate_message.push_str(&format!("{} ", member));
-                    }
-                }
-                Err(err) => return Err(err),
+            if let Some(member) =
+                Member::get_by_discord_id(discord_id.parse::<u64>().unwrap(), cache_http).await?
+            {
+                duplicate = true;
+                duplicate_message.push_str(&format!("{} ", member));
             }
         }
 
         if let Some(trello_id) = &self.trello_id {
-            match Member::get_by_trello_id(trello_id, cache_http).await {
-                Ok(member) => {
-                    if let Some(member) = member {
-                        duplicate = true;
-                        duplicate_message.push_str(&format!("{} ", member));
-                    }
-                }
-                Err(err) => return Err(err),
+            if let Some(member) = Member::get_by_trello_id(trello_id, cache_http).await? {
+                duplicate = true;
+                duplicate_message.push_str(&format!("{} ", member));
             }
         }
 
-        if duplicate {
-            Err(duplicate_message.into())
-        } else {
-            Ok(())
-        }
+        Ok(duplicate)
     }
 
     pub fn apply_filter<'a>(&'a self, mut query: BoxedQuery<'a, Pg>) -> BoxedQuery<'a, Pg> {

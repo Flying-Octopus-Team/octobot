@@ -265,6 +265,10 @@ impl Meeting {
     }
 
     pub async fn add_member(&mut self, member: Member) -> Result<String> {
+        if MeetingMembers::is_user_in_meeting(self.id, member.id)? {
+            return Err(anyhow::anyhow!("User is already in meeting"));
+        }
+        
         let meeting_member = MeetingMembers::new(self.id, member.id);
         meeting_member.insert()?;
 
@@ -547,22 +551,22 @@ impl MeetingFilter {
         Meeting::list(self, cache_http, page, page_size).await
     }
 
-    pub(crate) fn start_date(mut self, start_date: Option<chrono::NaiveDateTime>) -> Self {
+    pub fn start_date(mut self, start_date: Option<chrono::NaiveDateTime>) -> Self {
         self.start_date = start_date;
         self
     }
 
-    pub(crate) fn end_date(mut self, end_date: Option<chrono::NaiveDateTime>) -> Self {
+    pub fn end_date(mut self, end_date: Option<chrono::NaiveDateTime>) -> Self {
         self.end_date = end_date;
         self
     }
 
-    pub(crate) fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
+    pub fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
         self.summary_id = summary_id;
         self
     }
 
-    pub(crate) fn channel_id(mut self, channel_id: Option<String>) -> Self {
+    pub fn channel_id(mut self, channel_id: Option<String>) -> Self {
         self.channel_id = channel_id;
         self
     }

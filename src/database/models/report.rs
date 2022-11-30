@@ -125,30 +125,6 @@ impl Report {
             .load(&mut PG_POOL.get()?)?)
     }
 
-    pub fn set_publish(&mut self) -> Result<Self, Box<dyn std::error::Error>> {
-        self.published = true;
-        match self.update() {
-            Ok(report) => Ok(report),
-            Err(e) => {
-                let error = format!("Error publishing report: {}", e);
-                error!("{}", error);
-                Err(error.into())
-            }
-        }
-    }
-
-    pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
-        self.summary_id = Some(id);
-        match self.update() {
-            Ok(report) => Ok(report),
-            Err(e) => {
-                let error = format!("Error setting summary id: {}", e);
-                error!("{}", error);
-                Err(error.into())
-            }
-        }
-    }
-
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
         use crate::database::schema::report::dsl::*;
 
@@ -157,62 +133,12 @@ impl Report {
         Ok(report.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    /// Returns formatted list of reports since last summary.
-    ///
-    /// If the summary is Some and publish is true, it will set the reports as published and set the summary id.
-    pub(crate) async fn report_summary(
-        summary: Option<Summary>,
-        publish: bool,
-    ) -> Result<String, Box<dyn std::error::Error>> {
-        let mut reports = Report::get_unpublished_reports()?;
-
-        // get reports associated with summary
-        if let Some(summary) = &summary {
-            let summary_reports = Report::get_by_summary_id(summary.id())?;
-
-            for report in summary_reports {
-                reports.push(report);
-            }
-
-            // delete the same reports
-            reports.dedup_by(|a, b| a.id == b.id);
-        }
-
-        let mut output = String::new();
-        reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
-        let mut previous_report: Option<Report> = None;
-        for mut report in reports {
-            let member = Member::find_by_id(report.member_id)?;
-
-            // if report is from the same member as the previous report, don't print the member's name
-
-            if previous_report.is_some()
-                && previous_report.as_ref().unwrap().member_id == report.member_id
-            {
-                write!(&mut output, " {}", report.content)?;
-            } else {
-                if previous_report.is_some() {
-                    writeln!(&mut output)?;
-                }
-                write!(&mut output, "**{}:** {}", member.name(), report.content)?;
-            }
-            if publish {
-                if let Some(summary) = &summary {
-                    report.set_publish()?;
-                    report.set_summary_id(summary.id())?;
-                }
-            }
-
-            previous_report = Some(report);
-        }
-        Ok(output)
-    }
-
     pub(crate) fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>> {
         use crate::database::schema::report::dsl::*;
 
         Ok(report
             .filter(summary_id.eq(find_id))
+            .order_by(create_date.asc())
             .load(&mut PG_POOL.get()?)?)
     }
 

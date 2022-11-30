@@ -142,53 +142,6 @@ impl Member {
     pub fn id(&self) -> Uuid {
         self.id
     }
-
-    pub(crate) fn from_discord_id(
-        user_id: String,
-        ctx: &Context,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let member_id = match user_id.parse::<u64>() {
-            Ok(id) => id,
-            Err(_) => {
-                let error_msg = format!("Invalid member id: {}", user_id);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        };
-        let guild_member = match ctx.cache.member(SETTINGS.server_id, member_id) {
-            Some(guild_member) => guild_member,
-            None => {
-                let error_msg = format!("Member not found in the guild: {}", member_id);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        };
-
-        let result = match Member::find_by_discord_id(guild_member.user.id.to_string()) {
-            Ok(result) => match result {
-                Some(member) => member,
-                None => {
-                    let error_msg = format!("Member not found in database: {}", member_id);
-                    error!("{}", error_msg);
-                    return Err(error_msg.into());
-                }
-            },
-            Err(why) => {
-                let error_msg = format!(
-                    "Error while finding member in database: {}\nReason: {}",
-                    member_id, why
-                );
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        };
-
-        Ok(result)
-    }
-
-    pub(crate) fn name(&self) -> String {
-        self.display_name.clone()
-    }
 }
 
 impl Display for Member {
