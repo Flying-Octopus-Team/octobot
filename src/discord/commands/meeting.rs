@@ -1,6 +1,4 @@
 use std::fmt::Write;
-use std::str::FromStr;
-use std::sync::Arc;
 
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
@@ -9,14 +7,11 @@ use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::meeting::MeetingFilter;
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
 use crate::framework;
 use crate::framework::meeting::Meeting;
 use crate::framework::member::Member;
-use crate::framework::summary::SummaryBuilder;
-use crate::meeting::MeetingStatus;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
 pub(crate) async fn end_meeting(
@@ -56,43 +51,19 @@ pub(crate) async fn plan_meeting(
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut output = String::new();
 
-    let data_read = ctx.data.read().await;
-    let meeting_status = data_read.get::<MeetingStatus>().unwrap();
-
     if let Some(new_schedule) = find_option_as_string(&option.options, "schedule") {
-        // check if the schedule is valid
-        let schedule = match cron::Schedule::from_str(&new_schedule) {
-            Ok(schedule) => schedule,
-            Err(e) => {
-                error!("Invalid schedule: {}", e);
-                return Err("Invalid schedule".into());
-            }
-        };
-        let next = schedule.upcoming(chrono::Local).next().unwrap();
+        Meeting::change_future_schedule(&ctx, &*new_schedule).await?;
 
-        MeetingStatus::change_schedule(Arc::clone(meeting_status), &new_schedule, &ctx)
-            .await
-            .unwrap();
-
-        write!(
-            output,
-            "New schedule set to {new_schedule} (next meeting on {next})"
-        )?;
+        write!(output, "New schedule set to")?;
     }
 
     if let Some(new_channel) = find_option_as_string(&option.options, "channel") {
         let channel_id = new_channel.parse::<u64>().unwrap();
         let channel = ctx.cache.guild_channel(channel_id).unwrap();
 
-        // check if channel is voice channel
-        if channel.kind != serenity::model::channel::ChannelType::Voice {
-            error!("Channel is not a voice channel: {}", channel_id);
-            return Err("Channel is not a voice channel".into());
-        }
+        write!(output, "\nMeeting channel changed to {}", channel.mention())?;
 
-        let mut meeting_status = meeting_status.write().await;
-
-        match meeting_status.change_channel(channel_id.to_string()) {
+        match Meeting::change_future_channel(&ctx, channel).await {
             Ok(_) => {}
             Err(e) => {
                 let error = format!("Error changing channel: {}", e);
@@ -100,8 +71,6 @@ pub(crate) async fn plan_meeting(
                 return Err(error.into());
             }
         }
-
-        write!(output, "\nMeeting channel changed to {}", channel.mention())?;
     }
 
     Ok(output)
@@ -125,8 +94,7 @@ pub(crate) async fn set_note(
                 Meeting::get_current_meeting(&ctx).await
             };
 
-        let summary_builder = SummaryBuilder::new().note(new_note.clone());
-        meeting.summary.edit(summary_builder).await?;
+        meeting.summary.note = new_note;
 
         match meeting.resend_summary(&ctx).await {
             Ok(_) => {}
@@ -150,22 +118,24 @@ pub(crate) async fn edit_meeting_members(
     info!(remove, ?option, "Adding/Removing members from meeting");
     let mut output = String::new();
 
+    let mut meeting: Meeting;
+
     if let Some(member) = find_option_as_string(&option.options, "member") {
         let member = Member::get_by_discord_id(member.parse().unwrap(), &ctx)
             .await?
             .unwrap();
 
-        if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
-            let meeting_id = match Uuid::parse_str(&meeting) {
+        if let Some(meeting_id) = find_option_as_string(&option.options, "meeting-id") {
+            let meeting_id = match Uuid::parse_str(&meeting_id) {
                 Ok(id) => id,
                 Err(why) => {
-                    let error_msg = format!("Invalid meeting id: {}\nReason: {}", meeting, why);
+                    let error_msg = format!("Invalid meeting id: {}\nReason: {}", meeting_id, why);
                     error!("{}", error_msg);
                     return Err(error_msg.into());
                 }
             };
 
-            let mut meeting = match Meeting::get(&ctx, meeting_id).await {
+            meeting = match Meeting::get(&ctx, meeting_id).await {
                 Ok(meeting) => meeting,
                 Err(why) => {
                     let error_msg = format!(
@@ -176,20 +146,14 @@ pub(crate) async fn edit_meeting_members(
                     return Err(error_msg.into());
                 }
             };
-
-            if remove {
-                output.push_str(&meeting.remove_member(member).await?);
-            } else {
-                output.push_str(&meeting.add_member(member).await?);
-            }
         } else {
-            let mut meeting = Meeting::get_current_meeting(&ctx).await;
+            meeting = Meeting::get_current_meeting(&ctx).await;
+        }
 
-            if remove {
-                output.push_str(&meeting.remove_member(member).await.unwrap());
-            } else {
-                output.push_str(&meeting.add_member(member).await.unwrap());
-            }
+        if remove {
+            output.push_str(&meeting.remove_member(member).await.unwrap());
+        } else {
+            output.push_str(&meeting.add_member(member).await.unwrap());
         }
     } else {
         output.push_str("No member specified");
@@ -209,8 +173,7 @@ pub(crate) async fn list_meetings(
     let page_size = find_option_value(&option.options[..], "page-size")
         .map(|page_size| page_size.as_i64().unwrap());
 
-    let filter = MeetingFilter::new();
-    let (meetings, total_pages) = Meeting::list(filter, &ctx, page, page_size).await?;
+    let (meetings, total_pages) = Meeting::find().list(&ctx, page, page_size).await?;
 
     let mut output = String::new();
 

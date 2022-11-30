@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
 
+use chrono::Local;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use serenity::http::CacheHttp;
@@ -10,7 +11,6 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::database::models::report::Report as DbReport;
-use crate::database::models::report::ReportFilter;
 use crate::database::schema::report::BoxedQuery;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
@@ -29,6 +29,17 @@ pub struct Report {
 }
 
 impl Report {
+    pub fn new(member: Member, content: String) -> Report {
+        Report {
+            id: Uuid::new_v4(),
+            member,
+            content,
+            create_date: Local::now().date_naive(),
+            published: false,
+            summary: None,
+        }
+    }
+
     pub fn add_report(
         member: Member,
         content: String,
@@ -83,17 +94,6 @@ impl Report {
                 Err(e)
             }
         }
-    }
-
-    pub async fn edit(&mut self, builder: ReportBuilder) -> Result<(), Box<dyn std::error::Error>> {
-        let report_builder = builder;
-
-        let mut report = report_builder.build().await?;
-        report.id = self.id;
-        *self = report;
-
-        self.update()?;
-        Ok(())
     }
 
     pub async fn list(
@@ -164,8 +164,20 @@ impl Report {
         Ok(reports)
     }
 
-    pub(crate) fn filter() -> ReportFilter {
+    pub(crate) fn find() -> ReportFilter {
         ReportFilter::default()
+    }
+
+    pub fn set_summary(&mut self, summary: Summary) {
+        self.summary = Some(summary);
+    }
+
+    pub fn set_content(&mut self, content: String) {
+        self.content = content;
+    }
+
+    pub fn set_member(&mut self, member: Member) {
+        self.member = member;
     }
 }
 
@@ -185,92 +197,75 @@ impl Display for Report {
     }
 }
 
-pub struct ReportBuilder {
-    pub(crate) member: Option<Member>,
-    pub(crate) content: Option<String>,
-    pub(crate) create_date: Option<NaiveDate>,
-    pub(crate) publish: Option<bool>,
-    pub(crate) summary: Option<Summary>,
+#[derive(Default, Debug, Clone)]
+pub struct ReportFilter {
+    member_id: Option<Uuid>,
+    content: Option<String>,
+    create_date: Option<NaiveDate>,
+    published: Option<bool>,
+    summary_id: Option<Uuid>,
 }
 
-impl ReportBuilder {
-    pub fn new() -> Self {
-        Self {
-            member: None,
-            content: None,
-            create_date: None,
-            publish: None,
-            summary: None,
-        }
-    }
-
-    pub fn member(&mut self, member: Member) -> &mut Self {
-        self.member = Some(member);
-        self
-    }
-
-    pub fn content(&mut self, content: String) -> &mut Self {
-        self.content = Some(content);
-        self
-    }
-
-    pub fn create_date(&mut self, create_date: NaiveDate) -> &mut Self {
-        self.create_date = Some(create_date);
-        self
-    }
-
-    pub fn summary(&mut self, summary_id: Summary) -> &mut Self {
-        self.summary = Some(summary_id);
-        self
-    }
-
-    pub async fn build(&self) -> Result<Report, Box<dyn std::error::Error>> {
-        let member = self.member.clone().ok_or("Member is required")?;
-        let content = self.content.clone().ok_or("Content is required")?;
-        let create_date = self
-            .create_date
-            .unwrap_or_else(|| chrono::offset::Local::now().date_naive());
-        let publish = self.summary.is_some() && self.summary.as_ref().unwrap().is_published();
-        let summary = self.summary.clone();
-
-        let mut report = Report::add_report(member, content, create_date, publish, summary)?;
-
-        if let Some(summary) = self.summary.clone() {
-            report.summary = Some(summary);
-        }
-
-        Ok(report)
-    }
-
-    pub fn apply_filter<'a>(&'a self, mut query: BoxedQuery<'a, Pg>) -> BoxedQuery<'a, Pg> {
+impl ReportFilter {
+    pub fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
         use crate::database::schema::report::dsl;
 
-        if let Some(member) = &self.member {
-            query = query.filter(dsl::member_id.eq(member.id));
+        let mut query = query;
+
+        if let Some(member_id) = self.member_id {
+            query = query.filter(dsl::member_id.eq(member_id));
         }
 
-        if let Some(content) = &self.content {
+        if let Some(content) = self.content {
             query = query.filter(dsl::content.eq(content));
         }
 
-        if let Some(create_date) = &self.create_date {
+        if let Some(create_date) = self.create_date {
             query = query.filter(dsl::create_date.eq(create_date));
         }
 
-        if let Some(publish) = &self.publish {
-            query = query.filter(dsl::published.eq(publish));
+        if let Some(published) = self.published {
+            query = query.filter(dsl::published.eq(published));
         }
 
-        if let Some(summary) = &self.summary {
-            query = query.filter(dsl::summary_id.eq(summary.id));
+        if let Some(summary_id) = self.summary_id {
+            query = query.filter(dsl::summary_id.eq(summary_id));
         }
 
         query
     }
-}
 
-impl Default for ReportBuilder {
-    fn default() -> Self {
-        Self::new()
+    pub async fn list(
+        self,
+        cache_http: &impl CacheHttp,
+        page: i64,
+        per_page: Option<i64>,
+    ) -> Result<(Vec<Report>, i64), Box<dyn std::error::Error>> {
+        Report::list(self, cache_http, page, per_page).await
+    }
+
+    pub fn member_id(mut self, member: Option<Uuid>) -> Self {
+        self.member_id = member;
+        self
+    }
+
+    pub fn published(mut self, published: Option<bool>) -> Self {
+        self.published = published;
+        self
+    }
+
+    pub fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
+        self.summary_id = summary_id;
+        self
+    }
+
+    pub fn content(mut self, content: Option<String>) -> Self {
+        self.content = content;
+        self
+    }
+
+    pub fn create_date(mut self, create_date: Option<NaiveDate>) -> Self {
+        self.create_date = create_date;
+        self
     }
 }

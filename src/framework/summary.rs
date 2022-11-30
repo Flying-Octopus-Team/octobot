@@ -50,10 +50,7 @@ impl Summary {
         Ok(())
     }
 
-    pub async fn edit(
-        &mut self,
-        builder: SummaryBuilder,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn edit(&mut self, builder: SummaryFilter) -> Result<(), Box<dyn std::error::Error>> {
         let mut summary = builder.build();
 
         summary.id = self.id;
@@ -64,13 +61,13 @@ impl Summary {
     }
 
     pub async fn list(
+        filter: SummaryFilter,
         cache_http: &impl CacheHttp,
-        filter: SummaryBuilder,
         page: i64,
-        per_page: Option<i64>,
+        page_size: Option<i64>,
     ) -> Result<(Vec<Summary>, i64), Box<dyn std::error::Error>> {
-        let query = filter.apply_filter(DbSummary::all().into_boxed());
-        let query = DbSummary::paginate(query, page, per_page);
+        let query = filter.apply(DbSummary::all().into_boxed());
+        let query = DbSummary::paginate(query, page, page_size);
 
         let (db_summary, total) = query
             .load_and_count_pages(&mut PG_POOL.get().unwrap())
@@ -256,6 +253,10 @@ impl Summary {
 
         Ok("Summary was generated and sent to the channel".to_string())
     }
+
+    pub(crate) fn find() -> SummaryFilter {
+        SummaryFilter::default()
+    }
 }
 
 impl Display for Summary {
@@ -270,16 +271,16 @@ impl Display for Summary {
     }
 }
 
-pub struct SummaryBuilder {
+pub struct SummaryFilter {
     id: Option<Uuid>,
     note: Option<String>,
     create_date: Option<NaiveDate>,
     messages_id: Option<Vec<MessageId>>,
 }
 
-impl SummaryBuilder {
+impl SummaryFilter {
     pub fn new() -> Self {
-        SummaryBuilder {
+        SummaryFilter {
             id: None,
             note: None,
             create_date: None,
@@ -316,18 +317,27 @@ impl SummaryBuilder {
         }
     }
 
-    pub fn apply_filter<'a>(&'a self, mut query: BoxedQuery<'a, Pg>) -> BoxedQuery<'a, Pg> {
+    pub async fn list(
+        self,
+        cache_http: &impl CacheHttp,
+        page: i64,
+        page_size: Option<i64>,
+    ) -> Result<(Vec<Summary>, i64), Box<dyn std::error::Error>> {
+        Summary::list(self, cache_http, page, page_size).await
+    }
+
+    pub fn apply(self, mut query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
         use crate::database::schema::summary::dsl;
 
-        if let Some(id) = &self.id {
+        if let Some(id) = self.id {
             query = query.filter(dsl::id.eq(id));
         }
 
-        if let Some(note) = &self.note {
+        if let Some(note) = self.note {
             query = query.filter(dsl::note.eq(note));
         }
 
-        if let Some(create_date) = &self.create_date {
+        if let Some(create_date) = self.create_date {
             query = query.filter(dsl::create_date.eq(create_date));
         }
 
@@ -343,17 +353,17 @@ impl SummaryBuilder {
     }
 }
 
-impl Default for SummaryBuilder {
+impl Default for SummaryFilter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TryFrom<&CommandDataOption> for SummaryBuilder {
+impl TryFrom<&CommandDataOption> for SummaryFilter {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(option: &CommandDataOption) -> Result<Self, Self::Error> {
-        let mut builder = SummaryBuilder::new();
+        let mut builder = SummaryFilter::new();
 
         for option in option.options.iter() {
             builder = match option.name.as_str() {

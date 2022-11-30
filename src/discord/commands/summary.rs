@@ -7,9 +7,8 @@ use tracing::log::error;
 
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
+use crate::framework::meeting::Meeting;
 use crate::framework::summary::Summary;
-use crate::framework::summary::SummaryBuilder;
-use crate::meeting::MeetingStatus;
 
 pub(crate) async fn preview_summary(
     ctx: Context,
@@ -23,11 +22,9 @@ pub(crate) async fn preview_summary(
         let id = uuid::Uuid::parse_str(&summary_id)?;
         Summary::get(&ctx, id).await?
     } else {
-        let read = ctx.data.read().await;
-        let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
-        let meeting_status = meeting_status.write().await;
+        let meeting = Meeting::get_current_meeting(&ctx).await;
 
-        Summary::get(&ctx, meeting_status.summary_id()).await?
+        meeting.summary
     };
 
     let summary = summary.generate_summary(&ctx, note).await?;
@@ -52,9 +49,7 @@ pub(crate) async fn list_summaries(
     let page_size = find_option_value(&option.options[..], "page-size")
         .map(|page_size| page_size.as_i64().unwrap());
 
-    let summary_filter = SummaryBuilder::try_from(option)?;
-
-    let (summaries, total_pages) = Summary::list(&ctx, summary_filter, page, page_size).await?;
+    let (summaries, total_pages) = Summary::find().list(&ctx, page, page_size).await?;
 
     let mut output = String::new();
 

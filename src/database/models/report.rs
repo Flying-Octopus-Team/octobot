@@ -4,7 +4,7 @@ use crate::database::schema::report::dsl;
 use crate::database::schema::report::{self, BoxedQuery};
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
-use crate::framework::report::ReportBuilder;
+use crate::framework::report::ReportFilter;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
@@ -117,10 +117,6 @@ impl Report {
         }
 
         query
-    }
-
-    pub fn filter() -> ReportFilter {
-        ReportFilter::default()
     }
 
     pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
@@ -262,80 +258,6 @@ impl From<crate::framework::report::Report> for Report {
             content: report.content,
             published: report.published,
             summary_id: report.summary.map(|s| s.id),
-        }
-    }
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct ReportFilter {
-    member_id: Option<Uuid>,
-    content: Option<String>,
-    create_date: Option<NaiveDate>,
-    published: Option<bool>,
-    summary_id: Option<Uuid>,
-}
-
-impl ReportFilter {
-    fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
-        let mut query = query;
-
-        if let Some(member_id) = self.member_id {
-            query = query.filter(dsl::member_id.eq(member_id));
-        }
-
-        if let Some(content) = self.content {
-            query = query.filter(dsl::content.eq(content));
-        }
-
-        if let Some(create_date) = self.create_date {
-            query = query.filter(dsl::create_date.eq(create_date));
-        }
-
-        if let Some(published) = self.published {
-            query = query.filter(dsl::published.eq(published));
-        }
-
-        if let Some(summary_id) = self.summary_id {
-            query = query.filter(dsl::summary_id.eq(summary_id));
-        }
-
-        query
-    }
-
-    pub(crate) fn member_id(&mut self, member: Option<Uuid>) -> &mut Self {
-        self.member_id = member;
-        self
-    }
-
-    pub(crate) fn published(&mut self, published: Option<bool>) -> &mut Self {
-        self.published = published;
-        self
-    }
-
-    pub(crate) fn summary_id(&mut self, summary_id: Option<Uuid>) -> &mut Self {
-        self.summary_id = summary_id;
-        self
-    }
-
-    pub(crate) fn content(&mut self, content: Option<String>) -> &mut Self {
-        self.content = content;
-        self
-    }
-
-    pub(crate) fn create_date(&mut self, create_date: Option<NaiveDate>) -> &mut Self {
-        self.create_date = create_date;
-        self
-    }
-}
-
-impl From<ReportBuilder> for ReportFilter {
-    fn from(builder: ReportBuilder) -> Self {
-        Self {
-            member_id: builder.member.map(|m| m.id),
-            content: builder.content,
-            create_date: builder.create_date,
-            published: builder.publish,
-            summary_id: builder.summary.map(|s| s.id),
         }
     }
 }

@@ -7,9 +7,14 @@ use std::sync::Mutex;
 use chrono::NaiveDateTime;
 use cron::Schedule;
 use crony::Job;
+use diesel::pg::Pg;
+use diesel::ExpressionMethods;
+use diesel::QueryDsl;
 use serenity::http::CacheHttp;
+use serenity::model::channel::ChannelType;
 use serenity::model::prelude::GuildChannel;
 use serenity::prelude::Context;
+use serenity::prelude::Mentionable;
 use serenity::prelude::TypeMap;
 use serenity::prelude::TypeMapKey;
 use tokio::sync::RwLock;
@@ -20,8 +25,8 @@ use uuid::Uuid;
 use super::member::Member;
 use super::summary::Summary;
 use crate::database::models::meeting::Meeting as DbMeeting;
-use crate::database::models::meeting::MeetingFilter;
 use crate::database::models::meeting::MeetingMembers;
+use crate::database::schema::meeting::BoxedQuery;
 use crate::SETTINGS;
 
 #[derive(Debug, Clone)]
@@ -147,9 +152,9 @@ impl Meeting {
         filter: impl Into<MeetingFilter>,
         cache_http: &impl CacheHttp,
         page: i64,
-        per_page: Option<i64>,
+        page_size: Option<i64>,
     ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
-        let (db_meetings, total_pages) = DbMeeting::list(filter, page, per_page)?;
+        let (db_meetings, total_pages) = DbMeeting::list(filter, page, page_size)?;
 
         let mut meetings = Vec::new();
 
@@ -161,7 +166,7 @@ impl Meeting {
         Ok((meetings, total_pages))
     }
 
-    pub async fn await_meeting(data: Arc<RwLock<TypeMap>> ,client: impl CacheHttp + 'static) {
+    pub async fn await_meeting(data: Arc<RwLock<TypeMap>>, client: impl CacheHttp + 'static) {
         let meeting = Self::next_meeting(&client).await;
         let schedule = crony::Schedule::from_str(&meeting.schedule.to_string()).unwrap();
 
@@ -180,8 +185,7 @@ impl Meeting {
             runner: Mutex::new(runner),
         };
 
-        data
-            .write()
+        data.write()
             .await
             .insert::<MeetingStatus>(Arc::new(RwLock::new(meeting_status)));
     }
@@ -275,13 +279,20 @@ impl Meeting {
         Ok(output)
     }
 
-    pub async fn change_future_schedule(ctx: Context, schedule: String) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn change_future_schedule<T: TryInto<Schedule>>(
+        ctx: &Context,
+        schedule: T,
+    ) -> Result<String, Box<dyn std::error::Error>>
+    where
+        <T as TryInto<Schedule>>::Error: std::error::Error,
+    {
+        let schedule = schedule.try_into().unwrap();
         let mut data = ctx.data.write().await;
         let meeting_status = data.remove::<MeetingStatus>().unwrap();
 
         let mut meeting_status = Arc::try_unwrap(meeting_status).unwrap().into_inner();
 
-        let schedule = cron::Schedule::from_str(&schedule)?;
+        // let schedule = cron::Schedule::from_str(&schedule)?;
         meeting_status.meeting.schedule = schedule;
         meeting_status.meeting.update()?;
 
@@ -291,11 +302,38 @@ impl Meeting {
         Ok("Schedule changed successfully".to_string())
     }
 
+    pub async fn change_future_channel(
+        ctx: &Context,
+        channel: GuildChannel,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let data = ctx.data.read().await;
+        let meeting_status = data.get::<MeetingStatus>().unwrap();
+        let mut meeting_status = meeting_status.write().await;
+
+        if channel.kind != ChannelType::Voice {
+            error!("Channel is not a voice channel: {}", channel.mention());
+            return Err("Channel is not a voice channel".into());
+        }
+
+        if meeting_status.is_running {
+            error!("Meeting is running. Cannot change channel");
+            return Err("Meeting is running. Cannot change channel".into());
+        }
+
+        meeting_status.meeting.channel = channel;
+
+        Ok(())
+    }
+
     pub(crate) async fn resend_summary(
         &self,
         cache_http: &impl CacheHttp,
     ) -> Result<String, Box<dyn std::error::Error>> {
         self.summary.resend_summary(cache_http).await
+    }
+
+    pub(crate) fn find() -> MeetingFilter {
+        MeetingFilter::default()
     }
 }
 
@@ -458,4 +496,81 @@ pub async fn status(ctx: &Context) -> String {
     output.push('>');
 
     output
+}
+
+pub struct MeetingFilter {
+    start_date: Option<chrono::NaiveDateTime>,
+    end_date: Option<chrono::NaiveDateTime>,
+    summary_id: Option<Uuid>,
+    channel_id: Option<String>,
+}
+
+impl MeetingFilter {
+    pub fn new() -> MeetingFilter {
+        MeetingFilter {
+            start_date: None,
+            end_date: None,
+            summary_id: None,
+            channel_id: None,
+        }
+    }
+
+    pub fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
+        use crate::database::schema::meeting;
+
+        let mut query = query;
+
+        if let Some(start_date) = self.start_date {
+            query = query.filter(meeting::start_date.gt(start_date));
+        }
+
+        if let Some(end_date) = self.end_date {
+            query = query.filter(meeting::end_date.lt(end_date));
+        }
+
+        if let Some(summary_id) = self.summary_id {
+            query = query.filter(meeting::summary_id.eq(summary_id));
+        }
+
+        if let Some(channel_id) = self.channel_id {
+            query = query.filter(meeting::channel_id.eq(channel_id));
+        }
+
+        query
+    }
+
+    pub async fn list(
+        self,
+        cache_http: &impl CacheHttp,
+        page: i64,
+        page_size: Option<i64>,
+    ) -> Result<(Vec<Meeting>, i64), Box<dyn std::error::Error>> {
+        Meeting::list(self, cache_http, page, page_size).await
+    }
+
+    pub(crate) fn start_date(mut self, start_date: Option<chrono::NaiveDateTime>) -> Self {
+        self.start_date = start_date;
+        self
+    }
+
+    pub(crate) fn end_date(mut self, end_date: Option<chrono::NaiveDateTime>) -> Self {
+        self.end_date = end_date;
+        self
+    }
+
+    pub(crate) fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
+        self.summary_id = summary_id;
+        self
+    }
+
+    pub(crate) fn channel_id(mut self, channel_id: Option<String>) -> Self {
+        self.channel_id = channel_id;
+        self
+    }
+}
+
+impl Default for MeetingFilter {
+    fn default() -> Self {
+        MeetingFilter::new()
+    }
 }

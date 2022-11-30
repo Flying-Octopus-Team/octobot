@@ -21,6 +21,7 @@ use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::diesel::Table;
+use crate::framework::meeting::MeetingFilter;
 use crate::SETTINGS;
 use diesel::query_dsl::SaveChangesDsl;
 
@@ -504,71 +505,5 @@ impl From<crate::framework::meeting::Meeting> for Meeting {
             channel_id: meeting.channel.id.0.to_string(),
             scheduled_cron: meeting.schedule.to_string(),
         }
-    }
-}
-
-pub struct MeetingFilter {
-    start_date: Option<chrono::NaiveDateTime>,
-    end_date: Option<chrono::NaiveDateTime>,
-    summary_id: Option<Uuid>,
-    channel_id: Option<String>,
-}
-
-impl MeetingFilter {
-    pub fn new() -> MeetingFilter {
-        MeetingFilter {
-            start_date: None,
-            end_date: None,
-            summary_id: None,
-            channel_id: None,
-        }
-    }
-
-    fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
-        let mut query = query;
-
-        if let Some(start_date) = self.start_date {
-            query = query.filter(meeting::start_date.gt(start_date));
-        }
-
-        if let Some(end_date) = self.end_date {
-            query = query.filter(meeting::end_date.lt(end_date));
-        }
-
-        if let Some(summary_id) = self.summary_id {
-            query = query.filter(meeting::summary_id.eq(summary_id));
-        }
-
-        if let Some(channel_id) = self.channel_id {
-            query = query.filter(meeting::channel_id.eq(channel_id));
-        }
-
-        query
-    }
-
-    pub(crate) fn start_date(mut self, start_date: Option<chrono::NaiveDateTime>) -> Self {
-        self.start_date = start_date;
-        self
-    }
-
-    pub(crate) fn end_date(mut self, end_date: Option<chrono::NaiveDateTime>) -> Self {
-        self.end_date = end_date;
-        self
-    }
-
-    pub(crate) fn summary_id(mut self, summary_id: Option<Uuid>) -> Self {
-        self.summary_id = summary_id;
-        self
-    }
-
-    pub(crate) fn channel_id(mut self, channel_id: Option<String>) -> Self {
-        self.channel_id = channel_id;
-        self
-    }
-}
-
-impl Default for MeetingFilter {
-    fn default() -> Self {
-        MeetingFilter::new()
     }
 }

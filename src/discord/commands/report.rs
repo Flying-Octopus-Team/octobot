@@ -8,7 +8,6 @@ use uuid::Uuid;
 use crate::discord::find_option_as_string;
 use crate::framework::member::Member;
 use crate::framework::report::Report;
-use crate::framework::report::ReportBuilder;
 use crate::framework::summary::Summary;
 
 use super::find_option_value;
@@ -40,20 +39,19 @@ pub(crate) async fn add_report(
         None => return Ok("No content specified".to_string()),
     };
 
-    let mut report_builder = ReportBuilder::new();
-    report_builder.member(member).content(content);
+    let mut report = Report::new(member, content);
 
     if let Some(meeting) = find_option_as_string(&option.options[..], "summary") {
         let id = uuid::Uuid::parse_str(&meeting)?;
         match Summary::get(&ctx, id).await {
             Ok(summary) => {
-                report_builder.summary(summary);
+                report.set_summary(summary);
             }
             Err(why) => return Err(why),
         }
     };
 
-    let report = report_builder.build().await?;
+    report.insert()?;
 
     info!("Report added: {:?}", report);
 
@@ -117,10 +115,11 @@ pub(crate) async fn list_reports(
     let published = find_option_value(&option.options[..], "published")
         .map(|published| published.as_bool().unwrap());
 
-    let mut filter = Report::filter();
-    filter.member_id(member).published(published);
-
-    let (reports, total_pages) = Report::list(filter, &ctx, page, page_size).await?;
+    let (reports, total_pages) = Report::find()
+        .member_id(member)
+        .published(published)
+        .list(&ctx, page, page_size)
+        .await?;
 
     let mut output = String::new();
 
@@ -152,10 +151,8 @@ pub(crate) async fn update_report(
         None => return Ok("No report specified".to_string()),
     };
 
-    let mut report_builder = ReportBuilder::new();
-
     if let Some(content) = find_option_as_string(&option.options[..], "content") {
-        report_builder.content(content);
+        update_report.set_content(content);
     }
 
     if let Some(member) = find_option_value(&option.options[..], "member") {
@@ -163,7 +160,7 @@ pub(crate) async fn update_report(
         let member = Member::get_by_discord_id(member_dc_id, &ctx).await?;
 
         match member {
-            Some(member) => report_builder.member(member),
+            Some(member) => update_report.set_member(member),
             None => return Ok("Can't find member with this ID".to_string()),
         };
     }
