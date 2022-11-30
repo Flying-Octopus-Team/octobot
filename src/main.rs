@@ -10,8 +10,6 @@ use tracing_subscriber::{
     prelude::__tracing_subscriber_SubscriberExt,
 };
 
-use crate::framework::meeting::Meeting;
-
 mod database;
 mod discord;
 mod framework;
@@ -26,8 +24,7 @@ async fn main() {
     let _guard = setup_tracing();
 
     database::run_migrations();
-    let client = discord::start_bot().await;
-    Meeting::await_meeting(client.data, client.cache_and_http).await;
+    discord::start_bot().await;
 }
 
 fn setup_tracing() -> WorkerGuard {

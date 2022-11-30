@@ -1,4 +1,5 @@
 use std::fmt::Write;
+use std::sync::Arc;
 
 use anyhow::Result;
 use serenity::async_trait;
@@ -119,10 +120,12 @@ impl EventHandler for Handler {
         .expect("Error creating global application command");
 
         debug!("{:?}", guild_command);
+
+        Meeting::await_meeting(Arc::clone(&ctx.data), ctx).await;
     }
 }
 
-pub async fn start_bot() -> Client {
+pub async fn start_bot() {
     let token = &SETTINGS.discord_token;
 
     let intents = GatewayIntents::non_privileged()
@@ -143,8 +146,6 @@ pub async fn start_bot() -> Client {
     if let Err(why) = client.start().await {
         error!("An error occurred while running the client: {:?}", why);
     }
-
-    client
 }
 
 pub(crate) fn split_message(message: String) -> Result<Vec<String>> {

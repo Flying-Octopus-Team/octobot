@@ -164,13 +164,21 @@ impl Meeting {
         Ok((meetings, total_pages))
     }
 
-    pub async fn await_meeting(data: Arc<RwLock<TypeMap>>, client: impl CacheHttp + 'static) {
-        let meeting = Self::next_meeting(&client).await;
+    pub async fn await_meeting(data: Arc<RwLock<TypeMap>>, cache_http: impl CacheHttp + 'static) {
+        if let Some(meeting_status) = data.read().await.get::<MeetingStatus>() {
+            let meeting_status = meeting_status.read().await;
+
+            if meeting_status.is_running {
+                return;
+            }
+        }
+
+        let meeting = Self::next_meeting(&cache_http).await;
         let schedule = crony::Schedule::from_str(&meeting.schedule.to_string()).unwrap();
 
         let job = MeetingJob {
             data: data.clone(),
-            cache_and_http: Arc::new(client),
+            cache_and_http: Arc::new(cache_http),
             schedule,
         };
 
