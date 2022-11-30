@@ -275,9 +275,12 @@ impl Meeting {
 
     pub async fn remove_member(&mut self, member: Member) -> Result<String> {
         self.members.retain(|(_, m)| m.id != member.id);
-        MeetingMembers::delete_by_meeting_and_member(self.id, member.id)?;
-        let output = format!("Member {} removed", member.name());
-        Ok(output)
+        let edited_rows = MeetingMembers::delete_by_meeting_and_member(self.id, member.id)?;
+        if edited_rows > 0 {
+            Ok(format!("Member {} removed", member.name()))
+        } else {
+            Err(anyhow::anyhow!("Member not found"))
+        }
     }
 
     pub async fn change_future_schedule<T: TryInto<Schedule>>(
@@ -290,6 +293,12 @@ impl Meeting {
         let schedule = schedule.try_into().unwrap();
         let mut data = ctx.data.write().await;
         let meeting_status = data.remove::<MeetingStatus>().unwrap();
+
+        if meeting_status.read().await.is_running {
+            return Err(anyhow::anyhow!(
+                "Meeting is running. Cannot change schedule"
+            ));
+        }
 
         let mut meeting_status = Arc::try_unwrap(meeting_status).unwrap().into_inner();
 

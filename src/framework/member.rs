@@ -139,24 +139,22 @@ impl Member {
     pub fn update(self) -> Result<Self> {
         let member = DbMember::from(self.clone());
 
-        match member.update() {
-            Ok(_) => Ok(self),
-            Err(why) => {
-                error!("Failed to update member: {}", why);
-                Err(why)
-            }
+        if let Err(why) = member.update() {
+            error!("Failed to update member: {}", why);
+            Err(why)
+        } else {
+            Ok(self)
         }
     }
 
     pub async fn delete(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         let member = DbMember::from(self.clone());
 
-        match member.delete() {
-            Ok(_) => info!("Deleted member: {}", self.display_name),
-            Err(why) => {
-                error!("Failed to delete member: {}", why);
-                return Err(why);
-            }
+        if let Err(why) = member.delete() {
+            error!("Failed to delete member: {}", why);
+            return Err(why);
+        } else {
+            info!("Deleted member: {}", self.display_name)
         }
 
         let member_role = self.member_role;
