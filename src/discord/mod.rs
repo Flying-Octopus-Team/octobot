@@ -17,9 +17,9 @@ use tracing::info;
 use tracing::log::trace;
 use tracing::warn;
 
-use crate::SETTINGS;
 use crate::framework::meeting::Meeting;
 use crate::framework::member::Member;
+use crate::SETTINGS;
 
 struct Handler;
 

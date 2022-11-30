@@ -38,21 +38,23 @@ impl MemberRole {
     }
 
     pub(crate) async fn remove_role(
-        &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
     ) -> Result<()> {
-        let role = self.discord_role();
+        let role = member.member_role.discord_role();
+
         let guild = cache_http
             .cache()
             .expect("Failed to get cache")
             .guild(SETTINGS.server_id)
             .unwrap();
+
         let mut member = guild
             .member(cache_http.http(), member.discord_user.as_ref().unwrap().id)
-            .await
-            .unwrap();
+            .await?;
+
         member.remove_role(cache_http.http(), role).await?;
+
         Ok(())
     }
 
@@ -80,8 +82,7 @@ impl MemberRole {
         member: &mut Member,
         cache_http: &impl CacheHttp,
     ) -> Result<()> {
-        let old_role = member.member_role;
-        old_role.remove_role(member, cache_http).await?;
+        MemberRole::remove_role(member, cache_http).await?;
         self.add_role(member, cache_http).await?;
         Ok(())
     }
@@ -157,8 +158,7 @@ impl Member {
             info!("Deleted member: {}", self.display_name)
         }
 
-        let member_role = self.member_role;
-        member_role.remove_role(self, cache_http).await?;
+        MemberRole::remove_role(self, cache_http).await?;
 
         Ok(())
     }
@@ -174,6 +174,8 @@ impl Member {
             self.display_name = display_name;
         }
         if let Some(discord_id) = builder.discord_id {
+            MemberRole::remove_role(self, cache_http).await?;
+
             self.discord_user = Some(
                 cache_http
                     .cache()
@@ -181,6 +183,8 @@ impl Member {
                     .user(discord_id.parse::<u64>().unwrap())
                     .unwrap(),
             );
+
+            self.setup(cache_http).await?;
         }
         if let Some(trello_id) = builder.trello_id {
             self.trello_id = Some(trello_id);

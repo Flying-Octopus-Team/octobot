@@ -268,7 +268,7 @@ impl Meeting {
         if MeetingMembers::is_user_in_meeting(self.id, member.id)? {
             return Err(anyhow::anyhow!("User is already in meeting"));
         }
-        
+
         let meeting_member = MeetingMembers::new(self.id, member.id);
         meeting_member.insert()?;
 
