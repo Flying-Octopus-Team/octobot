@@ -28,6 +28,22 @@ pub struct Summary {
 }
 
 impl Summary {
+    pub(super) fn new(create_date: NaiveDate) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            note: String::new(),
+            create_date,
+            messages_id: Vec::new(),
+        }
+    }
+
+    pub fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let db_summary = DbSummary::from(self.clone());
+
+        db_summary.insert()?;
+        Ok(())
+    }
+
     pub fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
         let db_summary = DbSummary::from(self.clone());
         db_summary.update()?;
@@ -71,7 +87,7 @@ impl Summary {
     }
 
     async fn from_db_summary(
-        cache_http: &impl CacheHttp,
+        cache_http: impl CacheHttp,
         db_summary: DbSummary,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let id = db_summary.id();
@@ -324,6 +340,12 @@ impl SummaryBuilder {
         }
 
         query
+    }
+}
+
+impl Default for SummaryBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

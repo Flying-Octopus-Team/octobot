@@ -494,6 +494,19 @@ impl Display for Meeting {
     }
 }
 
+impl From<crate::framework::meeting::Meeting> for Meeting {
+    fn from(meeting: crate::framework::meeting::Meeting) -> Self {
+        Meeting {
+            id: meeting.id,
+            summary_id: meeting.summary.id,
+            start_date: meeting.start_date,
+            end_date: meeting.end_date,
+            channel_id: meeting.channel.id.0.to_string(),
+            scheduled_cron: meeting.schedule.to_string(),
+        }
+    }
+}
+
 pub struct MeetingFilter {
     start_date: Option<chrono::NaiveDateTime>,
     end_date: Option<chrono::NaiveDateTime>,
@@ -551,5 +564,11 @@ impl MeetingFilter {
     pub(crate) fn channel_id(mut self, channel_id: Option<String>) -> Self {
         self.channel_id = channel_id;
         self
+    }
+}
+
+impl Default for MeetingFilter {
+    fn default() -> Self {
+        MeetingFilter::new()
     }
 }

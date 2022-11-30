@@ -11,18 +11,18 @@ use crate::framework::member::MemberBuilder;
 use super::find_option_value;
 
 pub async fn add_member(
-    ctx: &Context,
+    ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
 
     let member = MemberBuilder::from(option);
-    member.check_for_duplicates(ctx).await?;
+    member.check_for_duplicates(&ctx).await?;
 
-    let mut member = member.build(ctx).await;
+    let mut member = member.build(&ctx).await;
     member.insert()?;
-    member.setup(ctx).await?;
+    member.setup(&ctx).await?;
 
     info!("Member added: {:?}", member);
 
@@ -30,7 +30,7 @@ pub async fn add_member(
 }
 
 pub async fn remove_member(
-    ctx: &Context,
+    ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -45,9 +45,9 @@ pub async fn remove_member(
 
     let id = Uuid::parse_str(&id)?;
 
-    let mut member = Member::get(id, ctx).await?;
+    let mut member = Member::get(id, &ctx).await?;
 
-    member.delete(ctx).await?;
+    member.delete(&ctx).await?;
 
     info!("Member removed: {:?}", member);
 
@@ -55,7 +55,7 @@ pub async fn remove_member(
 }
 
 pub async fn update_member(
-    ctx: &Context,
+    ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -69,9 +69,9 @@ pub async fn update_member(
             .unwrap(),
     )?;
 
-    let mut old_member = Member::get(id, ctx).await?;
+    let mut old_member = Member::get(id, &ctx).await?;
 
-    old_member.edit(updated_member, ctx).await.unwrap();
+    old_member.edit(updated_member, &ctx).await.unwrap();
 
     old_member = old_member.update().unwrap();
 
@@ -81,7 +81,7 @@ pub async fn update_member(
 }
 
 pub async fn list_members(
-    ctx: &Context,
+    ctx: Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing members");

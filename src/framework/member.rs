@@ -247,7 +247,7 @@ impl Member {
 
     pub(crate) async fn get(
         id: Uuid,
-        cache_http: impl CacheHttp,
+        cache_http: &impl CacheHttp,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let db_member = DbMember::find_by_id(id)?;
         Ok(Self {
@@ -274,7 +274,7 @@ impl Member {
     // Get member from the database by their discord id
     pub(crate) async fn get_by_discord_id(
         discord_id: u64,
-        cache_http: impl CacheHttp,
+        cache_http: &impl CacheHttp,
     ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
         let db_member = DbMember::find_by_discord_id(format!("{}", discord_id))?;
 
@@ -504,6 +504,12 @@ impl MemberBuilder {
         }
 
         query
+    }
+}
+
+impl Default for MemberBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -11,7 +11,7 @@ mod report;
 mod summary;
 
 pub async fn handle_interaction_command<'a>(
-    ctx: &Context,
+    ctx: Context,
     command: &ApplicationCommandInteraction,
 ) -> Result<String, Box<dyn std::error::Error>> {
     match command.data.name.as_str() {
@@ -64,7 +64,7 @@ pub async fn handle_interaction_command<'a>(
         },
         "meeting" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {
-                "end" => meeting::end_meeting(option, ctx).await,
+                "end" => meeting::end_meeting(ctx, option).await,
                 "status" => meeting::status_meeting(ctx).await,
                 "list" => meeting::list_meetings(ctx, option).await,
                 "plan" => meeting::plan_meeting(ctx, option).await,

@@ -12,7 +12,7 @@ use crate::framework::summary::SummaryBuilder;
 use crate::meeting::MeetingStatus;
 
 pub(crate) async fn preview_summary(
-    ctx: &Context,
+    ctx: Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Generating summary preview");
@@ -21,16 +21,16 @@ pub(crate) async fn preview_summary(
 
     let summary = if let Some(summary_id) = find_option_as_string(&option.options[..], "id") {
         let id = uuid::Uuid::parse_str(&summary_id)?;
-        Summary::get(ctx, id).await?
+        Summary::get(&ctx, id).await?
     } else {
         let read = ctx.data.read().await;
         let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
         let meeting_status = meeting_status.write().await;
 
-        Summary::get(ctx, meeting_status.summary_id()).await?
+        Summary::get(&ctx, meeting_status.summary_id()).await?
     };
 
-    let summary = summary.generate_summary(ctx, note).await?;
+    let summary = summary.generate_summary(&ctx, note).await?;
 
     if summary.is_empty() {
         info!("Generated empty summary");
@@ -41,7 +41,7 @@ pub(crate) async fn preview_summary(
 }
 
 pub(crate) async fn list_summaries(
-    ctx: &Context,
+    ctx: Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Listing summaries");
@@ -54,7 +54,7 @@ pub(crate) async fn list_summaries(
 
     let summary_filter = SummaryBuilder::try_from(option)?;
 
-    let (summaries, total_pages) = Summary::list(ctx, summary_filter, page, page_size).await?;
+    let (summaries, total_pages) = Summary::list(&ctx, summary_filter, page, page_size).await?;
 
     let mut output = String::new();
 
@@ -67,7 +67,7 @@ pub(crate) async fn list_summaries(
 }
 
 pub(crate) async fn resend_summary(
-    ctx: &Context,
+    ctx: Context,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Resending summary");
@@ -88,7 +88,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let summary = match Summary::get(ctx, id).await {
+    let summary = match Summary::get(&ctx, id).await {
         Ok(summary) => summary,
         Err(why) => {
             let error_msg = format!("There's no summary with such ID: {id}. Error: {why}");
@@ -97,7 +97,7 @@ pub(crate) async fn resend_summary(
         }
     };
 
-    let output = summary.resend_summary(ctx).await?;
+    let output = summary.resend_summary(&ctx).await?;
 
     Ok(output)
 }

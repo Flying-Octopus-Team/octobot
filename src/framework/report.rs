@@ -229,13 +229,8 @@ impl ReportBuilder {
         let content = self.content.clone().ok_or("Content is required")?;
         let create_date = self
             .create_date
-            .clone()
-            .unwrap_or(chrono::offset::Local::now().date_naive());
-        let publish = if self.summary.is_some() && self.summary.as_ref().unwrap().is_published() {
-            true
-        } else {
-            false
-        };
+            .unwrap_or_else(|| chrono::offset::Local::now().date_naive());
+        let publish = self.summary.is_some() && self.summary.as_ref().unwrap().is_published();
         let summary = self.summary.clone();
 
         let mut report = Report::add_report(member, content, create_date, publish, summary)?;
@@ -271,5 +266,11 @@ impl ReportBuilder {
         }
 
         query
+    }
+}
+
+impl Default for ReportBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

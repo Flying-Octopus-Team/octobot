@@ -29,7 +29,7 @@ impl EventHandler for Handler {
         debug!(?interaction, "Interaction created");
         if let Interaction::ApplicationCommand(command) = interaction {
             command.defer(&ctx).await.unwrap();
-            let content = match commands::handle_interaction_command(&ctx, &command).await {
+            let content = match commands::handle_interaction_command(ctx.clone(), &command).await {
                 Ok(content) => content,
                 Err(e) => format!("{:?}", e),
             };

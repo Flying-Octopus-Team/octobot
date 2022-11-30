@@ -49,20 +49,6 @@ pub async fn create_meeting_job(
 }
 
 impl MeetingStatus {
-    pub fn new(
-        scheduled_cron: &str,
-        channel_id: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let meeting_status = Self {
-            is_ongoing: AtomicBool::new(false),
-            meeting_data: Meeting::try_from_cron(scheduled_cron, channel_id)?,
-            members: vec![],
-            handle: None,
-            schedule: Schedule::from_str(scheduled_cron)?,
-        };
-        Ok(meeting_status)
-    }
-
     /// Change the meeting's schedule.
     ///
     /// This will cancel the current task and create a new one.
@@ -114,44 +100,8 @@ impl MeetingStatus {
         self.meeting_data.schedule()
     }
 
-    pub fn members(&self) -> Vec<MeetingMembers> {
-        self.members.clone()
-    }
-
     pub fn channel(&self) -> &str {
         self.meeting_data.channel_id()
-    }
-
-    /// Ends the meeting and inserts data to the database. Updates given meeting status.
-    /// Clears the meeting data and members.
-    pub async fn end_meeting(
-        ctx: &Context,
-        meeting_status: Arc<RwLock<MeetingStatus>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut meeting = meeting_status.write().await;
-
-        meeting.set_is_ongoing(false);
-
-        match meeting.meeting_data.end_meeting(Local::now()) {
-            Ok(_) => {}
-            Err(e) => {
-                let error = format!("Error inserting meeting: {}", e);
-                error!("{}", error);
-                return Err(error.into());
-            }
-        };
-
-        let scheduled_cron = String::from(meeting.meeting_data.scheduled_cron());
-
-        let channel_id = meeting.channel().to_string();
-
-        *meeting = MeetingStatus::new(&scheduled_cron, channel_id)?;
-
-        drop(meeting);
-
-        MeetingStatus::await_meeting(meeting_status.clone(), ctx).await;
-
-        Ok(())
     }
 
     pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
@@ -168,14 +118,6 @@ impl MeetingStatus {
                 Err(e)
             }
         }
-    }
-
-    pub fn remove_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
-        self.members.retain(|m| m.member_id() != member.id());
-
-        let meeting = self.meeting();
-
-        meeting.remove_member(member)
     }
 
     /// Loads the next meeting from the database, or defaults to a new meeting.
