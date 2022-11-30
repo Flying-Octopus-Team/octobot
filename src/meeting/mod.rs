@@ -1,13 +1,19 @@
+use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
+use anyhow::Result;
 use chrono::Local;
 use cron::Schedule;
 use serenity::client::Cache;
-use serenity::prelude::{Context, TypeMapKey};
-use tokio::{sync::RwLock, task::JoinHandle};
-use tracing::{error, info};
+use serenity::prelude::Context;
+use serenity::prelude::TypeMapKey;
+use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
+use tracing::error;
+use tracing::info;
 use uuid::Uuid;
 
 use crate::{
@@ -96,7 +102,7 @@ impl MeetingStatus {
         self.meeting_data.id()
     }
 
-    pub fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
+    pub fn schedule(&self) -> Result<Schedule> {
         self.meeting_data.schedule()
     }
 
@@ -104,7 +110,7 @@ impl MeetingStatus {
         self.meeting_data.channel_id()
     }
 
-    pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn add_member(&mut self, member: &Member) -> Result<String> {
         let meeting = self.meeting();
         match meeting.add_member(member) {
             Ok(msg) => {
@@ -121,7 +127,7 @@ impl MeetingStatus {
     }
 
     /// Loads the next meeting from the database, or defaults to a new meeting.
-    fn load_next_meeting() -> Result<Self, Box<dyn std::error::Error>> {
+    fn load_next_meeting() -> Result<Self> {
         let meeting_data = Meeting::load_next_meeting()?;
         let s = String::from(meeting_data.scheduled_cron());
 
@@ -171,13 +177,13 @@ impl MeetingStatus {
         meeting_status.write().await.handle = Some(join_handle);
     }
 
-    fn load_duration(&self) -> Result<Duration, Box<dyn std::error::Error>> {
+    fn load_duration(&self) -> Result<Duration> {
         let schedule = match self.schedule() {
             Ok(s) => s,
             Err(e) => {
                 let error = format!("Error while getting schedule: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow::anyhow!(error));
             }
         };
 
@@ -209,20 +215,17 @@ impl MeetingStatus {
 
             Ok(duration)
         } else {
-            Err("No upcoming meeting".into())
+            Err(anyhow::anyhow!("No upcoming meeting"))
         }
     }
 
     /// Starts the meeting and saves current users in the meeting channel
-    async fn start_meeting(
-        &mut self,
-        cache: &Arc<Cache>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<()> {
         let channel = match cache.guild_channel(SETTINGS.meeting.channel_id) {
             Some(c) => c,
             None => {
                 error!("Error getting channel");
-                return Err("Error getting channel".into());
+                return Err(anyhow::anyhow!("Error getting channel"));
             }
         };
 
@@ -234,7 +237,7 @@ impl MeetingStatus {
                         Some(m) => m,
                         None => {
                             error!("Member not found in the database");
-                            return Err("Member not found in the database".into());
+                            return Err(anyhow::anyhow!("Member not found in the database"));
                         }
                     },
                     Err(e) => {

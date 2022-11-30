@@ -4,6 +4,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use cron::Schedule;
 use crony::Job;
@@ -65,13 +66,13 @@ impl Meeting {
         }
     }
 
-    pub fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<()> {
         let db_meeting = DbMeeting::from(self.clone());
         db_meeting.insert()?;
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    fn update(&mut self) -> Result<()> {
         let db_meeting = DbMeeting::from(self.clone());
 
         match db_meeting.update() {
@@ -86,10 +87,7 @@ impl Meeting {
         }
     }
 
-    pub async fn get(
-        cache_http: &impl CacheHttp,
-        id: Uuid,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Self> {
         let db_meeting = match DbMeeting::find_by_id(id) {
             Ok(meeting) => meeting,
             Err(e) => {
@@ -106,7 +104,7 @@ impl Meeting {
     pub async fn from_db_meeting(
         cache_http: &impl CacheHttp,
         db_meeting: DbMeeting,
-    ) -> Result<Meeting, Box<dyn std::error::Error>> {
+    ) -> Result<Meeting> {
         let summary = Summary::get(cache_http, db_meeting.summary_id()).await?;
 
         let channel_id = db_meeting.channel_id().parse::<u64>().unwrap();
@@ -115,7 +113,7 @@ impl Meeting {
             Some(channel) => channel,
             None => {
                 error!("Channel not found: {}", channel_id);
-                return Err("Channel not found".into());
+                return Err(anyhow::anyhow!("Channel not found"));
             }
         };
 
@@ -153,7 +151,7 @@ impl Meeting {
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64)> {
         let (db_meetings, total_pages) = DbMeeting::list(filter, page, page_size)?;
 
         let mut meetings = Vec::new();
@@ -219,14 +217,14 @@ impl Meeting {
         meeting_status.skip = true;
     }
 
-    pub async fn end(note: String, ctx: &Context) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn end(note: String, ctx: &Context) -> Result<String> {
         let mut data = ctx.data.write().await;
         let meeting_status = data.get_mut::<MeetingStatus>().unwrap();
 
         let mut meeting_status = meeting_status.write().await;
 
         if meeting_status.is_running {
-            meeting_status.meeting._end()?;
+            meeting_status.meeting._end(ctx).await?;
             meeting_status.is_running = false;
             meeting_status.meeting.summary.note = note;
             meeting_status.meeting.summary.update()?;
@@ -240,12 +238,13 @@ impl Meeting {
 
             Ok("Meeting ended successfully".to_string())
         } else {
-            Err("Meeting is not running".into())
+            Err(anyhow::anyhow!("Meeting is not running"))
         }
     }
 
-    fn _end(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn _end(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         self.end_date = Some(chrono::Local::now().naive_local());
+        self.summary.send_summary(cache_http).await?;
         self.update()
     }
 
@@ -257,10 +256,15 @@ impl Meeting {
         meeting_status.meeting.clone()
     }
 
-    pub async fn add_member(
-        &mut self,
-        member: Member,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn is_meeting_ongoing(ctx: &Context) -> bool {
+        let data = ctx.data.read().await;
+        let meeting_status = data.get::<MeetingStatus>().unwrap();
+        let meeting_status = meeting_status.read().await;
+
+        meeting_status.is_running
+    }
+
+    pub async fn add_member(&mut self, member: Member) -> Result<String> {
         let meeting_member = MeetingMembers::new(self.id, member.id);
         meeting_member.insert()?;
 
@@ -269,10 +273,7 @@ impl Meeting {
         Ok(output)
     }
 
-    pub async fn remove_member(
-        &mut self,
-        member: Member,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub async fn remove_member(&mut self, member: Member) -> Result<String> {
         self.members.retain(|(_, m)| m.id != member.id);
         MeetingMembers::delete_by_meeting_and_member(self.id, member.id)?;
         let output = format!("Member {} removed", member.name());
@@ -282,7 +283,7 @@ impl Meeting {
     pub async fn change_future_schedule<T: TryInto<Schedule>>(
         ctx: &Context,
         schedule: T,
-    ) -> Result<String, Box<dyn std::error::Error>>
+    ) -> Result<String>
     where
         <T as TryInto<Schedule>>::Error: std::error::Error,
     {
@@ -302,22 +303,14 @@ impl Meeting {
         Ok("Schedule changed successfully".to_string())
     }
 
-    pub async fn change_future_channel(
-        ctx: &Context,
-        channel: GuildChannel,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn change_future_channel(ctx: &Context, channel: GuildChannel) -> Result<()> {
         let data = ctx.data.read().await;
         let meeting_status = data.get::<MeetingStatus>().unwrap();
         let mut meeting_status = meeting_status.write().await;
 
         if channel.kind != ChannelType::Voice {
             error!("Channel is not a voice channel: {}", channel.mention());
-            return Err("Channel is not a voice channel".into());
-        }
-
-        if meeting_status.is_running {
-            error!("Meeting is running. Cannot change channel");
-            return Err("Meeting is running. Cannot change channel".into());
+            return Err(anyhow::anyhow!("Channel is not a voice channel"));
         }
 
         meeting_status.meeting.channel = channel;
@@ -325,10 +318,7 @@ impl Meeting {
         Ok(())
     }
 
-    pub(crate) async fn resend_summary(
-        &self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
         self.summary.resend_summary(cache_http).await
     }
 
@@ -544,7 +534,7 @@ impl MeetingFilter {
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
-    ) -> Result<(Vec<Meeting>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Meeting>, i64)> {
         Meeting::list(self, cache_http, page, page_size).await
     }
 

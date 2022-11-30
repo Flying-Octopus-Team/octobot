@@ -1,27 +1,20 @@
-use crate::database::pagination::Paginated;
-use crate::database::schema::summary;
-use crate::database::PG_POOL;
-use crate::SETTINGS;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use crate::database::pagination::Paginate;
-use crate::database::schema::summary::BoxedQuery;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::QueryDsl;
-use crate::diesel::RunQueryDsl;
-use crate::discord::split_message;
+use anyhow::Result;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
-use diesel::Table;
-use serenity::prelude::Context;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt::Write;
-use tracing::info;
 use uuid::Uuid;
 
-use super::meeting::Meeting;
-use super::report::Report;
+use crate::database::pagination::Paginate;
+use crate::database::pagination::Paginated;
+use crate::database::schema::summary;
+use crate::database::schema::summary::BoxedQuery;
+use crate::database::PG_POOL;
+use crate::diesel::ExpressionMethods;
+use crate::diesel::QueryDsl;
+use crate::diesel::RunQueryDsl;
 
 type AllColumns = (
     summary::id,
@@ -62,17 +55,17 @@ impl Summary {
         summary::table.select(ALL_COLUMNS)
     }
 
-    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(summary::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<bool> {
         use crate::database::schema::summary::dsl::*;
 
         Ok(diesel::delete(summary.filter(id.eq(self.id)))
@@ -116,7 +109,7 @@ impl Summary {
         self.id
     }
 
-    pub(crate) fn find_by_id(summary_id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn find_by_id(summary_id: Uuid) -> Result<Self> {
         use crate::database::schema::summary::dsl::*;
 
         Ok(summary
@@ -125,7 +118,7 @@ impl Summary {
     }
 
     /// Set content. Returns the updated summary.
-    pub(crate) fn set_note(&mut self, note: String) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn set_note(&mut self, note: String) -> Result<Self> {
         self.note = note;
 
         self.update()

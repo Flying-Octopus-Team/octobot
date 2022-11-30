@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use anyhow::Result;
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
 use serenity::prelude::Mentionable;
@@ -14,10 +15,7 @@ use crate::framework::meeting::Meeting;
 use crate::framework::member::Member;
 
 /// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
-pub(crate) async fn end_meeting(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn end_meeting(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Received end-meeting command");
 
     let note = find_option_as_string(&option.options[..], "note").unwrap_or_default();
@@ -26,13 +24,13 @@ pub(crate) async fn end_meeting(
         Ok(output) => Ok(output),
         Err(e) => {
             error!("Error ending meeting: {}", e);
-            Err("Error ending meeting".into())
+            Err(anyhow::anyhow!("Error ending meeting"))
         }
     }
 }
 
 /// Return the current or future meeting status.
-pub(crate) async fn status_meeting(ctx: Context) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn status_meeting(ctx: Context) -> Result<String> {
     info!("Received status-meeting command");
 
     let output = framework::meeting::status(&ctx).await;
@@ -45,10 +43,7 @@ pub(crate) async fn status_meeting(ctx: Context) -> Result<String, Box<dyn std::
 /// Change the meeting's details.
 ///
 /// Edit the meeting's schedule and channel.
-pub(crate) async fn plan_meeting(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn plan_meeting(ctx: Context, option: &CommandDataOption) -> Result<String> {
     let mut output = String::new();
 
     if let Some(new_schedule) = find_option_as_string(&option.options, "schedule") {
@@ -68,7 +63,7 @@ pub(crate) async fn plan_meeting(
             Err(e) => {
                 let error = format!("Error changing channel: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow::anyhow!("Error changing channel: {}", e));
             }
         }
     }
@@ -76,10 +71,7 @@ pub(crate) async fn plan_meeting(
     Ok(output)
 }
 
-pub(crate) async fn set_note(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn set_note(ctx: Context, option: &CommandDataOption) -> Result<String> {
     let mut output = String::new();
 
     if let Some(new_note) = find_option_as_string(&option.options, "note") {
@@ -101,7 +93,7 @@ pub(crate) async fn set_note(
             Err(e) => {
                 let error = format!("Error sending summary: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow::anyhow!("Error sending summary: {}", e));
             }
         }
     } else {
@@ -114,7 +106,7 @@ pub(crate) async fn edit_meeting_members(
     ctx: Context,
     option: &CommandDataOption,
     remove: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     info!(remove, ?option, "Adding/Removing members from meeting");
     let mut output = String::new();
 
@@ -131,7 +123,11 @@ pub(crate) async fn edit_meeting_members(
                 Err(why) => {
                     let error_msg = format!("Invalid meeting id: {}\nReason: {}", meeting_id, why);
                     error!("{}", error_msg);
-                    return Err(error_msg.into());
+                    return Err(anyhow::anyhow!(
+                        "Invalid meeting id: {}\nReason: {}",
+                        meeting_id,
+                        why
+                    ));
                 }
             };
 
@@ -143,7 +139,11 @@ pub(crate) async fn edit_meeting_members(
                         meeting_id, why
                     );
                     error!("{}", error_msg);
-                    return Err(error_msg.into());
+                    return Err(anyhow::anyhow!(
+                        "Meeting not found in database: {}\nReason: {}",
+                        meeting_id,
+                        why
+                    ));
                 }
             };
         } else {
@@ -162,10 +162,7 @@ pub(crate) async fn edit_meeting_members(
     Ok(output)
 }
 
-pub(crate) async fn list_meetings(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn list_meetings(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Listing meetings");
     let page =
         find_option_value(&option.options[..], "page").map_or(1, |page| page.as_i64().unwrap());

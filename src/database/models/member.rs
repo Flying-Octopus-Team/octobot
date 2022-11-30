@@ -1,23 +1,21 @@
-use crate::database::pagination::Paginated;
-use crate::database::schema::member::BoxedQuery;
-use std::fmt::Display;
-
-use crate::database::pagination::Paginate;
-use crate::database::schema::member;
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::RunQueryDsl;
-use crate::discord::find_option_as_string;
-use crate::discord::find_option_value;
-use crate::SETTINGS;
+use anyhow::Result;
 use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
 use diesel::result::OptionalExtension;
 use diesel::QueryDsl;
 use serenity::model::application::interaction::application_command::CommandDataOption;
-use serenity::prelude::Context;
-use tracing::error;
+use std::fmt::Display;
 use uuid::Uuid;
+
+use crate::database::pagination::Paginate;
+use crate::database::pagination::Paginated;
+use crate::database::schema::member;
+use crate::database::schema::member::BoxedQuery;
+use crate::database::PG_POOL;
+use crate::diesel::ExpressionMethods;
+use crate::diesel::RunQueryDsl;
+use crate::discord::find_option_as_string;
+use crate::discord::find_option_value;
 
 type AllColumns = (
     member::id,
@@ -72,17 +70,17 @@ impl Member {
         member::table.select(ALL_COLUMNS)
     }
 
-    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(member::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<bool> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::delete(member.filter(id.eq(self.id)))
@@ -107,7 +105,7 @@ impl Member {
         query
     }
 
-    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
         use crate::database::schema::member::dsl::*;
 
         let uuid = find_id.into();
@@ -115,9 +113,7 @@ impl Member {
         Ok(member.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn find_by_discord_id(
-        find_id: impl Into<String>,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    pub fn find_by_discord_id(find_id: impl Into<String>) -> Result<Option<Self>> {
         use crate::database::schema::member::dsl::*;
 
         let dc_id = find_id.into();
@@ -128,9 +124,7 @@ impl Member {
             .optional()?)
     }
 
-    pub(crate) fn find_by_trello_id(
-        find_id: impl Into<String>,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn find_by_trello_id(find_id: impl Into<String>) -> Result<Option<Self>> {
         use crate::database::schema::member::dsl::*;
 
         let find_id = find_id.into();

@@ -2,9 +2,15 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
 
+use anyhow::Result;
 use chrono::NaiveDateTime;
 use cron::Schedule;
 use diesel::pg::Pg;
+use diesel::query_dsl::SaveChangesDsl;
+use diesel::ExpressionMethods;
+use diesel::QueryDsl;
+use diesel::RunQueryDsl;
+use diesel::Table;
 use tracing::error;
 use tracing::warn;
 use uuid::Uuid;
@@ -17,13 +23,8 @@ use crate::database::schema::meeting;
 use crate::database::schema::meeting::BoxedQuery;
 use crate::database::schema::meeting_members;
 use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::QueryDsl;
-use crate::diesel::RunQueryDsl;
-use crate::diesel::Table;
 use crate::framework::meeting::MeetingFilter;
 use crate::SETTINGS;
-use diesel::query_dsl::SaveChangesDsl;
 
 type AllColumns = (
     meeting::id,
@@ -88,10 +89,7 @@ impl Meeting {
         meeting::table.select(ALL_COLUMNS)
     }
 
-    pub fn try_from_cron(
-        scheduled_cron: &str,
-        channel_id: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn try_from_cron(scheduled_cron: &str, channel_id: String) -> Result<Self> {
         let schedule = Schedule::from_str(scheduled_cron)?;
         let next = schedule.upcoming(chrono::Local).next().unwrap();
         Ok(Meeting::new(next, scheduled_cron.to_string(), channel_id))
@@ -104,7 +102,7 @@ impl Meeting {
 
     /// Removes the meeting from the database.
     /// Returns the number of rows affected.
-    pub fn delete(&self) -> Result<usize, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<usize> {
         use crate::database::schema::meeting::dsl::*;
 
         let summary = Summary::find_by_id(self.summary_id)?;
@@ -120,7 +118,7 @@ impl Meeting {
         filter: impl Into<MeetingFilter>,
         page: i64,
         page_size: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64)> {
         let filter = filter.into();
 
         let query = filter.apply(Meeting::all().into_boxed());
@@ -147,16 +145,13 @@ impl Meeting {
     }
 
     /// Saves current time as meeting's end date. And saves itself in the database
-    pub fn end_meeting(
-        &mut self,
-        new_end_date: chrono::DateTime<chrono::Local>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn end_meeting(&mut self, new_end_date: chrono::DateTime<chrono::Local>) -> Result<Self> {
         self.end_date = Some(new_end_date.naive_local());
 
         self.update()
     }
 
-    pub fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
+    pub fn schedule(&self) -> Result<Schedule> {
         Ok(Schedule::from_str(&self.scheduled_cron)?)
     }
 
@@ -164,10 +159,7 @@ impl Meeting {
         self.channel_id.as_ref()
     }
 
-    pub fn set_channel_id(
-        &mut self,
-        new_channel_id: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self> {
         self.channel_id = new_channel_id;
 
         match self.update() {
@@ -175,20 +167,20 @@ impl Meeting {
             Err(e) => {
                 let error = format!("Error while updating meeting's channel id: {}", e);
                 warn!("{}", error);
-                Err(error.into())
+                Err(anyhow::anyhow!(error))
             }
         }
     }
 
     /// Set summary note
-    pub fn set_summary_note(&mut self, note: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_summary_note(&mut self, note: String) -> Result<()> {
         let mut summary = Summary::find_by_id(self.summary_id)?;
         summary.set_note(note)?;
 
         Ok(())
     }
 
-    pub fn get_latest_meeting() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn get_latest_meeting() -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         Ok(meeting
@@ -197,13 +189,13 @@ impl Meeting {
             .first(&mut PG_POOL.get()?)?)
     }
 
-    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(meeting::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
@@ -214,7 +206,7 @@ impl Meeting {
     /// Loads next meeting based on the previous meeting's cron.
     /// Previous meetings are loaded from the database.
     /// If there is no previous meeting, loads the next meeting based on the default cron.
-    pub fn load_next_meeting() -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_next_meeting() -> Result<Self> {
         let meeting = if let Ok(latest_meeting) = Meeting::get_latest_meeting() {
             if latest_meeting.end_date.is_none() {
                 latest_meeting
@@ -231,7 +223,7 @@ impl Meeting {
         Ok(meeting)
     }
 
-    pub(crate) fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         let uuid = find_id.into();
@@ -293,7 +285,7 @@ impl Meeting {
 
     /// Adds member from the database and from the meeting.
     /// Returns the formatted string with the result.
-    pub(crate) fn add_member(&self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+    pub(crate) fn add_member(&self, member: &Member) -> Result<String> {
         let member_dc_id = member.discord_id().unwrap();
         let mut output = String::new();
         if match MeetingMembers::is_user_in_meeting(self.id(), member.id()) {
@@ -305,7 +297,7 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow::anyhow!(error_msg));
             }
         } {
             let error_msg = format!(
@@ -314,7 +306,7 @@ impl Meeting {
                 self.id()
             );
             warn!("{}", error_msg);
-            return Err(error_msg.into());
+            return Err(anyhow::anyhow!(error_msg));
         }
         match self._add_member(member.id()) {
             Ok(_) => {
@@ -330,13 +322,13 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow::anyhow!(error_msg));
             }
         }
         Ok(output)
     }
 
-    fn _add_member(&self, user_id: Uuid) -> Result<MeetingMembers, Box<dyn std::error::Error>> {
+    fn _add_member(&self, user_id: Uuid) -> Result<MeetingMembers> {
         let meeting_member = MeetingMembers {
             id: Uuid::new_v4(),
             member_id: user_id,
@@ -348,13 +340,13 @@ impl Meeting {
             Err(e) => {
                 let error = format!("Error while adding member to meeting: {}", e);
                 error!("{}", error);
-                Err(error.into())
+                Err(anyhow::anyhow!(error))
             }
         }
     }
 
     /// Check if meeting exists in the database.
-    pub(crate) fn exists(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub(crate) fn exists(&self) -> Result<bool> {
         use crate::database::schema::meeting::dsl::*;
 
         let count: i64 = meeting
@@ -377,17 +369,17 @@ impl Meeting {
         self.end_date
     }
 
-    pub(crate) fn members(&self) -> Result<Vec<Member>, Box<dyn std::error::Error>> {
+    pub(crate) fn members(&self) -> Result<Vec<Member>> {
         let members = MeetingMembers::load_members(self.id)
             .unwrap()
             .into_iter()
             .map(|m| Member::find_by_id(m.member_id))
-            .collect::<Result<Vec<Member>, Box<dyn std::error::Error>>>()?;
+            .collect::<Result<Vec<Member>>>()?;
 
         Ok(members)
     }
 
-    pub(crate) fn find_by_summary_id(find_id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn find_by_summary_id(find_id: Uuid) -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         Ok(meeting
@@ -405,22 +397,13 @@ impl MeetingMembers {
         }
     }
 
-    pub(crate) fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(meeting_members::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn delete(&self) -> Result<usize, Box<dyn std::error::Error>> {
-        use crate::database::schema::meeting_members::dsl::*;
-
-        Ok(diesel::delete(meeting_members.filter(id.eq(self.id))).execute(&mut PG_POOL.get()?)?)
-    }
-
-    pub(crate) fn delete_by_meeting_and_member(
-        meeting: Uuid,
-        member: Uuid,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
+    pub(crate) fn delete_by_meeting_and_member(meeting: Uuid, member: Uuid) -> Result<usize> {
         use crate::database::schema::meeting_members::dsl::*;
 
         Ok(diesel::delete(
@@ -429,13 +412,6 @@ impl MeetingMembers {
                 .filter(member_id.eq(member)),
         )
         .execute(&mut PG_POOL.get()?)?)
-    }
-
-    pub(crate) fn discord_id(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(Member::find_by_id(self.member_id)?
-            .discord_id()
-            .expect("Cannot find user in the database")
-            .to_string())
     }
 
     pub(crate) fn id(&self) -> Uuid {
@@ -447,10 +423,7 @@ impl MeetingMembers {
     }
 
     /// Checks if a member is already in the meeting
-    pub(crate) fn is_user_in_meeting(
-        meeting: Uuid,
-        user_id: Uuid,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
+    pub(crate) fn is_user_in_meeting(meeting: Uuid, user_id: Uuid) -> Result<bool> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let count: i64 = meeting_members
@@ -462,9 +435,7 @@ impl MeetingMembers {
         Ok(count > 0)
     }
 
-    pub(crate) fn load_members(
-        find_meeting_id: Uuid,
-    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let members = meeting_members

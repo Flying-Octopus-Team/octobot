@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
 
+use anyhow::Result;
 use chrono::Local;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
@@ -46,7 +47,7 @@ impl Report {
         create_date: NaiveDate,
         published: bool,
         summary: Option<Summary>,
-    ) -> Result<Report, Box<dyn std::error::Error>> {
+    ) -> Result<Report> {
         let report = Self {
             id: Uuid::new_v4(),
             member,
@@ -60,13 +61,13 @@ impl Report {
         Ok(report)
     }
 
-    pub fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<()> {
         let db_report = DbReport::from(self.clone());
         db_report.insert()?;
         Ok(())
     }
 
-    pub fn update(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update(&mut self) -> Result<()> {
         let db_report = DbReport::from(self.clone());
 
         match db_report.update() {
@@ -81,7 +82,7 @@ impl Report {
         }
     }
 
-    pub fn delete(&mut self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&mut self) -> Result<bool> {
         let db_report = DbReport::from(self.clone());
 
         match db_report.delete() {
@@ -101,7 +102,7 @@ impl Report {
         cache_http: &impl CacheHttp,
         page: i64,
         per_page: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64)> {
         let (db_reports, total_pages) = DbReport::list(filter, page, per_page)?;
 
         let mut reports = Vec::new();
@@ -114,10 +115,7 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-    pub async fn get(
-        cache_http: &impl CacheHttp,
-        id: Uuid,
-    ) -> Result<Report, Box<dyn std::error::Error>> {
+    pub async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Report> {
         let db_report = match DbReport::find_by_id(id) {
             Ok(report) => report,
             Err(e) => return Err(e),
@@ -128,10 +126,7 @@ impl Report {
         Ok(report)
     }
 
-    pub async fn from_db_report(
-        ctx: &impl CacheHttp,
-        db_report: DbReport,
-    ) -> Result<Report, Box<dyn std::error::Error>> {
+    pub async fn from_db_report(ctx: &impl CacheHttp, db_report: DbReport) -> Result<Report> {
         let member = Member::get(db_report.member_id, ctx).await?;
         let summary = match db_report.summary_id() {
             Some(summary_id) => Some(Summary::get(ctx, summary_id).await?),
@@ -153,7 +148,7 @@ impl Report {
     pub(crate) async fn get_by_summary_id(
         cache_http: &impl CacheHttp,
         id: Uuid,
-    ) -> Result<Vec<Report>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<Report>> {
         let db_reports = DbReport::get_by_summary_id(id)?;
         let mut reports = Vec::new();
 
@@ -240,7 +235,7 @@ impl ReportFilter {
         cache_http: &impl CacheHttp,
         page: i64,
         per_page: Option<i64>,
-    ) -> Result<(Vec<Report>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Report>, i64)> {
         Report::list(self, cache_http, page, per_page).await
     }
 

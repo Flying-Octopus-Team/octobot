@@ -1,20 +1,20 @@
-use crate::database::models::member::Member;
-use crate::database::pagination::{Paginate, Paginated};
-use crate::database::schema::report::dsl;
-use crate::database::schema::report::{self, BoxedQuery};
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::framework::report::ReportFilter;
+use anyhow::Result;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use diesel::query_dsl::SaveChangesDsl;
 use diesel::{QueryDsl, RunQueryDsl};
-use std::fmt::Write;
 use std::fmt::{Display, Formatter};
-use tracing::error;
 use uuid::Uuid;
 
-use super::summary::Summary;
+use crate::database::models::member::Member;
+use crate::database::pagination::Paginate;
+use crate::database::pagination::Paginated;
+use crate::database::schema::report;
+use crate::database::schema::report::dsl;
+use crate::database::schema::report::BoxedQuery;
+use crate::database::PG_POOL;
+use crate::diesel::ExpressionMethods;
+use crate::framework::report::ReportFilter;
 
 type AllColumns = (
     report::id,
@@ -71,17 +71,17 @@ impl Report {
         dsl::report.select(ALL_COLUMNS)
     }
 
-    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(report::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<bool> {
         use crate::database::schema::report::dsl::*;
 
         Ok(diesel::delete(report.filter(id.eq(self.id)))
@@ -93,7 +93,7 @@ impl Report {
         filter: impl Into<ReportFilter>,
         page: i64,
         per_page: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64)> {
         let filter = filter.into();
 
         let query = filter.apply(Report::all().into_boxed());
@@ -119,7 +119,7 @@ impl Report {
         query
     }
 
-    pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub fn get_unpublished_reports() -> Result<Vec<Self>> {
         Ok(dsl::report
             .filter(dsl::published.eq(false))
             .load(&mut PG_POOL.get()?)?)
@@ -149,7 +149,7 @@ impl Report {
         }
     }
 
-    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
         use crate::database::schema::report::dsl::*;
 
         let uuid = find_id.into();
@@ -208,9 +208,7 @@ impl Report {
         Ok(output)
     }
 
-    pub(crate) fn get_by_summary_id(
-        find_id: Uuid,
-    ) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub(crate) fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>> {
         use crate::database::schema::report::dsl::*;
 
         Ok(report

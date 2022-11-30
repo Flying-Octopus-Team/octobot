@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
 
+use anyhow::Result;
 use chrono::NaiveDate;
 use diesel::pg::Pg;
 use diesel::ExpressionMethods;
@@ -37,20 +38,20 @@ impl Summary {
         }
     }
 
-    pub fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<()> {
         let db_summary = DbSummary::from(self.clone());
 
         db_summary.insert()?;
         Ok(())
     }
 
-    pub fn update(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<()> {
         let db_summary = DbSummary::from(self.clone());
         db_summary.update()?;
         Ok(())
     }
 
-    pub async fn edit(&mut self, builder: SummaryFilter) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn edit(&mut self, builder: SummaryFilter) -> Result<()> {
         let mut summary = builder.build();
 
         summary.id = self.id;
@@ -65,7 +66,7 @@ impl Summary {
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
-    ) -> Result<(Vec<Summary>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Summary>, i64)> {
         let query = filter.apply(DbSummary::all().into_boxed());
         let query = DbSummary::paginate(query, page, page_size);
 
@@ -83,10 +84,7 @@ impl Summary {
         Ok((summaries, total))
     }
 
-    async fn from_db_summary(
-        cache_http: impl CacheHttp,
-        db_summary: DbSummary,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    async fn from_db_summary(cache_http: impl CacheHttp, db_summary: DbSummary) -> Result<Self> {
         let id = db_summary.id();
         let note = String::from(db_summary.note());
         let create_date = db_summary.create_date();
@@ -124,10 +122,7 @@ impl Summary {
         })
     }
 
-    pub(crate) async fn get(
-        cache_http: &impl CacheHttp,
-        id: Uuid,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Self> {
         let db_summary = DbSummary::find_by_id(id)?;
         Self::from_db_summary(cache_http, db_summary).await
     }
@@ -136,7 +131,8 @@ impl Summary {
         &self,
         cache_http: &impl CacheHttp,
         note: Option<String>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+        reports: &Vec<Report>,
+    ) -> Result<String> {
         let mut summary = String::new();
 
         let note = note.unwrap_or_else(|| self.note.clone());
@@ -190,6 +186,7 @@ impl Summary {
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut reports = Report::get_by_summary_id(cache_http, self.id).await?;
 
+    async fn generate_report_summary(&self, reports: &Vec<Report>) -> Result<String> {
         let mut summary = String::new();
 
         reports.sort_by(|a, b| a.member.cmp(&b.member));
@@ -230,17 +227,15 @@ impl Summary {
     pub(crate) fn is_published(&self) -> bool {
         !self.messages_id.is_empty()
     }
+    pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
+        let reports = self.get_reports(cache_http, false).await?;
 
-    pub(crate) async fn resend_summary(
-        &self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<String, Box<dyn std::error::Error>> {
         let summary = self.generate_summary(cache_http, None).await?;
 
         let messages = split_message(summary)?;
 
         if self.messages_id.len() != messages.len() {
-            return Err("Number of messages is different".into());
+            return Err(anyhow::anyhow!("Number of messages is different"));
         }
 
         for (message, message_id) in messages.into_iter().zip(self.messages_id.iter()) {
@@ -322,7 +317,7 @@ impl SummaryFilter {
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
-    ) -> Result<(Vec<Summary>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Summary>, i64)> {
         Summary::list(self, cache_http, page, page_size).await
     }
 

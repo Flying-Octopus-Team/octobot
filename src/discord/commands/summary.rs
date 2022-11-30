@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use anyhow::Result;
 use serenity::model::prelude::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
 use tracing::info;
@@ -10,10 +11,7 @@ use crate::discord::find_option_value;
 use crate::framework::meeting::Meeting;
 use crate::framework::summary::Summary;
 
-pub(crate) async fn preview_summary(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn preview_summary(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Generating summary preview");
 
     let note = find_option_as_string(&option.options[..], "note");
@@ -27,7 +25,7 @@ pub(crate) async fn preview_summary(
         meeting.summary
     };
 
-    let summary = summary.generate_summary(&ctx, note).await?;
+    let summary = summary.preview_summary(&ctx, note).await?;
 
     if summary.is_empty() {
         info!("Generated empty summary");
@@ -37,10 +35,7 @@ pub(crate) async fn preview_summary(
     }
 }
 
-pub(crate) async fn list_summaries(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn list_summaries(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Listing summaries");
 
     let page =
@@ -61,10 +56,7 @@ pub(crate) async fn list_summaries(
     Ok(output)
 }
 
-pub(crate) async fn resend_summary(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn resend_summary(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Resending summary");
 
     let id = match find_option_as_string(&option.options[..], "id") {
@@ -73,13 +65,13 @@ pub(crate) async fn resend_summary(
             Err(why) => {
                 let error_msg = format!("Wrong ID value. Could not parse the value: {}", why);
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow::anyhow!(error_msg));
             }
         },
         None => {
             let error_msg = "Didn't find ID option in the command".to_string();
             error!("{}", error_msg);
-            return Err(error_msg.into());
+            return Err(anyhow::anyhow!(error_msg));
         }
     };
 
@@ -88,7 +80,7 @@ pub(crate) async fn resend_summary(
         Err(why) => {
             let error_msg = format!("There's no summary with such ID: {id}. Error: {why}");
             error!("{}", error_msg);
-            return Err(error_msg.into());
+            return Err(anyhow::anyhow!(error_msg));
         }
     };
 

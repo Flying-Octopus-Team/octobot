@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde_json::Value;
 use serenity::model::application::command::CommandOptionType;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
@@ -13,7 +14,7 @@ mod summary;
 pub async fn handle_interaction_command<'a>(
     ctx: Context,
     command: &ApplicationCommandInteraction,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     match command.data.name.as_str() {
         "member" => match command.data.options.first() {
             Some(option) => match option.name.as_str() {

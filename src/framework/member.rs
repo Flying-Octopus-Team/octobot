@@ -2,6 +2,8 @@ use std::cmp::Ordering;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+use anyhow::Ok;
+use anyhow::Result;
 use diesel::pg::Pg;
 use diesel::QueryDsl;
 use serenity::http::CacheHttp;
@@ -39,7 +41,7 @@ impl MemberRole {
         &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let role = self.discord_role();
         let guild = cache_http
             .cache()
@@ -58,7 +60,7 @@ impl MemberRole {
         &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let role = self.discord_role();
         let guild = cache_http
             .cache()
@@ -77,7 +79,7 @@ impl MemberRole {
         &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         let old_role = member.member_role;
         old_role.remove_role(member, cache_http).await?;
         self.add_role(member, cache_http).await?;
@@ -110,7 +112,7 @@ impl Member {
         trello_id: Option<String>,
         trello_report_card_id: Option<String>,
         is_apprentice: bool,
-    ) -> Result<Member, Box<dyn std::error::Error>> {
+    ) -> Result<Member> {
         let member = Self {
             id: Uuid::new_v4(),
             display_name,
@@ -127,14 +129,14 @@ impl Member {
         Ok(member)
     }
 
-    pub(crate) fn insert(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn insert(&self) -> Result<()> {
         let db_member = DbMember::from(self.clone());
         db_member.insert()?;
         Ok(())
     }
 
     // Updates the member's information in the services
-    pub fn update(self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(self) -> Result<Self> {
         let member = DbMember::from(self.clone());
 
         match member.update() {
@@ -146,10 +148,7 @@ impl Member {
         }
     }
 
-    pub async fn delete(
-        &mut self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn delete(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         let member = DbMember::from(self.clone());
 
         match member.delete() {
@@ -172,7 +171,7 @@ impl Member {
         &mut self,
         builder: MemberBuilder,
         cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<()> {
         if let Some(display_name) = builder.display_name {
             self.display_name = display_name;
         }
@@ -205,7 +204,7 @@ impl Member {
         cache_http: impl CacheHttp,
         page: i64,
         per_page: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64)> {
         let query = filter.apply_filter(DbMember::all().into_boxed());
         let query = DbMember::paginate(query, page, per_page);
         let (db_members, total) =
@@ -218,10 +217,7 @@ impl Member {
         Ok((members, total))
     }
 
-    pub async fn from_db_member(
-        cache_http: impl CacheHttp,
-        db_member: DbMember,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn from_db_member(cache_http: impl CacheHttp, db_member: DbMember) -> Result<Self> {
         let discord_user = match db_member.discord_id {
             Some(ref discord_id) => Some(
                 UserId::from(discord_id.parse::<u64>().unwrap())
@@ -245,10 +241,7 @@ impl Member {
         })
     }
 
-    pub(crate) async fn get(
-        id: Uuid,
-        cache_http: &impl CacheHttp,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) async fn get(id: Uuid, cache_http: &impl CacheHttp) -> Result<Self> {
         let db_member = DbMember::find_by_id(id)?;
         Ok(Self {
             id: db_member.id(),
@@ -275,7 +268,7 @@ impl Member {
     pub(crate) async fn get_by_discord_id(
         discord_id: u64,
         cache_http: &impl CacheHttp,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    ) -> Result<Option<Self>> {
         let db_member = DbMember::find_by_discord_id(format!("{}", discord_id))?;
 
         match db_member {
@@ -287,10 +280,7 @@ impl Member {
         }
     }
 
-    async fn get_by_trello_id(
-        trello_id: &str,
-        cache_http: impl CacheHttp,
-    ) -> Result<Option<Self>, Box<dyn std::error::Error>> {
+    async fn get_by_trello_id(trello_id: &str, cache_http: impl CacheHttp) -> Result<Option<Self>> {
         let db_member = DbMember::find_by_trello_id(trello_id)?;
 
         match db_member {
@@ -302,20 +292,13 @@ impl Member {
         }
     }
 
-    async fn swap_roles(
-        &mut self,
-        role: MemberRole,
-        cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn swap_roles(&mut self, role: MemberRole, cache_http: &impl CacheHttp) -> Result<()> {
         role.swap_roles(self, cache_http).await
     }
 
     /// Set users Discord roles to match their member role
     /// This is should be called when a member is created
-    pub(crate) async fn setup(
-        &mut self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn setup(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         let role = self.member_role;
         role.add_role(self, cache_http).await
     }
@@ -442,10 +425,7 @@ impl MemberBuilder {
         }
     }
 
-    pub(crate) async fn check_for_duplicates(
-        &self,
-        cache_http: &impl CacheHttp,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) async fn check_for_duplicates(&self, cache_http: &impl CacheHttp) -> Result<bool> {
         let mut duplicate = false;
         let mut duplicate_message = String::from("Duplicate members found: ");
 

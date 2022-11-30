@@ -1,7 +1,9 @@
 use std::fmt::Write;
 
+use anyhow::Result;
 use serenity::async_trait;
-use serenity::client::{Context, EventHandler};
+use serenity::client::Context;
+use serenity::client::EventHandler;
 use serenity::framework::StandardFramework;
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
@@ -9,17 +11,20 @@ use serenity::model::id::GuildId;
 use serenity::model::voice::VoiceState;
 use serenity::prelude::GatewayIntents;
 use serenity::Client;
+use tracing::debug;
+use tracing::error;
+use tracing::info;
 use tracing::log::trace;
-use tracing::{debug, error, info, warn};
+use tracing::warn;
 
 use crate::SETTINGS;
+use crate::framework::meeting::Meeting;
+use crate::framework::member::Member;
 
 struct Handler;
 
-use crate::database::models::member::Member;
 pub use crate::discord::commands::find_option_as_string;
 pub use crate::discord::commands::find_option_value;
-use crate::meeting::MeetingStatus;
 
 mod commands;
 
@@ -149,7 +154,7 @@ pub async fn start_bot() {
     }
 }
 
-pub(crate) fn split_message(message: String) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub(crate) fn split_message(message: String) -> Result<Vec<String>> {
     let mut message_chunks = message.lines();
     let mut output = String::new();
     let mut messages = Vec::new();

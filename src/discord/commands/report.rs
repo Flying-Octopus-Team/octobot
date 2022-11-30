@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::prelude::Context;
@@ -16,7 +17,7 @@ pub(crate) async fn add_report(
     ctx: Context,
     command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     info!("Adding report");
     let member_dc_id = match find_option_value(&option.options[..], "member") {
         Some(member_id) => member_id.as_u64().unwrap(),
@@ -28,7 +29,7 @@ pub(crate) async fn add_report(
             if let Some(member) = option {
                 member
             } else {
-                return Err("Member not found in the database".into());
+                return Err(anyhow::anyhow!("Member not found in the database"));
             }
         }
         Err(why) => return Err(why),
@@ -43,11 +44,9 @@ pub(crate) async fn add_report(
 
     if let Some(meeting) = find_option_as_string(&option.options[..], "summary") {
         let id = uuid::Uuid::parse_str(&meeting)?;
-        match Summary::get(&ctx, id).await {
-            Ok(summary) => {
-                report.set_summary(summary);
-            }
-            Err(why) => return Err(why),
+        let summary = Summary::get(&ctx, id).await?;
+        {
+            report.set_summary(summary);
         }
     };
 
@@ -58,10 +57,7 @@ pub(crate) async fn add_report(
     Ok(format!("Report added: {}", report))
 }
 
-pub(crate) async fn remove_report(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn remove_report(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Removing report");
     let report_id = match find_option_value(&option.options[..], "id") {
         Some(report_id) => Uuid::parse_str(report_id.as_str().unwrap()),
@@ -88,10 +84,7 @@ pub(crate) async fn remove_report(
     }
 }
 
-pub(crate) async fn list_reports(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn list_reports(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Listing reports");
     let page = match find_option_value(&option.options[..], "page") {
         Some(page) => page.as_i64().unwrap(),
@@ -132,10 +125,7 @@ pub(crate) async fn list_reports(
     Ok(output)
 }
 
-pub(crate) async fn update_report(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) async fn update_report(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Updating report");
 
     let mut update_report = match find_option_value(&option.options[..], "id") {

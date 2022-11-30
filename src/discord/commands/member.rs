@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serenity::client::Context;
 use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
 use serenity::model::application::interaction::application_command::CommandDataOption;
@@ -14,7 +15,7 @@ pub async fn add_member(
     ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     info!("Adding member");
 
     let member = MemberBuilder::from(option);
@@ -33,7 +34,7 @@ pub async fn remove_member(
     ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     info!("Removing member");
     let id = option.options[0]
         .value
@@ -58,7 +59,7 @@ pub async fn update_member(
     ctx: Context,
     _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String> {
     info!("Updating member");
     let updated_member = MemberBuilder::from(option);
 
@@ -80,10 +81,7 @@ pub async fn update_member(
     Ok(format!("Updated {}", old_member))
 }
 
-pub async fn list_members(
-    ctx: Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn list_members(ctx: Context, option: &CommandDataOption) -> Result<String> {
     info!("Listing members");
     let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
     let page_size =
