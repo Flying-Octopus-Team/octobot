@@ -98,7 +98,7 @@ impl Report {
     }
 
     pub async fn list(
-        filter: impl Into<ReportFilter>,
+        filter: impl Into<Filter>,
         cache_http: &impl CacheHttp,
         page: i64,
         per_page: Option<i64>,
@@ -170,8 +170,8 @@ impl Report {
         Ok(reports)
     }
 
-    pub(crate) fn find() -> ReportFilter {
-        ReportFilter::default()
+    pub(crate) fn find() -> Filter {
+        Filter::default()
     }
 
     pub fn set_summary(&mut self, summary: Summary) {
@@ -204,7 +204,7 @@ impl Display for Report {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct ReportFilter {
+pub struct Filter {
     member_id: Option<Uuid>,
     content: Option<String>,
     create_date: Option<NaiveDate>,
@@ -212,7 +212,7 @@ pub struct ReportFilter {
     summary_id: Option<Uuid>,
 }
 
-impl ReportFilter {
+impl Filter {
     pub fn apply(self, query: BoxedQuery<'_, Pg>) -> BoxedQuery<'_, Pg> {
         use crate::database::schema::report::dsl;
 

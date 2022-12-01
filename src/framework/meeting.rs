@@ -145,7 +145,7 @@ impl Meeting {
     }
 
     pub async fn list(
-        filter: impl Into<MeetingFilter>,
+        filter: impl Into<Filter>,
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
@@ -310,7 +310,6 @@ impl Meeting {
 
         let mut meeting_status = Arc::try_unwrap(meeting_status).unwrap().into_inner();
 
-        // let schedule = cron::Schedule::from_str(&schedule)?;
         meeting_status.meeting.schedule = schedule;
         meeting_status.meeting.update()?;
 
@@ -331,16 +330,21 @@ impl Meeting {
         }
 
         meeting_status.meeting.channel = channel;
+        meeting_status.meeting.update()?;
 
         Ok(())
+    }
+
+    pub async fn display_status(ctx: &Context) -> String {
+        MeetingStatus::display_status(ctx).await
     }
 
     pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
         self.summary.resend_summary(cache_http).await
     }
 
-    pub(crate) fn find() -> MeetingFilter {
-        MeetingFilter::default()
+    pub(crate) fn find() -> Filter {
+        Filter::default()
     }
 }
 
@@ -358,7 +362,7 @@ impl Display for Meeting {
     }
 }
 
-pub(self) struct MeetingStatus {
+struct MeetingStatus {
     skip: bool,
     is_running: bool,
     meeting: Meeting,
@@ -388,28 +392,20 @@ impl std::fmt::Debug for MeetingStatus {
 }
 
 impl MeetingStatus {
-    pub(self) fn meeting(&self) -> &Meeting {
-        &self.meeting
-    }
-
-    pub(self) fn schedule(&self) -> &Schedule {
+    fn schedule(&self) -> &Schedule {
         &self.meeting.schedule
     }
 
-    pub(self) fn is_running(&self) -> bool {
-        self.is_running
-    }
-
-    pub(self) fn members(&self) -> &Vec<(Uuid, Member)> {
+    fn members(&self) -> &Vec<(Uuid, Member)> {
         &self.meeting.members
     }
 
-    pub(self) fn channel(&self) -> &GuildChannel {
+    fn channel(&self) -> &GuildChannel {
         &self.meeting.channel
     }
 
     // stop the runner
-    pub(self) fn abort(self) {
+    fn abort(self) {
         self.join_handle.unwrap().abort();
     }
 
@@ -442,7 +438,6 @@ impl MeetingStatus {
         if self.meeting.start_date < now.naive_local() {
             return true;
         }
-
 
         false
     }
@@ -477,58 +472,58 @@ impl MeetingStatus {
 
         Ok(())
     }
+
+    async fn display_status(ctx: &Context) -> String {
+        let data = ctx.data.read().await;
+        let meeting_status = data.get::<MeetingStatus>().unwrap();
+        let meeting_status = meeting_status.read().await;
+
+        let mut output = String::new();
+
+        if meeting_status.is_running {
+            output.push_str("Meeting is ongoing. ");
+            output.push_str(&meeting_status.meeting.to_string());
+        } else {
+            output.push_str("Planned meeting on ");
+            output.push_str(
+                &meeting_status
+                    .schedule()
+                    .upcoming(Local)
+                    .next()
+                    .unwrap()
+                    .to_string(),
+            );
+            output.push_str(" with id ");
+            output.push_str(&meeting_status.meeting.to_string());
+        }
+
+        output.push_str("\nMembers:");
+        for (_, member) in meeting_status.members() {
+            output.push_str(&member.name());
+        }
+
+        output.push_str("\nMonitoring channel: <#");
+        output.push_str(&meeting_status.channel().id.0.to_string());
+        output.push('>');
+
+        output
+    }
 }
 
 impl TypeMapKey for MeetingStatus {
     type Value = Arc<RwLock<Self>>;
 }
 
-pub async fn status(ctx: &Context) -> String {
-    let data = ctx.data.read().await;
-    let meeting_status = data.get::<MeetingStatus>().unwrap();
-    let meeting_status = meeting_status.read().await;
-
-    let mut output = String::new();
-
-    if meeting_status.is_running() {
-        output.push_str("Meeting is ongoing. ");
-        output.push_str(&meeting_status.meeting().to_string());
-    } else {
-        output.push_str("Planned meeting on ");
-        output.push_str(
-            &meeting_status
-                .schedule()
-                .upcoming(Local)
-                .next()
-                .unwrap()
-                .to_string(),
-        );
-        output.push_str(" with id ");
-        output.push_str(&meeting_status.meeting().to_string());
-    }
-
-    output.push_str("\nMembers:");
-    for (_, member) in meeting_status.members() {
-        output.push_str(&member.name());
-    }
-
-    output.push_str("\nMonitoring channel: <#");
-    output.push_str(&meeting_status.channel().id.0.to_string());
-    output.push('>');
-
-    output
-}
-
-pub struct MeetingFilter {
+pub struct Filter {
     start_date: Option<chrono::NaiveDateTime>,
     end_date: Option<chrono::NaiveDateTime>,
     summary_id: Option<Uuid>,
     channel_id: Option<String>,
 }
 
-impl MeetingFilter {
-    pub fn new() -> MeetingFilter {
-        MeetingFilter {
+impl Filter {
+    pub fn new() -> Self {
+        Self {
             start_date: None,
             end_date: None,
             summary_id: None,
@@ -590,8 +585,8 @@ impl MeetingFilter {
     }
 }
 
-impl Default for MeetingFilter {
+impl Default for Filter {
     fn default() -> Self {
-        MeetingFilter::new()
+        Self::new()
     }
 }

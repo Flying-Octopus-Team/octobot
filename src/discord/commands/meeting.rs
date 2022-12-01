@@ -10,7 +10,6 @@ use uuid::Uuid;
 
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
-use crate::framework;
 use crate::framework::meeting::Meeting;
 use crate::framework::member::Member;
 
@@ -33,7 +32,7 @@ pub(crate) async fn end_meeting(ctx: Context, option: &CommandDataOption) -> Res
 pub(crate) async fn status_meeting(ctx: Context) -> Result<String> {
     info!("Received status-meeting command");
 
-    let output = framework::meeting::status(&ctx).await;
+    let output = Meeting::display_status(&ctx).await;
 
     info!("Generated meeting status: \n{}", output);
 

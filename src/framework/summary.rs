@@ -51,7 +51,7 @@ impl Summary {
         Ok(())
     }
 
-    pub async fn edit(&mut self, builder: SummaryFilter) -> Result<()> {
+    pub async fn edit(&mut self, builder: Filter) -> Result<()> {
         let mut summary = builder.build();
 
         summary.id = self.id;
@@ -62,7 +62,7 @@ impl Summary {
     }
 
     pub async fn list(
-        filter: SummaryFilter,
+        filter: Filter,
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
@@ -267,8 +267,8 @@ impl Summary {
         Ok(summary)
     }
 
-    pub(crate) fn find() -> SummaryFilter {
-        SummaryFilter::default()
+    pub(crate) fn find() -> Filter {
+        Filter::default()
     }
 }
 
@@ -284,16 +284,16 @@ impl Display for Summary {
     }
 }
 
-pub struct SummaryFilter {
+pub struct Filter {
     id: Option<Uuid>,
     note: Option<String>,
     create_date: Option<NaiveDate>,
     messages_id: Option<Vec<MessageId>>,
 }
 
-impl SummaryFilter {
+impl Filter {
     pub fn new() -> Self {
-        SummaryFilter {
+        Filter {
             id: None,
             note: None,
             create_date: None,
@@ -366,17 +366,17 @@ impl SummaryFilter {
     }
 }
 
-impl Default for SummaryFilter {
+impl Default for Filter {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TryFrom<&CommandDataOption> for SummaryFilter {
+impl TryFrom<&CommandDataOption> for Filter {
     type Error = Box<dyn std::error::Error>;
 
     fn try_from(option: &CommandDataOption) -> Result<Self, Self::Error> {
-        let mut builder = SummaryFilter::new();
+        let mut builder = Filter::new();
 
         for option in option.options.iter() {
             builder = match option.name.as_str() {

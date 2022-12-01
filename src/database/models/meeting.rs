@@ -22,7 +22,7 @@ use crate::database::schema::meeting;
 use crate::database::schema::meeting::BoxedQuery;
 use crate::database::schema::meeting_members;
 use crate::database::PG_POOL;
-use crate::framework::meeting::MeetingFilter;
+use crate::framework::meeting::Filter;
 use crate::SETTINGS;
 
 type AllColumns = (
@@ -114,7 +114,7 @@ impl Meeting {
     }
 
     pub(crate) fn list(
-        filter: impl Into<MeetingFilter>,
+        filter: impl Into<Filter>,
         page: i64,
         page_size: Option<i64>,
     ) -> Result<(Vec<Self>, i64)> {

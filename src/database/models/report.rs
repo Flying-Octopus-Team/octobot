@@ -14,7 +14,7 @@ use crate::database::schema::report::dsl;
 use crate::database::schema::report::BoxedQuery;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
-use crate::framework::report::ReportFilter;
+use crate::framework::report::Filter;
 
 type AllColumns = (
     report::id,
@@ -90,7 +90,7 @@ impl Report {
     }
 
     pub fn list(
-        filter: impl Into<ReportFilter>,
+        filter: impl Into<Filter>,
         page: i64,
         per_page: Option<i64>,
     ) -> Result<(Vec<Self>, i64)> {
