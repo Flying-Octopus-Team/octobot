@@ -64,7 +64,21 @@ impl Meeting {
         }
     }
 
-    pub fn insert(&self) -> Result<()> {
+    fn new_from_previous(previous: Self, cache_http: &impl CacheHttp) -> Self {
+        let new_meeting = Self::new(cache_http);
+
+        Self {
+            id: new_meeting.id,
+            start_date: new_meeting.start_date,
+            end_date: new_meeting.end_date,
+            summary: new_meeting.summary,
+            channel: previous.channel,
+            schedule: previous.schedule,
+            members: new_meeting.members,
+        }
+    }
+
+    fn insert(&self) -> Result<()> {
         let db_meeting = DbMeeting::from(self.clone());
         db_meeting.insert()?;
         Ok(())
@@ -99,7 +113,7 @@ impl Meeting {
         Ok(meeting)
     }
 
-    pub async fn from_db_meeting(
+    async fn from_db_meeting(
         cache_http: &impl CacheHttp,
         db_meeting: DbMeeting,
     ) -> Result<Meeting> {
@@ -206,14 +220,17 @@ impl Meeting {
 
         if latest.end_date().is_some() {
             info!("Latest meeting has ended. Falling back to default");
-            Self::new(cache_http)
+            let latest = Self::from_db_meeting(cache_http, latest).await.unwrap();
+            let new_meeting = Self::new_from_previous(latest, cache_http);
+            new_meeting.insert().unwrap();
+            new_meeting
         } else {
             info!("Latest meeting has not ended. Await next meeting");
             Self::from_db_meeting(cache_http, latest).await.unwrap()
         }
     }
 
-    pub async fn skip(ctx: &Context) {
+    async fn skip(ctx: &Context) {
         let mut data = ctx.data.write().await;
         let meeting_status = data.get_mut::<MeetingStatus>().unwrap();
 
@@ -233,8 +250,7 @@ impl Meeting {
             meeting_status.meeting.summary.note = note;
             meeting_status.meeting.summary.update()?;
 
-            let mut meeting = Self::new(ctx);
-            meeting.schedule = meeting_status.meeting.schedule.clone();
+            let meeting = Self::new_from_previous(meeting_status.meeting.clone(), ctx);
 
             meeting.insert()?;
             meeting.summary.insert()?;
@@ -339,11 +355,11 @@ impl Meeting {
         MeetingStatus::display_status(ctx).await
     }
 
-    pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
+    pub async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
         self.summary.resend_summary(cache_http).await
     }
 
-    pub(crate) fn find() -> Filter {
+    pub fn find() -> Filter {
         Filter::default()
     }
 }

@@ -41,26 +41,6 @@ impl Report {
         }
     }
 
-    pub fn add_report(
-        member: Member,
-        content: String,
-        create_date: NaiveDate,
-        published: bool,
-        summary: Option<Summary>,
-    ) -> Result<Report> {
-        let report = Self {
-            id: Uuid::new_v4(),
-            member,
-            content,
-            create_date,
-            published,
-            summary,
-        };
-
-        report.insert()?;
-        Ok(report)
-    }
-
     pub fn insert(&self) -> Result<()> {
         let db_report = DbReport::from(self.clone());
         db_report.insert()?;
@@ -126,7 +106,7 @@ impl Report {
         Ok(report)
     }
 
-    pub async fn from_db_report(ctx: &impl CacheHttp, db_report: DbReport) -> Result<Report> {
+    async fn from_db_report(ctx: &impl CacheHttp, db_report: DbReport) -> Result<Report> {
         let member = Member::get(db_report.member_id, ctx).await?;
         let summary = match db_report.summary_id() {
             Some(summary_id) => Some(Summary::get(ctx, summary_id).await?),
@@ -145,7 +125,7 @@ impl Report {
         Ok(report)
     }
 
-    pub(crate) async fn get_by_summary_id(
+    pub async fn get_by_summary_id(
         cache_http: &impl CacheHttp,
         id: Uuid,
     ) -> Result<Vec<Report>> {
@@ -159,7 +139,7 @@ impl Report {
         Ok(reports)
     }
 
-    pub(crate) async fn get_unpublished(cache_http: &impl CacheHttp) -> Result<Vec<Report>> {
+    pub async fn get_unpublished(cache_http: &impl CacheHttp) -> Result<Vec<Report>> {
         let db_reports = DbReport::get_unpublished_reports()?;
         let mut reports = Vec::new();
 
@@ -170,7 +150,7 @@ impl Report {
         Ok(reports)
     }
 
-    pub(crate) fn find() -> Filter {
+    pub fn find() -> Filter {
         Filter::default()
     }
 

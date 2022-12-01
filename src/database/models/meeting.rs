@@ -23,7 +23,6 @@ use crate::database::schema::meeting::BoxedQuery;
 use crate::database::schema::meeting_members;
 use crate::database::PG_POOL;
 use crate::framework::meeting::Filter;
-use crate::SETTINGS;
 
 type AllColumns = (
     meeting::id,
@@ -200,26 +199,6 @@ impl Meeting {
 
     pub fn scheduled_cron(&self) -> &str {
         self.scheduled_cron.as_ref()
-    }
-
-    /// Loads next meeting based on the previous meeting's cron.
-    /// Previous meetings are loaded from the database.
-    /// If there is no previous meeting, loads the next meeting based on the default cron.
-    pub fn load_next_meeting() -> Result<Self> {
-        let meeting = if let Ok(latest_meeting) = Meeting::get_latest_meeting() {
-            if latest_meeting.end_date.is_none() {
-                latest_meeting
-            } else {
-                Meeting::try_from_cron(&latest_meeting.scheduled_cron, latest_meeting.channel_id)?
-            }
-        } else {
-            warn!("No previous meetings found in the database. Falling back to default settings.");
-            Meeting::try_from_cron(
-                &SETTINGS.meeting.cron,
-                SETTINGS.meeting.channel_id.to_string(),
-            )?
-        };
-        Ok(meeting)
     }
 
     pub(crate) fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {

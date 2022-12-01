@@ -14,7 +14,6 @@ use uuid::Uuid;
 use crate::database::models::meeting::Meeting;
 use crate::database::models::summary::Summary as DbSummary;
 use crate::database::schema::summary::BoxedQuery;
-use crate::database::PG_POOL;
 use crate::discord::split_message;
 use crate::framework::member::Member;
 use crate::framework::report::Report;
@@ -38,41 +37,26 @@ impl Summary {
         }
     }
 
-    pub fn insert(&self) -> Result<()> {
+    pub(super) fn insert(&self) -> Result<()> {
         let db_summary = DbSummary::from(self.clone());
 
         db_summary.insert()?;
         Ok(())
     }
 
-    pub fn update(&self) -> Result<()> {
+    pub(super) fn update(&self) -> Result<()> {
         let db_summary = DbSummary::from(self.clone());
         db_summary.update()?;
         Ok(())
     }
 
-    pub async fn edit(&mut self, builder: Filter) -> Result<()> {
-        let mut summary = builder.build();
-
-        summary.id = self.id;
-        *self = summary;
-
-        self.update()?;
-        Ok(())
-    }
-
-    pub async fn list(
+    async fn list(
         filter: Filter,
         cache_http: &impl CacheHttp,
         page: i64,
         page_size: Option<i64>,
     ) -> Result<(Vec<Summary>, i64)> {
-        let query = filter.apply(DbSummary::all().into_boxed());
-        let query = DbSummary::paginate(query, page, page_size);
-
-        let (db_summary, total) = query
-            .load_and_count_pages(&mut PG_POOL.get().unwrap())
-            .unwrap();
+        let (db_summary, total) = DbSummary::list(filter, page, page_size)?;
 
         let mut summaries = Vec::new();
 
@@ -122,7 +106,7 @@ impl Summary {
         })
     }
 
-    pub(crate) async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Self> {
+    pub async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Self> {
         let db_summary = DbSummary::find_by_id(id)?;
         Self::from_db_summary(cache_http, db_summary).await
     }
@@ -141,7 +125,7 @@ impl Summary {
         Ok(members)
     }
 
-    pub(crate) async fn generate_summary(
+    async fn generate_summary(
         &self,
         cache_http: &impl CacheHttp,
         note: Option<String>,
@@ -209,7 +193,7 @@ impl Summary {
         Ok(reports)
     }
 
-    pub(crate) async fn send_summary(&mut self, cache_http: &impl CacheHttp) -> Result<String> {
+    pub(super) async fn send_summary(&mut self, cache_http: &impl CacheHttp) -> Result<String> {
         let reports = self.get_reports(cache_http, true).await?;
 
         let summary = self.generate_summary(cache_http, None, &reports).await?;
@@ -233,7 +217,7 @@ impl Summary {
         Ok("Summary was generated and sent to the channel".to_string())
     }
 
-    pub(crate) async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
+    pub async fn resend_summary(&self, cache_http: &impl CacheHttp) -> Result<String> {
         let reports = self.get_reports(cache_http, false).await?;
 
         let summary = self.generate_summary(cache_http, None, &reports).await?;
@@ -267,7 +251,7 @@ impl Summary {
         Ok(summary)
     }
 
-    pub(crate) fn find() -> Filter {
+    pub fn find() -> Filter {
         Filter::default()
     }
 }
@@ -301,33 +285,24 @@ impl Filter {
         }
     }
 
-    pub fn id(mut self, id: Uuid) -> Self {
+    fn id(mut self, id: Uuid) -> Self {
         self.id = Some(id);
         self
     }
 
-    pub fn note(mut self, note: String) -> Self {
+    fn note(mut self, note: String) -> Self {
         self.note = Some(note);
         self
     }
 
-    pub fn create_date(mut self, create_date: NaiveDate) -> Self {
+    fn create_date(mut self, create_date: NaiveDate) -> Self {
         self.create_date = Some(create_date);
         self
     }
 
-    pub fn messages_id(mut self, messages_id: Vec<MessageId>) -> Self {
+    fn messages_id(mut self, messages_id: Vec<MessageId>) -> Self {
         self.messages_id = Some(messages_id);
         self
-    }
-
-    pub(crate) fn build(self) -> Summary {
-        Summary {
-            id: self.id.unwrap(),
-            note: self.note.unwrap(),
-            create_date: self.create_date.unwrap(),
-            messages_id: self.messages_id.unwrap(),
-        }
     }
 
     pub async fn list(

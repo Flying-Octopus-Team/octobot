@@ -15,6 +15,7 @@ use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
+use crate::framework::summary::Filter;
 
 type AllColumns = (
     summary::id,
@@ -71,6 +72,16 @@ impl Summary {
         Ok(diesel::delete(summary.filter(id.eq(self.id)))
             .execute(&mut PG_POOL.get()?)
             .map(|rows| rows != 0)?)
+    }
+
+    pub fn list(filter: Filter, page: i64, page_size: Option<i64>) -> Result<(Vec<Self>, i64)> {
+        let query = filter.apply(Summary::all().into_boxed());
+
+        let query = Self::paginate(query, page, page_size);
+
+        let (summaries, total) = query.load_and_count_pages(&mut PG_POOL.get().unwrap()).unwrap();
+
+        Ok((summaries, total))
     }
 
     pub fn paginate(

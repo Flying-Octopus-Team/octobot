@@ -30,14 +30,14 @@ pub enum MemberRole {
 }
 
 impl MemberRole {
-    pub fn discord_role(&self) -> RoleId {
+    fn discord_role(&self) -> RoleId {
         match self {
             MemberRole::Normal => SETTINGS.member_role_id,
             MemberRole::Apprentice => SETTINGS.apprentice_role_id,
         }
     }
 
-    pub(crate) async fn remove_role(
+    async fn remove_role(
         member: &mut Member,
         cache_http: &impl CacheHttp,
     ) -> Result<()> {
@@ -58,7 +58,7 @@ impl MemberRole {
         Ok(())
     }
 
-    pub(crate) async fn add_role(
+    async fn add_role(
         &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
@@ -77,7 +77,7 @@ impl MemberRole {
         Ok(())
     }
 
-    pub(crate) async fn swap_roles(
+    async fn swap_roles(
         &self,
         member: &mut Member,
         cache_http: &impl CacheHttp,
@@ -106,31 +106,7 @@ pub struct Member {
 }
 
 impl Member {
-    // Adds member to the services if they don't exist.
-    pub fn add_member(
-        display_name: String,
-        discord_user: Option<User>,
-        trello_id: Option<String>,
-        trello_report_card_id: Option<String>,
-        is_apprentice: bool,
-    ) -> Result<Member> {
-        let member = Self {
-            id: Uuid::new_v4(),
-            display_name,
-            discord_user,
-            trello_id,
-            trello_report_card_id,
-            member_role: if is_apprentice {
-                MemberRole::Apprentice
-            } else {
-                MemberRole::Normal
-            },
-        };
-        member.insert()?;
-        Ok(member)
-    }
-
-    pub(crate) fn insert(&self) -> Result<()> {
+    pub fn insert(&self) -> Result<()> {
         let db_member = DbMember::from(self.clone());
         db_member.insert()?;
         Ok(())
@@ -219,7 +195,7 @@ impl Member {
         Ok((members, total))
     }
 
-    pub async fn from_db_member(cache_http: impl CacheHttp, db_member: DbMember) -> Result<Self> {
+    pub(super) async fn from_db_member(cache_http: impl CacheHttp, db_member: DbMember) -> Result<Self> {
         let discord_user = match db_member.discord_id {
             Some(ref discord_id) => Some(
                 UserId::from(discord_id.parse::<u64>().unwrap())
@@ -243,7 +219,7 @@ impl Member {
         })
     }
 
-    pub(crate) async fn get(id: Uuid, cache_http: &impl CacheHttp) -> Result<Self> {
+    pub async fn get(id: Uuid, cache_http: &impl CacheHttp) -> Result<Self> {
         let db_member = DbMember::find_by_id(id)?;
         Ok(Self {
             id: db_member.id(),
@@ -267,7 +243,7 @@ impl Member {
     }
 
     // Get member from the database by their discord id
-    pub(crate) async fn get_by_discord_id(
+    pub async fn get_by_discord_id(
         discord_id: u64,
         cache_http: &impl CacheHttp,
     ) -> Result<Option<Self>> {
@@ -300,12 +276,12 @@ impl Member {
 
     /// Set users Discord roles to match their member role
     /// This is should be called when a member is created
-    pub(crate) async fn setup(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
+    pub async fn setup(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         let role = self.member_role;
         role.add_role(self, cache_http).await
     }
 
-    pub(crate) fn name(&self) -> String {
+    pub fn name(&self) -> String {
         self.display_name.clone()
     }
 }
@@ -362,27 +338,27 @@ pub struct MemberBuilder {
 }
 
 impl MemberBuilder {
-    pub fn set_display_name(&mut self, display_name: Option<String>) {
+    fn set_display_name(&mut self, display_name: Option<String>) {
         self.display_name = display_name;
     }
 
-    pub fn set_discord_id(&mut self, discord_id: Option<String>) {
+    fn set_discord_id(&mut self, discord_id: Option<String>) {
         self.discord_id = discord_id;
     }
 
-    pub fn set_trello_id(&mut self, trello_id: Option<String>) {
+    fn set_trello_id(&mut self, trello_id: Option<String>) {
         self.trello_id = trello_id;
     }
 
-    pub fn set_trello_report_card_id(&mut self, trello_report_card_id: Option<String>) {
+    fn set_trello_report_card_id(&mut self, trello_report_card_id: Option<String>) {
         self.trello_report_card_id = trello_report_card_id;
     }
 
-    pub fn set_member_role(&mut self, member_role: Option<MemberRole>) {
+    fn set_member_role(&mut self, member_role: Option<MemberRole>) {
         self.member_role = member_role;
     }
 
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             display_name: None,
             discord_id: None,
@@ -392,7 +368,7 @@ impl MemberBuilder {
         }
     }
 
-    pub(crate) async fn build(self, cache_http: &impl CacheHttp) -> Member {
+    pub async fn build(self, cache_http: &impl CacheHttp) -> Member {
         let discord_user = match &self.discord_id {
             Some(discord_id) => Some(
                 UserId::from(discord_id.parse::<u64>().unwrap())
@@ -427,7 +403,7 @@ impl MemberBuilder {
         }
     }
 
-    pub(crate) async fn check_for_duplicates(&self, cache_http: &impl CacheHttp) -> Result<bool> {
+    pub async fn check_for_duplicates(&self, cache_http: &impl CacheHttp) -> Result<bool> {
         let mut duplicate = false;
         let mut duplicate_message = String::from("Duplicate members found: ");
 
@@ -450,7 +426,7 @@ impl MemberBuilder {
         Ok(duplicate)
     }
 
-    pub fn apply_filter<'a>(&'a self, mut query: BoxedQuery<'a, Pg>) -> BoxedQuery<'a, Pg> {
+    fn apply_filter<'a>(&'a self, mut query: BoxedQuery<'a, Pg>) -> BoxedQuery<'a, Pg> {
         use crate::database::schema::member::dsl;
 
         if let Some(ref display_name) = self.display_name {
