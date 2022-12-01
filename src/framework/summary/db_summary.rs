@@ -79,7 +79,9 @@ impl Summary {
 
         let query = Self::paginate(query, page, page_size);
 
-        let (summaries, total) = query.load_and_count_pages(&mut PG_POOL.get().unwrap()).unwrap();
+        let (summaries, total) = query
+            .load_and_count_pages(&mut PG_POOL.get().unwrap())
+            .unwrap();
 
         Ok((summaries, total))
     }

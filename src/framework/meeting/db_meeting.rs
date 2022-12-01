@@ -14,8 +14,8 @@ use diesel::Table;
 use tracing::warn;
 use uuid::Uuid;
 
-use crate::database::models::member::Member;
-use crate::database::models::summary::Summary;
+use super::super::member::db_member::Member;
+use super::super::summary::db_summary::Summary;
 use crate::database::pagination::Paginate;
 use crate::database::pagination::Paginated;
 use crate::database::schema::meeting;

@@ -11,13 +11,14 @@ use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::report::Report as DbReport;
+use self::db_report::Report as DbReport;
+use super::member::Member;
+use super::summary::Summary;
 use crate::database::schema::report::BoxedQuery;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 
-use super::member::Member;
-use super::summary::Summary;
+mod db_report;
 
 #[derive(Debug, Clone)]
 pub struct Report {
@@ -125,10 +126,7 @@ impl Report {
         Ok(report)
     }
 
-    pub async fn get_by_summary_id(
-        cache_http: &impl CacheHttp,
-        id: Uuid,
-    ) -> Result<Vec<Report>> {
+    pub async fn get_by_summary_id(cache_http: &impl CacheHttp, id: Uuid) -> Result<Vec<Report>> {
         let db_reports = DbReport::get_by_summary_id(id)?;
         let mut reports = Vec::new();
 

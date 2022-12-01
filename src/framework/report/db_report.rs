@@ -6,7 +6,7 @@ use diesel::{QueryDsl, RunQueryDsl};
 use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
-use crate::database::models::member::Member;
+use super::super::member::db_member::Member;
 use crate::database::pagination::Paginate;
 use crate::database::pagination::Paginated;
 use crate::database::schema::report;

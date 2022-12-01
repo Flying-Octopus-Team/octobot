@@ -11,13 +11,15 @@ use serenity::model::prelude::interaction::application_command::CommandDataOptio
 use serenity::{http::CacheHttp, model::prelude::MessageId};
 use uuid::Uuid;
 
-use crate::database::models::meeting::Meeting;
-use crate::database::models::summary::Summary as DbSummary;
+use self::db_summary::Summary as DbSummary;
+use super::meeting::Meeting;
 use crate::database::schema::summary::BoxedQuery;
 use crate::discord::split_message;
 use crate::framework::member::Member;
 use crate::framework::report::Report;
 use crate::SETTINGS;
+
+pub(super) mod db_summary;
 
 #[derive(Debug, Clone)]
 pub struct Summary {
@@ -112,13 +114,11 @@ impl Summary {
     }
 
     async fn members(&self, cache_http: &impl CacheHttp) -> Result<Vec<Member>> {
-        let meeting = Meeting::find_by_summary_id(self.id)?;
-        let mut members = Vec::new();
+        let meeting = Meeting::get_by_summary_id(cache_http, self.id).await?;
 
-        let vec = meeting.members()?;
+        let mut members = Vec::with_capacity(meeting.members.len());
 
-        for db_member in vec.into_iter() {
-            let member = Member::from_db_member(cache_http, db_member).await?;
+        for (_, member) in meeting.members {
             members.push(member);
         }
 

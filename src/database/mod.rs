@@ -9,7 +9,6 @@ use tracing::info;
 
 use crate::SETTINGS;
 
-pub mod models;
 pub mod pagination;
 pub(crate) mod schema;
 

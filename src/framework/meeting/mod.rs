@@ -25,12 +25,14 @@ use tracing::log::error;
 use tracing::log::info;
 use uuid::Uuid;
 
+use self::db_meeting::Meeting as DbMeeting;
+use self::db_meeting::MeetingMembers;
 use super::member::Member;
 use super::summary::Summary;
-use crate::database::models::meeting::Meeting as DbMeeting;
-use crate::database::models::meeting::MeetingMembers;
 use crate::database::schema::meeting::BoxedQuery;
 use crate::SETTINGS;
+
+mod db_meeting;
 
 #[derive(Debug, Clone)]
 pub struct Meeting {
@@ -101,6 +103,23 @@ impl Meeting {
 
     pub async fn get(cache_http: &impl CacheHttp, id: Uuid) -> Result<Self> {
         let db_meeting = match DbMeeting::find_by_id(id) {
+            Ok(meeting) => meeting,
+            Err(e) => {
+                error!("Error while getting meeting from database: {}", e);
+                return Err(e);
+            }
+        };
+
+        let meeting = Self::from_db_meeting(cache_http, db_meeting).await?;
+
+        Ok(meeting)
+    }
+
+    pub(super) async fn get_by_summary_id(
+        cache_http: &impl CacheHttp,
+        summary_id: Uuid,
+    ) -> Result<Self> {
+        let db_meeting = match DbMeeting::find_by_summary_id(summary_id) {
             Ok(meeting) => meeting,
             Err(e) => {
                 error!("Error while getting meeting from database: {}", e);

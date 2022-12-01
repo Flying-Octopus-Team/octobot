@@ -15,13 +15,15 @@ use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
-use crate::database::models::member::Member as DbMember;
+use self::db_member::Member as DbMember;
 use crate::database::schema::member::BoxedQuery;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
 use crate::SETTINGS;
+
+pub(super) mod db_member;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemberRole {
@@ -37,10 +39,7 @@ impl MemberRole {
         }
     }
 
-    async fn remove_role(
-        member: &mut Member,
-        cache_http: &impl CacheHttp,
-    ) -> Result<()> {
+    async fn remove_role(member: &mut Member, cache_http: &impl CacheHttp) -> Result<()> {
         let role = member.member_role.discord_role();
 
         let guild = cache_http
@@ -58,11 +57,7 @@ impl MemberRole {
         Ok(())
     }
 
-    async fn add_role(
-        &self,
-        member: &mut Member,
-        cache_http: &impl CacheHttp,
-    ) -> Result<()> {
+    async fn add_role(&self, member: &mut Member, cache_http: &impl CacheHttp) -> Result<()> {
         let role = self.discord_role();
         let guild = cache_http
             .cache()
@@ -77,11 +72,7 @@ impl MemberRole {
         Ok(())
     }
 
-    async fn swap_roles(
-        &self,
-        member: &mut Member,
-        cache_http: &impl CacheHttp,
-    ) -> Result<()> {
+    async fn swap_roles(&self, member: &mut Member, cache_http: &impl CacheHttp) -> Result<()> {
         MemberRole::remove_role(member, cache_http).await?;
         self.add_role(member, cache_http).await?;
         Ok(())
@@ -195,7 +186,10 @@ impl Member {
         Ok((members, total))
     }
 
-    pub(super) async fn from_db_member(cache_http: impl CacheHttp, db_member: DbMember) -> Result<Self> {
+    pub(super) async fn from_db_member(
+        cache_http: impl CacheHttp,
+        db_member: DbMember,
+    ) -> Result<Self> {
         let discord_user = match db_member.discord_id {
             Some(ref discord_id) => Some(
                 UserId::from(discord_id.parse::<u64>().unwrap())
