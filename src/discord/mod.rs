@@ -1,5 +1,4 @@
 use std::fmt::Write;
-use std::sync::Arc;
 
 use anyhow::Result;
 use serenity::async_trait;
@@ -121,7 +120,7 @@ impl EventHandler for Handler {
 
         debug!("{:?}", guild_command);
 
-        Meeting::await_meeting(Arc::clone(&ctx.data), ctx).await;
+        Meeting::await_meeting(&ctx).await;
     }
 }
 

@@ -2,23 +2,25 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::time::Duration;
 
 use anyhow::Result;
+use chrono::Local;
 use chrono::NaiveDateTime;
 use cron::Schedule;
-use crony::Job;
 use diesel::pg::Pg;
 use diesel::ExpressionMethods;
 use diesel::QueryDsl;
+use serenity::client::Cache;
 use serenity::http::CacheHttp;
+use serenity::http::Http;
 use serenity::model::channel::ChannelType;
 use serenity::model::prelude::GuildChannel;
 use serenity::prelude::Context;
 use serenity::prelude::Mentionable;
-use serenity::prelude::TypeMap;
 use serenity::prelude::TypeMapKey;
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 use tracing::log::error;
 use tracing::log::info;
 use uuid::Uuid;
@@ -49,11 +51,7 @@ impl Meeting {
             .guild_channel(SETTINGS.meeting.channel_id)
             .unwrap();
         let schedule = Schedule::from_str(&SETTINGS.meeting.cron).unwrap();
-        let start_date = schedule
-            .upcoming(chrono::Local)
-            .next()
-            .unwrap()
-            .naive_local();
+        let start_date = schedule.upcoming(Local).next().unwrap().naive_local();
 
         Self {
             id: Uuid::new_v4(),
@@ -164,8 +162,8 @@ impl Meeting {
         Ok((meetings, total_pages))
     }
 
-    pub async fn await_meeting(data: Arc<RwLock<TypeMap>>, cache_http: impl CacheHttp + 'static) {
-        if let Some(meeting_status) = data.read().await.get::<MeetingStatus>() {
+    pub async fn await_meeting(ctx: &Context) {
+        if let Some(meeting_status) = ctx.data.read().await.get::<MeetingStatus>() {
             let meeting_status = meeting_status.read().await;
 
             if meeting_status.is_running {
@@ -173,27 +171,25 @@ impl Meeting {
             }
         }
 
-        let meeting = Self::next_meeting(&cache_http).await;
-        let schedule = crony::Schedule::from_str(&meeting.schedule.to_string()).unwrap();
-
-        let job = MeetingJob {
-            data: data.clone(),
-            cache_and_http: Arc::new(cache_http),
-            schedule,
-        };
-
-        let runner = crony::Runner::new().add(Box::new(job)).run();
+        let meeting = Self::next_meeting(&ctx).await;
 
         let meeting_status = MeetingStatus {
             meeting,
             is_running: false,
             skip: false,
-            runner: Mutex::new(runner),
+            cache: ctx.cache.clone(),
+            http: ctx.http.clone(),
+            join_handle: None,
         };
 
-        data.write()
-            .await
-            .insert::<MeetingStatus>(Arc::new(RwLock::new(meeting_status)));
+        let meeting_status = Arc::new(RwLock::new(meeting_status));
+
+        MeetingStatus::await_meeting(meeting_status.clone()).await;
+
+        {
+            let mut data = ctx.data.write().await;
+            data.insert::<MeetingStatus>(meeting_status);
+        }
     }
 
     async fn next_meeting(cache_http: &impl CacheHttp) -> Self {
@@ -251,7 +247,7 @@ impl Meeting {
     }
 
     async fn _end(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
-        self.end_date = Some(chrono::Local::now().naive_local());
+        self.end_date = Some(Local::now().naive_local());
         self.summary.send_summary(cache_http).await?;
         self.update()
     }
@@ -319,7 +315,7 @@ impl Meeting {
         meeting_status.meeting.update()?;
 
         meeting_status.abort();
-        Self::await_meeting(ctx.data.clone(), ctx.clone()).await;
+        Self::await_meeting(ctx).await;
 
         Ok("Schedule changed successfully".to_string())
     }
@@ -366,7 +362,19 @@ pub(self) struct MeetingStatus {
     skip: bool,
     is_running: bool,
     meeting: Meeting,
-    runner: Mutex<crony::Runner>,
+    cache: Arc<Cache>,
+    http: Arc<Http>,
+    join_handle: Option<JoinHandle<()>>,
+}
+
+impl CacheHttp for MeetingStatus {
+    fn cache(&self) -> Option<&Arc<Cache>> {
+        Some(&self.cache)
+    }
+
+    fn http(&self) -> &Http {
+        &self.http
+    }
 }
 
 impl std::fmt::Debug for MeetingStatus {
@@ -402,75 +410,77 @@ impl MeetingStatus {
 
     // stop the runner
     pub(self) fn abort(self) {
-        let runner = self.runner.into_inner().unwrap();
-        runner.stop();
+        self.join_handle.unwrap().abort();
+    }
+
+    async fn await_meeting(meeting_status: Arc<RwLock<Self>>) {
+        let meeting_status_clone = meeting_status.clone();
+        let handle = tokio::spawn(async move {
+            loop {
+                {
+                    let mut meeting_status = meeting_status.write().await;
+                    if meeting_status.should_start() {
+                        match meeting_status.start().await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Error starting meeting: {}", e);
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        });
+
+        let mut meeting_status = meeting_status_clone.write().await;
+        meeting_status.join_handle = Some(handle);
+    }
+
+    fn should_start(&self) -> bool {
+        // run if the meeting start date is in the past
+        let now = Local::now();
+        if self.meeting.start_date < now.naive_local() {
+            return true;
+        }
+
+
+        false
+    }
+
+    async fn start(&mut self) -> Result<()> {
+        if self.skip {
+            self.skip = false;
+            return Ok(());
+        }
+
+        if self.is_running {
+            return Ok(());
+        }
+
+        self.is_running = true;
+
+        // load members from the channel
+        let members = self.meeting.channel.members(self.cache().unwrap()).await?;
+
+        for dc_member in members {
+            let member = Member::get_by_discord_id(dc_member.user.id.0, self).await?;
+
+            if let Some(member) = member {
+                let info = self.meeting.add_member(member).await;
+                if let Err(e) = info {
+                    error!("Error adding member: {}", e);
+                } else {
+                    info!("Member added: {}", info.unwrap());
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
 impl TypeMapKey for MeetingStatus {
     type Value = Arc<RwLock<Self>>;
-}
-
-pub(self) struct MeetingJob<C: CacheHttp> {
-    data: Arc<RwLock<TypeMap>>,
-    cache_and_http: Arc<C>,
-    schedule: crony::Schedule,
-}
-
-impl<C: CacheHttp + 'static> Job for MeetingJob<C> {
-    fn schedule(&self) -> crony::Schedule {
-        self.schedule.clone()
-    }
-
-    fn handle(&self) {
-        let data = self.data.clone();
-        let cache_and_http = self.cache_and_http.clone();
-        tokio::spawn(async move {
-            let data = data.read().await;
-            let meeting_status = data.get::<MeetingStatus>().unwrap().clone();
-            let mut meeting_status = meeting_status.write().await;
-
-            if meeting_status.skip {
-                meeting_status.skip = false;
-                return;
-            }
-
-            if meeting_status.is_running {
-                return;
-            }
-
-            // load members from the channel
-            let cache = cache_and_http.cache().unwrap();
-            let members = match meeting_status.meeting.channel.members(cache).await {
-                Ok(members) => members,
-                Err(e) => {
-                    error!("Error while getting members from channel: {}", e);
-                    return;
-                }
-            };
-
-            for dc_member in members {
-                let member =
-                    match Member::get_by_discord_id(dc_member.user.id.0, &cache_and_http).await {
-                        Ok(member) => match member {
-                            Some(member) => member,
-                            None => {
-                                error!("Member not found: {}", dc_member.user.id.0);
-                                continue;
-                            }
-                        },
-                        Err(e) => {
-                            error!("Error while getting member: {}", e);
-                            return;
-                        }
-                    };
-                let info = meeting_status.meeting.add_member(member).await.unwrap();
-                info!("{}", info);
-            }
-
-            meeting_status.is_running = true;
-        });
-    }
 }
 
 pub async fn status(ctx: &Context) -> String {
@@ -488,7 +498,7 @@ pub async fn status(ctx: &Context) -> String {
         output.push_str(
             &meeting_status
                 .schedule()
-                .upcoming(chrono::Local)
+                .upcoming(Local)
                 .next()
                 .unwrap()
                 .to_string(),
