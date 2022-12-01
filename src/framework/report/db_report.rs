@@ -39,12 +39,12 @@ type All = diesel::dsl::Select<crate::database::schema::report::table, AllColumn
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Selectable, Debug)]
 #[diesel(belongs_to(Member))]
 #[diesel(table_name = report)]
-pub struct Report {
+pub(in crate::framework) struct Report {
     pub id: Uuid,
     pub member_id: Uuid,
     pub content: String,
-    create_date: NaiveDate,
-    published: bool,
+    pub create_date: NaiveDate,
+    pub published: bool,
     pub summary_id: Option<Uuid>,
 }
 
@@ -56,7 +56,7 @@ struct NewReport {
 }
 
 impl Report {
-    pub fn new(member_id: Uuid, content: String) -> Report {
+    fn new(member_id: Uuid, content: String) -> Report {
         Report {
             id: Uuid::new_v4(),
             member_id,
@@ -67,7 +67,7 @@ impl Report {
         }
     }
 
-    pub fn all() -> All {
+    fn all() -> All {
         dsl::report.select(ALL_COLUMNS)
     }
 
@@ -105,7 +105,7 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-    pub fn paginate(
+    fn paginate(
         query: BoxedQuery<'_, Pg>,
         page: i64,
         per_page: Option<i64>,
@@ -133,33 +133,13 @@ impl Report {
         Ok(report.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>> {
+    pub fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>> {
         use crate::database::schema::report::dsl::*;
 
         Ok(report
             .filter(summary_id.eq(find_id))
             .order_by(create_date.asc())
             .load(&mut PG_POOL.get()?)?)
-    }
-
-    pub(crate) fn summary_id(&self) -> Option<Uuid> {
-        self.summary_id
-    }
-
-    pub(crate) fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub(crate) fn content(&self) -> String {
-        self.content.clone()
-    }
-
-    pub(crate) fn create_date(&self) -> NaiveDate {
-        self.create_date
-    }
-
-    pub(crate) fn published(&self) -> bool {
-        self.published
     }
 }
 

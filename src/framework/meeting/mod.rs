@@ -157,7 +157,7 @@ impl Meeting {
         };
 
         let mut members = Vec::new();
-        let load_members = MeetingMembers::load_members(db_meeting.id())?;
+        let load_members = MeetingMembers::load_members(db_meeting.id)?;
 
         for m_member in load_members {
             let member = Member::get(m_member.member_id(), cache_http).await?;
@@ -165,7 +165,7 @@ impl Meeting {
         }
 
         let meeting = Meeting {
-            id: db_meeting.id(),
+            id: db_meeting.id,
             start_date: db_meeting.start_date(),
             end_date: db_meeting.end_date(),
             summary,

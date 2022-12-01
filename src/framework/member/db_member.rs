@@ -39,8 +39,8 @@ type All = diesel::dsl::Select<crate::database::schema::member::table, AllColumn
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Selectable, Debug, Eq)]
 #[diesel(table_name = member)]
-pub struct Member {
-    id: Uuid,
+pub(in crate::framework) struct Member {
+    pub id: Uuid,
     pub display_name: String,
     pub discord_id: Option<String>,
     pub trello_id: Option<String>,
@@ -49,7 +49,7 @@ pub struct Member {
 }
 
 impl Member {
-    pub fn new(
+    fn new(
         display_name: String,
         discord_id: Option<String>,
         trello_id: Option<String>,
@@ -124,7 +124,7 @@ impl Member {
             .optional()?)
     }
 
-    pub(crate) fn find_by_trello_id(find_id: impl Into<String>) -> Result<Option<Self>> {
+    pub fn find_by_trello_id(find_id: impl Into<String>) -> Result<Option<Self>> {
         use crate::database::schema::member::dsl::*;
 
         let find_id = find_id.into();
@@ -133,14 +133,6 @@ impl Member {
             .filter(trello_id.eq(find_id))
             .get_result(&mut PG_POOL.get()?)
             .optional()?)
-    }
-
-    pub fn discord_id(&self) -> Option<&String> {
-        self.discord_id.as_ref()
-    }
-
-    pub fn id(&self) -> Uuid {
-        self.id
     }
 }
 

@@ -71,9 +71,9 @@ impl Summary {
     }
 
     async fn from_db_summary(cache_http: impl CacheHttp, db_summary: DbSummary) -> Result<Self> {
-        let id = db_summary.id();
-        let note = String::from(db_summary.note());
-        let create_date = db_summary.create_date();
+        let id = db_summary.id;
+        let note = db_summary.note;
+        let create_date = db_summary.create_date;
         let messages_id = db_summary.messages_id.unwrap_or_default();
 
         let mut messages = Vec::new();

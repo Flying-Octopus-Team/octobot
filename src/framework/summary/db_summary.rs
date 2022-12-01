@@ -35,10 +35,10 @@ type All = diesel::dsl::Select<crate::database::schema::summary::table, AllColum
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = summary)]
-pub(crate) struct Summary {
-    id: Uuid,
-    note: String,
-    create_date: NaiveDate,
+pub(in crate::framework) struct Summary {
+    pub id: Uuid,
+    pub note: String,
+    pub create_date: NaiveDate,
     pub(crate) messages_id: Option<Vec<String>>,
 }
 
@@ -86,7 +86,7 @@ impl Summary {
         Ok((summaries, total))
     }
 
-    pub fn paginate(
+    fn paginate(
         query: BoxedQuery<'_, Pg>,
         page: i64,
         per_page: Option<i64>,
@@ -100,11 +100,7 @@ impl Summary {
         query
     }
 
-    pub(crate) fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub(crate) fn find_by_id(summary_id: Uuid) -> Result<Self> {
+    pub fn find_by_id(summary_id: Uuid) -> Result<Self> {
         use crate::database::schema::summary::dsl::*;
 
         Ok(summary
@@ -113,18 +109,10 @@ impl Summary {
     }
 
     /// Set content. Returns the updated summary.
-    pub(crate) fn set_note(&mut self, note: String) -> Result<Self> {
+    pub fn set_note(&mut self, note: String) -> Result<Self> {
         self.note = note;
 
         self.update()
-    }
-
-    pub(crate) fn note(&self) -> &str {
-        &self.note
-    }
-
-    pub(crate) fn create_date(&self) -> NaiveDate {
-        self.create_date
     }
 }
 

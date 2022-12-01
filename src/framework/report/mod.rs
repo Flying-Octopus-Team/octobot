@@ -109,17 +109,17 @@ impl Report {
 
     async fn from_db_report(ctx: &impl CacheHttp, db_report: DbReport) -> Result<Report> {
         let member = Member::get(db_report.member_id, ctx).await?;
-        let summary = match db_report.summary_id() {
+        let summary = match db_report.summary_id {
             Some(summary_id) => Some(Summary::get(ctx, summary_id).await?),
             None => None,
         };
 
         let report = Report {
-            id: db_report.id(),
+            id: db_report.id,
             member,
-            content: db_report.content(),
-            create_date: db_report.create_date(),
-            published: db_report.published(),
+            content: db_report.content,
+            create_date: db_report.create_date,
+            published: db_report.published,
             summary,
         };
 

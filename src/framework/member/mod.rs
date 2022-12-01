@@ -200,7 +200,7 @@ impl Member {
         };
 
         Ok(Self {
-            id: db_member.id(),
+            id: db_member.id,
             display_name: db_member.display_name,
             discord_user,
             trello_id: db_member.trello_id,
@@ -216,7 +216,7 @@ impl Member {
     pub async fn get(id: Uuid, cache_http: &impl CacheHttp) -> Result<Self> {
         let db_member = DbMember::find_by_id(id)?;
         Ok(Self {
-            id: db_member.id(),
+            id: db_member.id,
             display_name: db_member.display_name,
             discord_user: match db_member.discord_id {
                 Some(ref discord_id) => Some(

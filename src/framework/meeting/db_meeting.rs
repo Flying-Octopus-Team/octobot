@@ -46,7 +46,7 @@ type All = diesel::dsl::Select<meeting::table, AllColumns>;
 
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
-pub struct Meeting {
+pub(in crate::framework) struct Meeting {
     pub id: Uuid,
     pub start_date: NaiveDateTime,
     pub end_date: Option<NaiveDateTime>,
@@ -59,14 +59,14 @@ pub struct Meeting {
 #[diesel(table_name = meeting_members)]
 #[diesel(belongs_to(Meeting))]
 #[diesel(belongs_to(Member))]
-pub struct MeetingMembers {
+pub(in crate::framework) struct MeetingMembers {
     id: Uuid,
     member_id: Uuid,
     meeting_id: Uuid,
 }
 
 impl Meeting {
-    pub(crate) fn new(
+    fn new(
         datetime: chrono::DateTime<chrono::Local>,
         scheduled_cron: String,
         channel_id: String,
@@ -77,30 +77,25 @@ impl Meeting {
             id: Uuid::new_v4(),
             start_date: datetime.naive_local(),
             end_date: None,
-            summary_id: summary.insert().unwrap().id(),
+            summary_id: summary.insert().unwrap().id,
             channel_id,
             scheduled_cron,
         }
     }
 
-    pub fn all() -> All {
+    fn all() -> All {
         meeting::table.select(ALL_COLUMNS)
     }
 
-    pub fn try_from_cron(scheduled_cron: &str, channel_id: String) -> Result<Self> {
+    fn try_from_cron(scheduled_cron: &str, channel_id: String) -> Result<Self> {
         let schedule = Schedule::from_str(scheduled_cron)?;
         let next = schedule.upcoming(chrono::Local).next().unwrap();
         Ok(Meeting::new(next, scheduled_cron.to_string(), channel_id))
     }
 
-    /// Returns meeting's id.
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
     /// Removes the meeting from the database.
     /// Returns the number of rows affected.
-    pub fn delete(&self) -> Result<usize> {
+    fn delete(&self) -> Result<usize> {
         use crate::database::schema::meeting::dsl::*;
 
         let summary = Summary::find_by_id(self.summary_id)?;
@@ -112,7 +107,7 @@ impl Meeting {
         Ok(rows)
     }
 
-    pub(crate) fn list(
+    pub fn list(
         filter: impl Into<Filter>,
         page: i64,
         page_size: Option<i64>,
@@ -128,7 +123,7 @@ impl Meeting {
         Ok((meetings, total))
     }
 
-    pub fn paginate(
+    fn paginate(
         query: BoxedQuery<'_, Pg>,
         page: i64,
         page_size: Option<i64>,
@@ -143,7 +138,7 @@ impl Meeting {
     }
 
     /// Saves current time as meeting's end date. And saves itself in the database
-    pub fn end_meeting(&mut self, new_end_date: chrono::DateTime<chrono::Local>) -> Result<Self> {
+    fn end_meeting(&mut self, new_end_date: chrono::DateTime<chrono::Local>) -> Result<Self> {
         self.end_date = Some(new_end_date.naive_local());
 
         self.update()
@@ -157,7 +152,7 @@ impl Meeting {
         self.channel_id.as_ref()
     }
 
-    pub fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self> {
+    fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self> {
         self.channel_id = new_channel_id;
 
         match self.update() {
@@ -171,7 +166,7 @@ impl Meeting {
     }
 
     /// Set summary note
-    pub fn set_summary_note(&mut self, note: String) -> Result<()> {
+    fn set_summary_note(&mut self, note: String) -> Result<()> {
         let mut summary = Summary::find_by_id(self.summary_id)?;
         summary.set_note(note)?;
 
@@ -197,11 +192,11 @@ impl Meeting {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
-    pub fn scheduled_cron(&self) -> &str {
+    fn scheduled_cron(&self) -> &str {
         self.scheduled_cron.as_ref()
     }
 
-    pub(crate) fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         let uuid = find_id.into();
@@ -209,19 +204,19 @@ impl Meeting {
         Ok(meeting.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn summary_id(&self) -> Uuid {
+    pub fn summary_id(&self) -> Uuid {
         self.summary_id
     }
 
-    pub(crate) fn start_date(&self) -> chrono::NaiveDateTime {
+    pub fn start_date(&self) -> chrono::NaiveDateTime {
         self.start_date
     }
 
-    pub(crate) fn end_date(&self) -> Option<chrono::NaiveDateTime> {
+    pub fn end_date(&self) -> Option<chrono::NaiveDateTime> {
         self.end_date
     }
 
-    pub(crate) fn members(&self) -> Result<Vec<Member>> {
+    fn members(&self) -> Result<Vec<Member>> {
         let members = MeetingMembers::load_members(self.id)
             .unwrap()
             .into_iter()
@@ -231,7 +226,7 @@ impl Meeting {
         Ok(members)
     }
 
-    pub(crate) fn find_by_summary_id(find_id: Uuid) -> Result<Self> {
+    pub fn find_by_summary_id(find_id: Uuid) -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         Ok(meeting
@@ -241,7 +236,7 @@ impl Meeting {
 }
 
 impl MeetingMembers {
-    pub(crate) fn new(member_id: impl Into<Uuid>, meeting_id: impl Into<Uuid>) -> MeetingMembers {
+    pub fn new(member_id: impl Into<Uuid>, meeting_id: impl Into<Uuid>) -> MeetingMembers {
         MeetingMembers {
             id: Uuid::new_v4(),
             member_id: member_id.into(),
@@ -249,13 +244,13 @@ impl MeetingMembers {
         }
     }
 
-    pub(crate) fn insert(&self) -> Result<Self> {
+    pub fn insert(&self) -> Result<Self> {
         Ok(diesel::insert_into(meeting_members::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn delete_by_meeting_and_member(meeting: Uuid, member: Uuid) -> Result<usize> {
+    pub fn delete_by_meeting_and_member(meeting: Uuid, member: Uuid) -> Result<usize> {
         use crate::database::schema::meeting_members::dsl::*;
 
         Ok(diesel::delete(
@@ -266,16 +261,16 @@ impl MeetingMembers {
         .execute(&mut PG_POOL.get()?)?)
     }
 
-    pub(crate) fn id(&self) -> Uuid {
+    pub fn id(&self) -> Uuid {
         self.id
     }
 
-    pub(crate) fn member_id(&self) -> Uuid {
+    pub fn member_id(&self) -> Uuid {
         self.member_id
     }
 
     /// Checks if a member is already in the meeting
-    pub(crate) fn is_user_in_meeting(meeting: Uuid, user_id: Uuid) -> Result<bool> {
+    pub fn is_user_in_meeting(meeting: Uuid, user_id: Uuid) -> Result<bool> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let count: i64 = meeting_members
@@ -287,7 +282,7 @@ impl MeetingMembers {
         Ok(count > 0)
     }
 
-    pub(crate) fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>> {
+    pub fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>> {
         use crate::database::schema::meeting_members::dsl::*;
 
         let members = meeting_members
