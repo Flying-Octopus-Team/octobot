@@ -44,6 +44,9 @@ const ALL_COLUMNS: AllColumns = (
 
 type All = diesel::dsl::Select<meeting::table, AllColumns>;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
 pub(in crate::framework) struct Meeting {
@@ -152,28 +155,7 @@ impl Meeting {
         self.channel_id.as_ref()
     }
 
-    fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self> {
-        self.channel_id = new_channel_id;
-
-        match self.update() {
-            Ok(s) => Ok(s),
-            Err(e) => {
-                let error = format!("Error while updating meeting's channel id: {}", e);
-                warn!("{}", error);
-                Err(anyhow::anyhow!(error))
-            }
-        }
-    }
-
-    /// Set summary note
-    fn set_summary_note(&mut self, note: String) -> Result<()> {
-        let mut summary = Summary::find_by_id(self.summary_id)?;
-        summary.set_note(note)?;
-
-        Ok(())
-    }
-
-    pub fn get_latest_meeting() -> Result<Self> {
+    pub fn get_latest() -> Result<Self> {
         use crate::database::schema::meeting::dsl::*;
 
         Ok(meeting
@@ -190,10 +172,6 @@ impl Meeting {
 
     pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
-    }
-
-    fn scheduled_cron(&self) -> &str {
-        self.scheduled_cron.as_ref()
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {

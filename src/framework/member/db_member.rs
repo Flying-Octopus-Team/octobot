@@ -37,6 +37,9 @@ const ALL_COLUMNS: AllColumns = (
 
 type All = diesel::dsl::Select<crate::database::schema::member::table, AllColumns>;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Selectable, Debug, Eq)]
 #[diesel(table_name = member)]
 pub(in crate::framework) struct Member {
