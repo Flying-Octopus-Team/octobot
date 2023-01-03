@@ -71,7 +71,12 @@ impl Meeting {
 
         Self {
             id: new_meeting.id,
-            start_date: new_meeting.start_date,
+            start_date: previous
+                .schedule
+                .upcoming(Local)
+                .next()
+                .unwrap()
+                .naive_local(),
             end_date: new_meeting.end_date,
             summary: new_meeting.summary,
             channel: previous.channel,
@@ -226,7 +231,7 @@ impl Meeting {
     }
 
     async fn next_meeting(cache_http: &impl CacheHttp) -> Self {
-        let latest = match DbMeeting::get_latest_meeting() {
+        let latest = match DbMeeting::get_latest() {
             Ok(meeting) => meeting,
             Err(e) => {
                 info!(
@@ -241,6 +246,7 @@ impl Meeting {
             info!("Latest meeting has ended. Falling back to default");
             let latest = Self::from_db_meeting(cache_http, latest).await.unwrap();
             let new_meeting = Self::new_from_previous(latest, cache_http);
+            new_meeting.summary.insert().unwrap();
             new_meeting.insert().unwrap();
             new_meeting
         } else {
@@ -271,8 +277,9 @@ impl Meeting {
 
             let meeting = Self::new_from_previous(meeting_status.meeting.clone(), ctx);
 
-            meeting.insert()?;
             meeting.summary.insert()?;
+            meeting.insert()?;
+
             meeting_status.meeting = meeting;
 
             Ok("Meeting ended successfully".to_string())
@@ -467,7 +474,20 @@ impl MeetingStatus {
         meeting_status.join_handle = Some(handle);
     }
 
-    fn should_start(&self) -> bool {
+    fn should_start(&mut self) -> bool {
+        if self.is_running {
+            return false;
+        }
+
+        if self.skip {
+            self.skip = false;
+
+            let next_meeting = Meeting::new_from_previous(self.meeting.clone(), self);
+            self.meeting = next_meeting;
+
+            return false;
+        }
+
         // run if the meeting start date is in the past
         let now = Local::now();
         if self.meeting.start_date < now.naive_local() {
@@ -478,15 +498,6 @@ impl MeetingStatus {
     }
 
     async fn start(&mut self) -> Result<()> {
-        if self.skip {
-            self.skip = false;
-            return Ok(());
-        }
-
-        if self.is_running {
-            return Ok(());
-        }
-
         self.is_running = true;
 
         // load members from the channel
