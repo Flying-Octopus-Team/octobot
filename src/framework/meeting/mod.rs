@@ -231,7 +231,7 @@ impl Meeting {
     }
 
     async fn next_meeting(cache_http: &impl CacheHttp) -> Self {
-        let latest = match DbMeeting::get_latest() {
+        let latest = match DbMeeting::get_latest_meeting() {
             Ok(meeting) => meeting,
             Err(e) => {
                 info!(
@@ -394,11 +394,11 @@ impl Display for Meeting {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Meeting ID: {} Summary: {} Start Date: {} End Date: {:?} Members: {}",
-            self.id,
-            self.summary.id,
+            "Meeting ID: {}\nStart Date: {}\nEnd Date: {:?}\n{}\nMembers: {}",
+            self.id.as_simple(),
             self.start_date,
             self.end_date,
+            self.summary,
             self.members.len()
         )
     }
@@ -527,7 +527,7 @@ impl MeetingStatus {
         let mut output = String::new();
 
         if meeting_status.is_running {
-            output.push_str("Meeting is ongoing. ");
+            output.push_str("Meeting is ongoing.\n");
             output.push_str(&meeting_status.meeting.to_string());
         } else {
             output.push_str("Planned meeting on ");
@@ -539,12 +539,15 @@ impl MeetingStatus {
                     .unwrap()
                     .to_string(),
             );
-            output.push_str(" with id ");
+            output.push_str("\n");
             output.push_str(&meeting_status.meeting.to_string());
         }
 
-        output.push_str("\nMembers:");
-        for (_, member) in meeting_status.members() {
+        output.push_str("\nMembers: ");
+        for (i, (_, member)) in meeting_status.members().iter().enumerate() {
+            if i != 0 {
+                output.push_str(", ");
+            }
             output.push_str(&member.name());
         }
 
