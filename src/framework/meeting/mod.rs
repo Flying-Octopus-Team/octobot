@@ -308,7 +308,7 @@ impl Meeting {
             return Err(anyhow::anyhow!("User is already in meeting"));
         }
 
-        let meeting_member = MeetingMembers::new(self.id, member.id);
+        let meeting_member = MeetingMembers::new(member.id, self.id);
         meeting_member.insert()?;
 
         let output = format!("Member {} added to meeting {}", member.name(), self.id);
