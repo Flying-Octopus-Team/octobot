@@ -27,12 +27,7 @@ pub(crate) async fn preview_summary(ctx: Context, option: &CommandDataOption) ->
 
     let summary = summary.preview_summary(&ctx, note).await?;
 
-    if summary.is_empty() {
-        info!("Generated empty summary");
-        Ok("Summary is empty".to_string())
-    } else {
-        Ok(summary)
-    }
+    Ok(summary)
 }
 
 pub(crate) async fn list_summaries(ctx: Context, option: &CommandDataOption) -> Result<String> {

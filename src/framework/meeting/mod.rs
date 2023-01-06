@@ -296,12 +296,24 @@ impl Meeting {
         Ok(())
     }
 
+    /// Returns the copy of the currently running or next meeting
+    /// This is a copy and not a reference to the actual meeting
+    /// This is because the meeting is wrapped in a RwLock
+    /// To update the current meeting, use update_current_meeting function
     pub async fn get_current_meeting(ctx: &Context) -> Self {
         let data = ctx.data.read().await;
         let meeting_status = data.get::<MeetingStatus>().unwrap();
         let meeting_status = meeting_status.read().await;
 
         meeting_status.meeting.clone()
+    }
+
+    pub async fn update_current_meeting(ctx: &Context, meeting: Self) {
+        let mut data = ctx.data.write().await;
+        let meeting_status = data.get_mut::<MeetingStatus>().unwrap();
+
+        let mut meeting_status = meeting_status.write().await;
+        meeting_status.meeting = meeting;
     }
 
     pub async fn is_meeting_ongoing(ctx: &Context) -> bool {
@@ -320,7 +332,7 @@ impl Meeting {
         let meeting_member = MeetingMembers::new(member.id, self.id);
         meeting_member.insert()?;
 
-        let output = format!("Member {} added to meeting {}", member.name(), self.id);
+        let output = format!("Member {} added to meeting {}", member.name(), self.id.as_simple());
         self.members.push((meeting_member.id(), member));
         Ok(output)
     }

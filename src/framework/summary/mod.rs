@@ -46,7 +46,7 @@ impl Summary {
         Ok(())
     }
 
-    pub(super) fn update(&self) -> Result<()> {
+    pub fn update(&self) -> Result<()> {
         let db_summary = DbSummary::from(self.clone());
         db_summary.update()?;
         Ok(())

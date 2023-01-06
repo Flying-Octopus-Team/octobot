@@ -77,11 +77,14 @@ pub(crate) async fn set_note(ctx: Context, option: &CommandDataOption) -> Result
         output.push_str("Meeting summary changed to ");
         output.push_str(&new_note);
 
+        let mut is_current_meeting = false;
+
         let mut meeting =
             if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
                 let meeting_id = Uuid::parse_str(&meeting)?;
                 Meeting::get(&ctx, meeting_id).await?
             } else {
+                is_current_meeting = true;
                 Meeting::get_current_meeting(&ctx).await
             };
 
@@ -94,6 +97,19 @@ pub(crate) async fn set_note(ctx: Context, option: &CommandDataOption) -> Result
                 error!("{}", error);
                 return Err(anyhow::anyhow!("Error sending summary: {}", e));
             }
+        }
+
+        match meeting.summary.update() {
+            Ok(_) => {}
+            Err(e) => {
+                let error = format!("Error updating summary: {}", e);
+                error!("{}", error);
+                return Err(anyhow::anyhow!(error));
+            }
+        }
+
+        if is_current_meeting {
+            Meeting::update_current_meeting(&ctx, meeting).await;
         }
     } else {
         output.push_str("Meeting summary unchanged");
@@ -110,6 +126,7 @@ pub(crate) async fn edit_meeting_members(
     let mut output = String::new();
 
     let mut meeting: Meeting;
+    let mut is_current_meeting = false;
 
     if let Some(member) = find_option_as_string(&option.options, "member") {
         let member = Member::get_by_discord_id(member.parse().unwrap(), &ctx)
@@ -146,13 +163,18 @@ pub(crate) async fn edit_meeting_members(
                 }
             };
         } else {
+            is_current_meeting = true;
             meeting = Meeting::get_current_meeting(&ctx).await;
         }
 
         if remove {
-            output.push_str(&meeting.remove_member(member).await.unwrap());
+            output.push_str(&meeting.remove_member(member).await?);
         } else {
-            output.push_str(&meeting.add_member(member).await.unwrap());
+            output.push_str(&meeting.add_member(member).await?);
+        }
+
+        if is_current_meeting {
+            Meeting::update_current_meeting(&ctx, meeting).await;
         }
     } else {
         output.push_str("No member specified");

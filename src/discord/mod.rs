@@ -74,13 +74,12 @@ impl EventHandler for Handler {
         };
     }
 
-    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        let mut meeting_status = Meeting::get_current_meeting(&ctx).await;
+    async fn voice_state_update(&self, ctx: Context, _old: Option<VoiceState>, new: VoiceState) {
+        let mut meeting = Meeting::get_current_meeting(&ctx).await;
 
         if Meeting::is_meeting_ongoing(&ctx).await
-            && old.is_none()
             && new.channel_id.is_some()
-            && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
+            && new.channel_id == Some(meeting.channel.id)
         {
             let get_by_discord_id = Member::get_by_discord_id(new.user_id.0, &ctx).await;
             let member = match get_by_discord_id {
@@ -97,13 +96,15 @@ impl EventHandler for Handler {
                     return;
                 }
             };
-            let output = match meeting_status.add_member(member.clone()).await {
+            let output = match meeting.add_member(member.clone()).await {
                 Ok(msg) => msg,
                 Err(e) => {
                     format!("{} could not join the meeting: {}", member.name(), e)
                 }
             };
             info!("{}", output);
+
+            Meeting::update_current_meeting(&ctx, meeting).await;
         }
     }
 
