@@ -151,7 +151,7 @@ impl Member {
                     .unwrap(),
             );
 
-            self.setup(cache_http).await?;
+            self.setup_roles(cache_http).await?;
         }
         if let Some(trello_id) = builder.trello_id {
             self.trello_id = Some(trello_id);
@@ -270,7 +270,7 @@ impl Member {
 
     /// Set users Discord roles to match their member role
     /// This is should be called when a member is created
-    pub async fn setup(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
+    pub async fn setup_roles(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         let role = self.member_role;
         role.add_role(self, cache_http).await
     }

@@ -87,12 +87,6 @@ impl Meeting {
         meeting::table.select(ALL_COLUMNS)
     }
 
-    fn try_from_cron(scheduled_cron: &str, channel_id: String) -> Result<Self> {
-        let schedule = Schedule::from_str(scheduled_cron)?;
-        let next = schedule.upcoming(chrono::Local).next().unwrap();
-        Ok(Meeting::new(next, scheduled_cron.to_string(), channel_id))
-    }
-
     /// Removes the meeting from the database.
     /// Returns the number of rows affected.
     fn delete(&self) -> Result<usize> {
@@ -137,40 +131,12 @@ impl Meeting {
         query
     }
 
-    /// Saves current time as meeting's end date. And saves itself in the database
-    fn end_meeting(&mut self, new_end_date: chrono::DateTime<chrono::Local>) -> Result<Self> {
-        self.end_date = Some(new_end_date.naive_local());
-
-        self.update()
-    }
-
     pub fn schedule(&self) -> Result<Schedule> {
         Ok(Schedule::from_str(&self.scheduled_cron)?)
     }
 
     pub fn channel_id(&self) -> &str {
         self.channel_id.as_ref()
-    }
-
-    fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self> {
-        self.channel_id = new_channel_id;
-
-        match self.update() {
-            Ok(s) => Ok(s),
-            Err(e) => {
-                let error = format!("Error while updating meeting's channel id: {}", e);
-                warn!("{}", error);
-                Err(anyhow::anyhow!(error))
-            }
-        }
-    }
-
-    /// Set summary note
-    fn set_summary_note(&mut self, note: String) -> Result<()> {
-        let mut summary = Summary::find_by_id(self.summary_id)?;
-        summary.set_note(note)?;
-
-        Ok(())
     }
 
     pub fn get_latest_meeting() -> Result<Self> {
@@ -190,10 +156,6 @@ impl Meeting {
 
     pub fn update(&self) -> Result<Self> {
         Ok(self.save_changes(&mut PG_POOL.get()?)?)
-    }
-
-    fn scheduled_cron(&self) -> &str {
-        self.scheduled_cron.as_ref()
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self> {

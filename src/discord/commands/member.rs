@@ -23,7 +23,7 @@ pub async fn add_member(
 
     let mut member = member.build(&ctx).await;
     member.insert()?;
-    member.setup(&ctx).await?;
+    member.setup_roles(&ctx).await?;
 
     info!("Member added: {:?}", member);
 

@@ -107,13 +107,6 @@ impl Summary {
             .filter(id.eq(summary_id))
             .first(&mut PG_POOL.get()?)?)
     }
-
-    /// Set content. Returns the updated summary.
-    pub fn set_note(&mut self, note: String) -> Result<Self> {
-        self.note = note;
-
-        self.update()
-    }
 }
 
 impl Display for Summary {

@@ -270,10 +270,12 @@ impl Meeting {
         let mut meeting_status = meeting_status.write().await;
 
         if meeting_status.is_running {
-            meeting_status.meeting._end(ctx).await?;
-            meeting_status.is_running = false;
             meeting_status.meeting.summary.note = note;
+            meeting_status.meeting._end(ctx).await?;
+            meeting_status.meeting.update()?;
             meeting_status.meeting.summary.update()?;
+
+            meeting_status.is_running = false;
 
             let meeting = Self::new_from_previous(meeting_status.meeting.clone(), ctx);
 
@@ -291,7 +293,7 @@ impl Meeting {
     async fn _end(&mut self, cache_http: &impl CacheHttp) -> Result<()> {
         self.end_date = Some(Local::now().naive_local());
         self.summary.send_summary(cache_http).await?;
-        self.update()
+        Ok(())
     }
 
     pub async fn get_current_meeting(ctx: &Context) -> Self {
