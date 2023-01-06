@@ -17,6 +17,7 @@ mod settings;
 
 lazy_static! {
     static ref SETTINGS: Settings = settings::Settings::new().unwrap();
+    static ref CACHE: framework::cache::Cache = framework::cache::Cache::new();
 }
 
 #[tokio::main]
