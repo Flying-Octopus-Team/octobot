@@ -1,4 +1,6 @@
-table! {
+// @generated automatically by Diesel CLI.
+
+diesel::table! {
     meeting (id) {
         id -> Uuid,
         start_date -> Timestamp,
@@ -9,7 +11,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     meeting_members (id) {
         id -> Uuid,
         member_id -> Uuid,
@@ -17,18 +19,18 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     member (id) {
         id -> Uuid,
         display_name -> Text,
         discord_id -> Nullable<Text>,
         trello_id -> Nullable<Text>,
         trello_report_card_id -> Nullable<Text>,
-        is_apprentice -> Bool,
+        role -> Int4,
     }
 }
 
-table! {
+diesel::table! {
     report (id) {
         id -> Uuid,
         member_id -> Uuid,
@@ -39,7 +41,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     summary (id) {
         id -> Uuid,
         note -> Text,
@@ -48,10 +50,10 @@ table! {
     }
 }
 
-joinable!(meeting -> summary (summary_id));
-joinable!(meeting_members -> meeting (meeting_id));
-joinable!(meeting_members -> member (member_id));
-joinable!(report -> member (member_id));
-joinable!(report -> summary (summary_id));
+diesel::joinable!(meeting -> summary (summary_id));
+diesel::joinable!(meeting_members -> meeting (meeting_id));
+diesel::joinable!(meeting_members -> member (member_id));
+diesel::joinable!(report -> member (member_id));
+diesel::joinable!(report -> summary (summary_id));
 
-allow_tables_to_appear_in_same_query!(meeting, meeting_members, member, report, summary,);
+diesel::allow_tables_to_appear_in_same_query!(meeting, meeting_members, member, report, summary,);
