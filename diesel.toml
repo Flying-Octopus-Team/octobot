@@ -3,3 +3,4 @@
 
 [print_schema]
 file = "src/database/schema.rs"
+patch_file = "src/database/schema.patch"

@@ -1,0 +1,30 @@
+diff --git a/src/database/schema.rs b/src/database/schema.rs
+index 4af3b9f..1a955a4 100644
+--- a/src/database/schema.rs
++++ b/src/database/schema.rs
+@@ -43,23 +43,17 @@ diesel::table! {
+ 
+ diesel::table! {
+     summary (id) {
+         id -> Uuid,
+         note -> Text,
+         create_date -> Date,
+-        messages_id -> Nullable<Array<Nullable<Text>>>,
++        messages_id -> Nullable<Array<Text>>,
+     }
+ }
+ 
+ diesel::joinable!(meeting -> summary (summary_id));
+ diesel::joinable!(meeting_members -> meeting (meeting_id));
+ diesel::joinable!(meeting_members -> member (member_id));
+ diesel::joinable!(report -> member (member_id));
+ diesel::joinable!(report -> summary (summary_id));
+ 
+-diesel::allow_tables_to_appear_in_same_query!(
+-    meeting,
+-    meeting_members,
+-    member,
+-    report,
+-    summary,
+-);
++diesel::allow_tables_to_appear_in_same_query!(meeting, meeting_members, member, report, summary,);
