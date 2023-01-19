@@ -11,17 +11,22 @@ use tracing::info;
 pub struct Settings {
     pub discord_token: String,
     pub database_url: String,
-    pub member_role_id: RoleId,
-    pub apprentice_role_id: RoleId,
-    pub server_id: GuildId,
     pub meeting: Meeting,
-    pub summary_channel: ChannelId,
+    pub discord: Discord,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Meeting {
     pub channel_id: ChannelId,
     pub cron: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Discord {
+    pub member_role: RoleId,
+    pub apprentice_role: RoleId,
+    pub summary_channel: ChannelId,
+    pub server_id: GuildId,
 }
 
 impl Settings {

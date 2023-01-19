@@ -99,7 +99,7 @@ impl EventHandler for Handler {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
 
-        let guild_id = SETTINGS.server_id;
+        let guild_id = SETTINGS.discord.server_id;
 
         let guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands::create_application_commands(commands)

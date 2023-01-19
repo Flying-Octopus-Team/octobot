@@ -153,7 +153,7 @@ impl Summary {
         }
         let messages = split_message(summary)?;
 
-        let channel_id = SETTINGS.summary_channel;
+        let channel_id = SETTINGS.discord.summary_channel;
 
         if resend {
             // edit old messages only if there are the same number of messages
