@@ -8,9 +8,17 @@ use crate::diesel::RunQueryDsl;
 use crate::discord::find_option_as_string;
 use crate::discord::find_option_value;
 use crate::SETTINGS;
+use diesel::backend;
+use diesel::backend::Backend;
+use diesel::deserialize::FromSql;
+use diesel::serialize::Output;
+use diesel::serialize::ToSql;
+use diesel::sql_types::Integer;
 use diesel::QueryDsl;
 use diesel::Table;
+use serenity::http::CacheHttp;
 use serenity::model::application::interaction::application_command::CommandDataOption;
+use serenity::model::prelude::RoleId;
 use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
@@ -23,7 +31,95 @@ pub struct Member {
     discord_id: Option<String>,
     trello_id: Option<String>,
     trello_report_card_id: Option<String>,
-    is_apprentice: bool,
+    role: MemberRole,
+}
+
+#[derive(Copy, Clone, Debug, FromSqlRow, PartialEq, Eq, AsExpression)]
+#[diesel(sql_type = diesel::sql_types::Integer)]
+pub enum MemberRole {
+    ExMember = -1,
+    Member = 0,
+    Apprentice = 1, // if you add more roles, make sure to update the FromSql implementation below
+}
+
+impl MemberRole {
+    pub fn discord_role(&self) -> Option<RoleId> {
+        match self {
+            MemberRole::Member => Some(SETTINGS.discord.member_role),
+            MemberRole::Apprentice => Some(SETTINGS.discord.apprentice_role),
+            MemberRole::ExMember => None,
+        }
+    }
+
+    pub async fn add_role(
+        &self,
+        cache_http: &impl CacheHttp,
+        member_id: u64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(role_id) = self.discord_role() {
+            cache_http
+                .http()
+                .add_member_role(SETTINGS.discord.server_id.0, member_id, role_id.0, None)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn remove_role(
+        &self,
+        cache_http: &impl CacheHttp,
+        member_id: u64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(role_id) = self.discord_role() {
+            cache_http
+                .http()
+                .remove_member_role(SETTINGS.discord.server_id.0, member_id, role_id.0, None)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn swap_roles(
+        add_role: MemberRole,
+        remove_role: MemberRole,
+        cache_http: &impl CacheHttp,
+        member_id: u64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        add_role.add_role(cache_http, member_id).await?;
+        remove_role.remove_role(cache_http, member_id).await?;
+        Ok(())
+    }
+}
+
+impl<DB> FromSql<Integer, DB> for MemberRole
+where
+    DB: Backend,
+    i32: FromSql<Integer, DB>,
+{
+    fn from_sql(bytes: backend::RawValue<DB>) -> diesel::deserialize::Result<Self> {
+        match i32::from_sql(bytes)? {
+            -1 => Ok(MemberRole::ExMember),
+            0 => Ok(MemberRole::Member),
+            1 => Ok(MemberRole::Apprentice),
+            x => Err(format!("Unrecognized member role: {}", x).into()),
+        }
+    }
+}
+
+impl<DB> ToSql<Integer, DB> for MemberRole
+where
+    DB: Backend,
+    i32: ToSql<Integer, DB>,
+{
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> diesel::serialize::Result {
+        match self {
+            MemberRole::ExMember => (-1).to_sql(out),
+            MemberRole::Member => 0.to_sql(out),
+            MemberRole::Apprentice => 1.to_sql(out),
+        }
+    }
 }
 
 impl Member {
@@ -32,7 +128,7 @@ impl Member {
         discord_id: Option<String>,
         trello_id: Option<String>,
         trello_report_card_id: Option<String>,
-        is_apprentice: bool,
+        role: MemberRole,
     ) -> Member {
         Member {
             id: Uuid::new_v4(),
@@ -40,7 +136,7 @@ impl Member {
             discord_id,
             trello_id,
             trello_report_card_id,
-            is_apprentice,
+            role,
         }
     }
 
@@ -56,7 +152,22 @@ impl Member {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
+    /// Sets users role to Ex-member and removes their discord role
     pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+        use crate::database::schema::member::dsl::*;
+
+        Ok(diesel::update(member.filter(id.eq(self.id)))
+            .set((
+                role.eq(MemberRole::ExMember),
+                discord_id.eq(None::<String>),
+                trello_id.eq(None::<String>),
+                trello_report_card_id.eq(None::<String>),
+            ))
+            .execute(&mut PG_POOL.get()?)
+            .map(|rows| rows != 0)?)
+    }
+
+    pub fn hard_delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::delete(member.filter(id.eq(self.id)))
@@ -123,7 +234,7 @@ impl Member {
                 return Err(error_msg.into());
             }
         };
-        let guild_member = match ctx.cache.member(SETTINGS.server_id, member_id) {
+        let guild_member = match ctx.cache.member(SETTINGS.discord.server_id, member_id) {
             Some(guild_member) => guild_member,
             None => {
                 let error_msg = format!("Member not found in the guild: {}", member_id);
@@ -164,8 +275,8 @@ impl Member {
         }
     }
 
-    pub(crate) fn is_apprentice(&self) -> bool {
-        self.is_apprentice
+    pub fn role(&self) -> MemberRole {
+        self.role
     }
 }
 
@@ -189,9 +300,19 @@ impl Display for Member {
         };
         write!(
             f,
-            "Member {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Apprentice: {}",
-            self.display_name, self.id, discord_id, trello_id, trello_report_card_id, self.is_apprentice
+            "{} {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}",
+            self.role, self.display_name, self.id, discord_id, trello_id, trello_report_card_id,
         )
+    }
+}
+
+impl Display for MemberRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemberRole::Member => write!(f, "Member"),
+            MemberRole::Apprentice => write!(f, "Apprentice"),
+            MemberRole::ExMember => write!(f, "Ex-Member"),
+        }
     }
 }
 
@@ -214,9 +335,14 @@ impl From<&[CommandDataOption]> for Member {
             Some(display_name) => display_name,
             None => "None".to_string(),
         };
-        let is_apprentice = match find_option_value(options, "is-apprentice") {
-            Some(is_apprentice) => is_apprentice.as_bool().unwrap(),
-            None => false,
+        let role = match find_option_value(options, "role") {
+            Some(role_string) => match role_string.as_str() {
+                Some("member") => MemberRole::Member,
+                Some("apprentice") => MemberRole::Apprentice,
+                Some("ex-member") => MemberRole::ExMember,
+                _ => MemberRole::Member,
+            },
+            None => MemberRole::Member,
         };
 
         Member {
@@ -225,7 +351,7 @@ impl From<&[CommandDataOption]> for Member {
             discord_id,
             trello_id,
             trello_report_card_id,
-            is_apprentice,
+            role,
         }
     }
 }

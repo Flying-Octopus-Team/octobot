@@ -6,6 +6,7 @@ use tracing::error;
 use tracing::info;
 use uuid::Uuid;
 
+use crate::database::models::member::MemberRole;
 use crate::discord::find_option_as_string;
 use crate::{database::models::member::Member, SETTINGS};
 
@@ -13,19 +14,19 @@ use super::find_option_value;
 
 pub async fn add_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
     let member = Member::from(&option.options[..]);
     let mut new_name = String::new();
-    if member.discord_id().is_some() {
-        let user_id = member.discord_id().unwrap().parse().unwrap();
+    if let Some(discord_id) = member.discord_id() {
+        let discord_id = discord_id.parse().unwrap();
 
-        let dc_member = match ctx.cache.member(SETTINGS.server_id, user_id) {
+        let dc_member = match ctx.cache.member(SETTINGS.discord.server_id, discord_id) {
             Some(dc_member) => dc_member,
             None => {
-                let error_msg = format!("Member not found in the guild: {}", user_id);
+                let error_msg = format!("Member not found in the guild: {}", discord_id);
                 error!("{}", error_msg);
                 return Err(error_msg.into());
             }
@@ -40,16 +41,7 @@ pub async fn add_member(
             }
         };
 
-        let guild_id = *command.guild_id.unwrap().as_u64();
-        if member.is_apprentice() {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-                .await?;
-        } else {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await?;
-        }
+        member.role().add_role(ctx, discord_id).await?;
     }
 
     // check if member is already in the database
@@ -61,11 +53,11 @@ pub async fn add_member(
             Name: {}
             Discord ID: {}
             UUID: {}
-            Apprentice: {}",
+            Role: {}",
             member.name(),
             member.discord_id().unwrap(),
             member.id(),
-            member.is_apprentice()
+            member.role()
         )?;
         return Ok(msg);
     }
@@ -95,7 +87,7 @@ pub async fn add_member(
 
 pub async fn remove_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Removing member");
@@ -108,20 +100,21 @@ pub async fn remove_member(
         .to_string();
 
     let member = Member::find_by_id(Uuid::parse_str(&id)?)?;
-    if member.discord_id().is_some() {
-        let user_id = member.discord_id().unwrap().parse().unwrap();
-        let guild_id = *command.guild_id.unwrap().as_u64();
-        ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-            .await
-            .unwrap();
-        ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-            .await
-            .unwrap();
+    if let Some(user_id) = member.discord_id() {
+        let user_id = user_id.parse().unwrap();
+
+        member.role().remove_role(ctx, user_id).await?;
     }
 
-    member.delete()?;
+    let hard_delete = find_option_value(&option.options[..], "hard_delete")
+        .map(|v| v.as_bool().unwrap())
+        .unwrap_or(false);
+
+    if hard_delete {
+        member.hard_delete()?;
+    } else {
+        member.delete()?;
+    }
 
     info!("Member removed: {:?}", member);
 
@@ -157,32 +150,18 @@ pub async fn update_member(
         let user_id = old_member.discord_id().unwrap().parse().unwrap();
         let guild_id = *command.guild_id.unwrap().as_u64();
         ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
+            .remove_member_role(guild_id, user_id, SETTINGS.discord.member_role.0, None)
             .await
             .unwrap();
         ctx.http
-            .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
+            .remove_member_role(guild_id, user_id, SETTINGS.discord.apprentice_role.0, None)
             .await
             .unwrap();
     }
-    if updated_member.discord_id().is_some() {
-        let user_id = updated_member.discord_id().unwrap().parse().unwrap();
-        let guild_id = *command.guild_id.unwrap().as_u64();
-        if updated_member.is_apprentice() {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-                .await?;
-            ctx.http
-                .remove_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await?;
-        } else {
-            ctx.http
-                .add_member_role(guild_id, user_id, SETTINGS.member_role_id.0, None)
-                .await?;
-            ctx.http
-                .remove_member_role(guild_id, user_id, SETTINGS.apprentice_role_id.0, None)
-                .await?;
-        }
+    if let Some(user_id) = updated_member.discord_id() {
+        let user_id = user_id.parse().unwrap();
+
+        MemberRole::swap_roles(updated_member.role(), old_member.role(), ctx, user_id).await?;
     }
 
     info!("Member updated: {:?}", updated_member);

@@ -130,12 +130,12 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("is-apprentice")
-                            .description(
-                                "Sets whether member is apprentice or not. Defaults to false",
-                            )
+                            .name("role")
+                            .description("Sets member's role in the team. Defaults to member")
                             .required(false)
-                            .kind(CommandOptionType::Boolean)
+                            .kind(CommandOptionType::String)
+                            .add_string_choice("Member", "member")
+                            .add_string_choice("Apprentice", "apprentice")
                     })
             })
             .create_option(|option| {
@@ -149,6 +149,13 @@ pub fn create_application_commands(
                             .description("Remove member by their ID")
                             .required(true)
                             .kind(CommandOptionType::String)
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("hard-delete")
+                            .description("Hard delete member from the database")
+                            .required(false)
+                            .kind(CommandOptionType::Boolean)
                     })
             })
             .create_option(|option| {
@@ -213,10 +220,12 @@ pub fn create_application_commands(
                     })
                     .create_sub_option(|sub_option| {
                         sub_option
-                            .name("is-apprentice")
-                            .description("Sets whether member is apprentice or not")
+                            .name("role")
+                            .description("Sets member's role in the team. Defaults to member")
                             .required(false)
-                            .kind(CommandOptionType::Boolean)
+                            .kind(CommandOptionType::String)
+                            .add_string_choice("Member", "member")
+                            .add_string_choice("Apprentice", "apprentice")
                     })
             })
     });
