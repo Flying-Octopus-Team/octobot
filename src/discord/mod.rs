@@ -131,7 +131,7 @@ pub async fn start_bot() {
 
     let framework = StandardFramework::new().configure(|c| c.prefix("~"));
 
-    let mut client = Client::builder(&token, intents)
+    let mut client = Client::builder(token, intents)
         .event_handler(Handler)
         .framework(framework)
         .await
