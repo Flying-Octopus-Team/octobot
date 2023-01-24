@@ -99,11 +99,21 @@ pub async fn remove_member(
         .unwrap()
         .to_string();
 
+    let mut output = String::new();
+
     let member = Member::find_by_id(Uuid::parse_str(&id)?)?;
     if let Some(user_id) = member.discord_id() {
         let user_id = user_id.parse().unwrap();
 
-        member.role().remove_role(ctx, user_id).await?;
+        match member.role().remove_role(ctx, user_id).await {
+            Ok(_) => {}
+            Err(why) => {
+                let error_msg = format!("Failed to remove member role: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&error_msg);
+                output.push('\n');
+            }
+        }
     }
 
     let hard_delete = find_option_value(&option.options[..], "hard_delete")
@@ -118,7 +128,9 @@ pub async fn remove_member(
 
     info!("Member removed: {:?}", member);
 
-    Ok(format!("Removed {}", member))
+    output.push_str(&format!("Removed {}", member));
+
+    Ok(output)
 }
 
 pub async fn update_member(
