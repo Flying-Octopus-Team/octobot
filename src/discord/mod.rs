@@ -117,6 +117,33 @@ impl EventHandler for Handler {
                 .write()
                 .await
                 .insert::<MeetingStatus>(meeting_status);
+        } else {
+            let read = ctx.data.read().await;
+            let meeting_status = read.get::<MeetingStatus>().unwrap();
+            let mut meeting_status = meeting_status.write().await;
+
+            if meeting_status.is_meeting_ongoing() {
+                let channel_id = SETTINGS.meeting.channel_id;
+                let channel = channel_id.to_channel(&ctx.http).await.unwrap();
+
+                for member in channel.guild().unwrap().members(&ctx).await.unwrap() {
+                    match Member::find_by_discord_id(member.user.id.0.to_string()) {
+                        Ok(member) => {
+                            let output = match meeting_status.add_member(&member) {
+                                Ok(msg) => msg,
+                                Err(e) => {
+                                    format!("{} could not join the meeting: {}", member.name(), e)
+                                }
+                            };
+                            info!("{}", output);
+                        }
+                        Err(e) => warn!(
+                            "User {} is not member of the organization: {:?}",
+                            member.user.id.0, e
+                        ),
+                    }
+                }
+            }
         }
     }
 }
