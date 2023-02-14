@@ -13,19 +13,8 @@ env:
   DISCORD_WEBHOOK: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
 
 jobs:
-  rustfmt:
+  build-and-test:
     name: Code formatting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
-
-  compile:
-    name: Compile project
-    needs: [rustfmt]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -39,59 +28,28 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v1
 
-      - run: cargo check --all-features --all-targets
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy
-    needs: [compile]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
+      - name: Run cargo check
+        run: cargo check --all-features --all-targets
 
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v1
-
-      - name: Run clippy
+      - name: Run cargo clippy
         run: cargo clippy --all-features --all-targets -- -D warnings
 
-  test:
-    name: Test project
-    needs: [clippy]
-    runs-on: ubuntu-latest
-    steps:
+      - name: Run cargo test
+        run: cargo test --all-features --all-targets -- --nocapture --quiet
+
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v1
-
-      - name: Run tests
-        id: test
-        run: cargo test -- --nocapture --quiet
-
-  success_notification:
+  send_notification:
     name: Send notification
     runs-on: ubuntu-latest
-    if: ${{ success() }}
-    needs: [test]
-    steps:
-      - name: Setup notification
-        uses: kceb/pull-request-url-action@v1
-        id: pr-url
-
-      - name: Actions Status Discord
-        uses: sarisia/actions-status-discord@v1.10.0
-        with:
-          url: ${{ steps.pr-url.outputs.url }}
-
-  fail_notification:
-    name: Send notification
-    runs-on: ubuntu-latest
-    if: ${{ failure() }}
-    needs: [test, clippy, rustfmt]
+    needs: [build-and-test]
     steps:
       - name: Fail if any job fails
+        if: ${{ failure() }}
         run: exit 1
       
       - name: Setup notification
