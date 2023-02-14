@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-test:
-    name: Code formatting
+    name: Update toolchain and run cargo fmt, check, clippy and test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -46,6 +46,7 @@ jobs:
   send_notification:
     name: Send notification
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     needs: [build-and-test]
     steps:
       - name: Fail if any job fails
