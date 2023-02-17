@@ -267,7 +267,7 @@ pub(crate) async fn list_meetings(
     let mut output = String::new();
 
     for meeting in meetings {
-        writeln!(&mut output, "{}", meeting)?;
+        writeln!(&mut output, "{}\n", meeting)?;
     }
     write!(output, "Page {}/{}", page, total_pages)?;
 

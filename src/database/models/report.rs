@@ -192,10 +192,21 @@ impl Report {
 
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let mut output = String::new();
         write!(
-            f,
-            "Report {} by {} on {}: {}",
-            self.id, self.member_id, self.create_date, self.content
-        )
+            output,
+            "Report {} by {} on {}",
+            self.id.as_simple(),
+            self.member_id.as_simple(),
+            self.create_date
+        )?;
+
+        if self.published {
+            write!(output, " (published)")?;
+        }
+
+        write!(output, ": {}", self.content)?;
+
+        write!(f, "{}", output)
     }
 }
