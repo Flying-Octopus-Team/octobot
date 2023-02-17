@@ -59,7 +59,7 @@ pub(crate) fn list_summaries(
     let mut output = String::new();
 
     for summary in summaries {
-        writeln!(&mut output, "{}", summary)?;
+        writeln!(&mut output, "{}\n", summary)?;
     }
     write!(output, "Page {}/{}", page, total_pages)?;
 

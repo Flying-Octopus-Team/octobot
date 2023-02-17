@@ -300,8 +300,8 @@ impl Display for Member {
         };
         write!(
             f,
-            "{} {}: {}, Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}",
-            self.role, self.display_name, self.id, discord_id, trello_id, trello_report_card_id,
+            "Member: {} ({}) Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Member Role: {}",
+            self.display_name, self.id.simple(), discord_id, trello_id, trello_report_card_id, self.role
         )
     }
 }

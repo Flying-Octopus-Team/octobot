@@ -119,7 +119,7 @@ pub(crate) fn list_reports(
     let mut output = String::new();
 
     for report in reports {
-        writeln!(&mut output, "{}", report)?;
+        writeln!(&mut output, "{}\n", report)?;
     }
 
     write!(&mut output, "Page {} of {}", page, total_pages)?;

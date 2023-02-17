@@ -229,8 +229,10 @@ impl Display for Summary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Summary {{ id: {}, create_date: {}, messages_id: {:?} }}",
-            self.id, self.create_date, self.messages_id
+            "Summary ({}): created on {} with {} raports",
+            self.id.as_simple(),
+            self.create_date,
+            self.messages_id.as_ref().map_or(0, |v| v.len())
         )
     }
 }

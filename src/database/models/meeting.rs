@@ -417,11 +417,11 @@ impl Display for Meeting {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Meeting ID: {} Summary: {} Start Date: {} End Date: {:?} Members: {}",
-            self.id,
-            self.summary_id,
+            "Meeting ID: {}\nStart Date: {}\nEnd Date: {:?}\nSummary ID: {}\nMembers: {}",
+            self.id.as_simple(),
             self.start_date,
             self.end_date,
+            self.summary_id.as_simple(),
             self.members().unwrap().len()
         )
     }

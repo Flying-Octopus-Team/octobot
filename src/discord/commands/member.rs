@@ -192,7 +192,7 @@ pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::e
     let mut output = String::new();
 
     for member in members {
-        writeln!(&mut output, "{}", member)?;
+        writeln!(&mut output, "{}\n", member)?;
     }
     write!(&mut output, "Page: {page}/{total_pages}")?;
 
