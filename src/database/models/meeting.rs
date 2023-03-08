@@ -44,7 +44,7 @@ impl Meeting {
         scheduled_cron: String,
         channel_id: String,
     ) -> Meeting {
-        let summary = Summary::new(String::new(), datetime.date().naive_local());
+        let summary = Summary::new(String::new(), datetime.date_naive());
 
         Meeting {
             id: Uuid::new_v4(),
