@@ -13,6 +13,7 @@ pub struct Settings {
     pub database_url: String,
     pub meeting: Meeting,
     pub discord: Discord,
+    pub wiki: Wiki,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -27,6 +28,14 @@ pub struct Discord {
     pub apprentice_role: RoleId,
     pub summary_channel: ChannelId,
     pub server_id: GuildId,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Wiki {
+    pub url: String,
+    pub token: String,
+    pub member_group_id: i64,
+    pub guest_group_id: i64,
 }
 
 impl Settings {

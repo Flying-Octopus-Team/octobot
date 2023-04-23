@@ -137,6 +137,13 @@ pub fn create_application_commands(
                             .add_string_choice("Member", "member")
                             .add_string_choice("Apprentice", "apprentice")
                     })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("wiki-id")
+                            .description("Sets member's wiki ID")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
+                    })
             })
             .create_option(|option| {
                 option
@@ -226,6 +233,13 @@ pub fn create_application_commands(
                             .kind(CommandOptionType::String)
                             .add_string_choice("Member", "member")
                             .add_string_choice("Apprentice", "apprentice")
+                    })
+                    .create_sub_option(|sub_option| {
+                        sub_option
+                            .name("wiki-id")
+                            .description("Sets member's wiki ID")
+                            .required(false)
+                            .kind(CommandOptionType::Integer)
                     })
             })
     });

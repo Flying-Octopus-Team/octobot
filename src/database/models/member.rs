@@ -169,6 +169,25 @@ impl Member {
             .map(|rows| rows != 0)?)
     }
 
+    pub async fn unassign_wiki_group(
+        &self,
+        group_id: i64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        crate::wiki::unassign_user_group(crate::wiki::unassign_user_group::Variables {
+            user_id: self.wiki_id.expect("User must have a wiki id"),
+            group_id,
+        })
+        .await
+    }
+
+    pub async fn assign_wiki_group(&self, group_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+        crate::wiki::assign_user_group(crate::wiki::assign_user_group::Variables {
+            user_id: self.wiki_id.expect("User must have a wiki id"),
+            group_id: group_id,
+        })
+        .await
+    }
+
     pub fn hard_delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
         use crate::database::schema::member::dsl::*;
 

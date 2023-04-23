@@ -18,6 +18,9 @@ pub async fn add_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Adding member");
+
+    let mut output = String::new();
+
     let member = Member::from(&option.options[..]);
     let mut new_name = String::new();
     if let Some(discord_id) = member.discord_id() {
@@ -42,6 +45,21 @@ pub async fn add_member(
         };
 
         member.role().add_role(ctx, discord_id).await?;
+
+        if member.wiki_id().is_some() {
+            if let Err(why) = member
+                .assign_wiki_group(SETTINGS.wiki.member_group_id)
+                .await
+            {
+                let error_msg = format!("Failed to assign wiki group: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&(error_msg + "\n"));
+            }
+
+            member
+                .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
+                .await?;
+        }
     }
 
     // check if member is already in the database
@@ -82,7 +100,9 @@ pub async fn add_member(
 
     info!("Member added: {:?}", member);
 
-    Ok(format!("Added {}", member))
+    output.push_str(&format!("Added {}", member));
+
+    Ok(output)
 }
 
 pub async fn remove_member(
@@ -116,6 +136,18 @@ pub async fn remove_member(
         }
     }
 
+    if member.wiki_id().is_some() {
+        member
+            .unassign_wiki_group(SETTINGS.wiki.member_group_id)
+            .await?;
+
+        if let Err(why) = member.assign_wiki_group(SETTINGS.wiki.guest_group_id).await {
+            let error_msg = format!("Failed to assign wiki group: {}", why);
+            error!("{}", error_msg);
+            output.push_str(&(error_msg + "\n"));
+        }
+    }
+
     let hard_delete = find_option_value(&option.options[..], "hard_delete")
         .map(|v| v.as_bool().unwrap())
         .unwrap_or(false);
@@ -139,6 +171,9 @@ pub async fn update_member(
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating member");
+
+    let mut output = String::new();
+
     let mut updated_member = Member::from(&option.options[..]);
 
     let old_member = Member::find_by_id(updated_member.id())?;
@@ -176,9 +211,33 @@ pub async fn update_member(
         MemberRole::swap_roles(updated_member.role(), old_member.role(), ctx, user_id).await?;
     }
 
+    if updated_member.wiki_id().is_some() {
+        if old_member.wiki_id() != updated_member.wiki_id() && old_member.wiki_id().is_some() {
+            old_member
+                .unassign_wiki_group(SETTINGS.wiki.member_group_id)
+                .await?;
+            if let Err(why) = old_member
+                .assign_wiki_group(SETTINGS.wiki.guest_group_id)
+                .await
+            {
+                let error_msg = format!("Failed to assign wiki group: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&(error_msg + "\n"));
+            }
+        }
+        updated_member
+            .assign_wiki_group(SETTINGS.wiki.member_group_id)
+            .await?;
+        updated_member
+            .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
+            .await?;
+    }
+
     info!("Member updated: {:?}", updated_member);
 
-    Ok(format!("Updated {}", updated_member))
+    output.push_str(&format!("Updated {}", updated_member));
+
+    Ok(output)
 }
 
 pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::error::Error>> {
