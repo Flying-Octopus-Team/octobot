@@ -6,9 +6,7 @@ mutation AssignUserGroup($userId: Int!, $groupId: Int!) {
         errorCode
         slug
         message
-        __typename
       }
-      __typename
     }
   }
 }
