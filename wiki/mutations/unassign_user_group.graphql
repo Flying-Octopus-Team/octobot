@@ -1,0 +1,12 @@
+mutation UnassignUserGroup($userId: Int!, $groupId: Int!) {
+  groups {
+    unassignUser(groupId: $groupId, userId: $userId) {
+      responseResult {
+        succeeded
+        errorCode
+        slug
+        message
+      }
+    }
+  }
+}

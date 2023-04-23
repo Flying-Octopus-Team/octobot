@@ -1,0 +1,14 @@
+mutation AssignUserGroup($userId: Int!, $groupId: Int!) {
+  groups {
+    assignUser(groupId: $groupId, userId: $userId) {
+      responseResult {
+        succeeded
+        errorCode
+        slug
+        message
+        __typename
+      }
+      __typename
+    }
+  }
+}
