@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS public.member DROP COLUMN IF EXISTS wiki_id;

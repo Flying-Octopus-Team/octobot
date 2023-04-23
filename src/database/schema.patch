@@ -1,8 +1,8 @@
 diff --git a/src/database/schema.rs b/src/database/schema.rs
-index 4af3b9f..1a955a4 100644
+index ed23ef4..e78ab5f 100644
 --- a/src/database/schema.rs
 +++ b/src/database/schema.rs
-@@ -43,23 +43,17 @@ diesel::table! {
+@@ -44,23 +44,17 @@ diesel::table! {
  
  diesel::table! {
      summary (id) {
