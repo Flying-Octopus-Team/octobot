@@ -14,6 +14,7 @@ mod database;
 mod discord;
 mod meeting;
 mod settings;
+pub mod wiki;
 
 lazy_static! {
     static ref SETTINGS: Settings = settings::Settings::new().unwrap();
