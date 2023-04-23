@@ -167,7 +167,7 @@ pub async fn remove_member(
 
 pub async fn update_member(
     ctx: &Context,
-    command: &ApplicationCommandInteraction,
+    _command: &ApplicationCommandInteraction,
     option: &CommandDataOption,
 ) -> Result<String, Box<dyn std::error::Error>> {
     info!("Updating member");
@@ -198,8 +198,14 @@ pub async fn update_member(
 
         old_member.role().remove_role(ctx, user_id).await?;
     }
-    if updated_member.discord_id().is_some() && old_member.discord_id() != updated_member.discord_id() {
-        let user_id = updated_member.discord_id().expect("Member has no Discord ID").parse().unwrap();
+    if updated_member.discord_id().is_some()
+        && old_member.discord_id() != updated_member.discord_id()
+    {
+        let user_id = updated_member
+            .discord_id()
+            .expect("Member has no Discord ID")
+            .parse()
+            .unwrap();
 
         MemberRole::swap_roles(updated_member.role(), old_member.role(), ctx, user_id).await?;
     }
@@ -220,11 +226,12 @@ pub async fn update_member(
         }
         if let Err(why) = updated_member
             .assign_wiki_group(SETTINGS.wiki.member_group_id)
-            .await {
+            .await
+        {
             let error_msg = format!("Failed to assign wiki group: {}", why);
             error!("{}", error_msg);
             output.push_str(&(error_msg + "\n"));
-            }
+        }
         updated_member
             .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
             .await?;
