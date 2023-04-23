@@ -183,7 +183,7 @@ impl Member {
     pub async fn assign_wiki_group(&self, group_id: i64) -> Result<(), Box<dyn std::error::Error>> {
         crate::wiki::assign_user_group(crate::wiki::assign_user_group::Variables {
             user_id: self.wiki_id.expect("User must have a wiki id"),
-            group_id: group_id,
+            group_id,
         })
         .await
     }
