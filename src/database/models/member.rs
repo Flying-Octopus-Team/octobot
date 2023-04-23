@@ -32,6 +32,7 @@ pub struct Member {
     trello_id: Option<String>,
     trello_report_card_id: Option<String>,
     role: MemberRole,
+    wiki_id: Option<i64>,
 }
 
 #[derive(Copy, Clone, Debug, FromSqlRow, PartialEq, Eq, AsExpression)]
@@ -137,6 +138,7 @@ impl Member {
             trello_id,
             trello_report_card_id,
             role,
+            wiki_id: None,
         }
     }
 
@@ -278,6 +280,10 @@ impl Member {
     pub fn role(&self) -> MemberRole {
         self.role
     }
+
+    pub fn wiki_id(&self) -> Option<i64> {
+        self.wiki_id
+    }
 }
 
 impl Display for Member {
@@ -345,6 +351,11 @@ impl From<&[CommandDataOption]> for Member {
             None => MemberRole::Member,
         };
 
+        let wiki_id = find_option_value(options, "wiki-id").map(|v| {
+            println!("wiki-id: {:?}", v);
+            v.as_i64().unwrap()
+        });
+
         Member {
             id,
             display_name,
@@ -352,6 +363,7 @@ impl From<&[CommandDataOption]> for Member {
             trello_id,
             trello_report_card_id,
             role,
+            wiki_id,
         }
     }
 }
