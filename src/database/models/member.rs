@@ -323,10 +323,16 @@ impl Display for Member {
         } else {
             "None".to_string()
         };
+
+        let wiki_id = if let Some(wiki_id) = self.wiki_id {
+            wiki_id.to_string()
+        } else {
+            "None".to_string()
+        };
         write!(
             f,
-            "Member: {} ({}) Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Member Role: {}",
-            self.display_name, self.id.simple(), discord_id, trello_id, trello_report_card_id, self.role
+            "Member: {} ({}) Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Member Role: {}, Wiki ID: {}",
+            self.display_name, self.id.simple(), discord_id, trello_id, trello_report_card_id, self.role, wiki_id
         )
     }
 }
