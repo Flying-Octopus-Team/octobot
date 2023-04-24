@@ -210,20 +210,10 @@ pub async fn update_member(
         MemberRole::swap_roles(updated_member.role(), old_member.role(), ctx, user_id).await?;
     }
 
-    if updated_member.wiki_id().is_some() {
-        if old_member.wiki_id() != updated_member.wiki_id() && old_member.wiki_id().is_some() {
-            old_member
-                .unassign_wiki_group(SETTINGS.wiki.member_group_id)
-                .await?;
-            if let Err(why) = old_member
-                .assign_wiki_group(SETTINGS.wiki.guest_group_id)
-                .await
-            {
-                let error_msg = format!("Failed to assign wiki group: {}", why);
-                error!("{}", error_msg);
-                output.push_str(&(error_msg + "\n"));
-            }
-        }
+    if updated_member.wiki_id().is_some()
+        && (updated_member.role() == MemberRole::Member
+            || updated_member.role() == MemberRole::Apprentice)
+    {
         if let Err(why) = updated_member
             .assign_wiki_group(SETTINGS.wiki.member_group_id)
             .await
@@ -235,6 +225,23 @@ pub async fn update_member(
         updated_member
             .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
             .await?;
+    }
+
+    if old_member.wiki_id() != updated_member.wiki_id()
+        && old_member.wiki_id().is_some()
+        && (old_member.role() == MemberRole::Member || old_member.role() == MemberRole::Apprentice)
+    {
+        old_member
+            .unassign_wiki_group(SETTINGS.wiki.member_group_id)
+            .await?;
+        if let Err(why) = old_member
+            .assign_wiki_group(SETTINGS.wiki.guest_group_id)
+            .await
+        {
+            let error_msg = format!("Failed to assign wiki group: {}", why);
+            error!("{}", error_msg);
+            output.push_str(&(error_msg + "\n"));
+        }
     }
 
     info!("Member updated: {:?}", updated_member);
