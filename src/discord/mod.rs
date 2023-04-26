@@ -1,25 +1,16 @@
 use std::fmt::Write;
+use std::sync::Arc;
 
-use serenity::async_trait;
-use serenity::client::{Context, EventHandler};
-use serenity::framework::StandardFramework;
-use serenity::model::application::interaction::Interaction;
-use serenity::model::gateway::Ready;
-use serenity::model::id::GuildId;
-use serenity::model::voice::VoiceState;
-use serenity::prelude::GatewayIntents;
-use serenity::Client;
+use poise::serenity_prelude as serenity;
+use serenity::GatewayIntents;
+use tokio::sync::RwLock;
 use tracing::log::trace;
-use tracing::{debug, error, info, warn};
-
-use crate::SETTINGS;
-
-struct Handler;
+use tracing::{error, info, warn};
 
 use crate::database::models::member::Member;
-pub use crate::discord::commands::find_option_as_string;
-pub use crate::discord::commands::find_option_value;
+use crate::discord::commands::member;
 use crate::meeting::MeetingStatus;
+use crate::SETTINGS;
 
 mod commands;
 
@@ -29,109 +20,76 @@ pub struct Data {
 pub type Error = anyhow::Error;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
-            match command
-                .create_interaction_response(&ctx.http, |response| {
-                    response.interaction_response_data(|message| {
-                        message.content(content_chunks.next().unwrap())
-                    })
-                })
-                .await
-                .map_err(|e| format!("Error sending interaction response: {}", e))
-            {
-                Ok(_) => {
-                    for content in content_chunks {
-                        match command
-                            .create_followup_message(&ctx.http, |message| message.content(content))
-                            .await
-                            .map_err(|e| format!("Error sending followup message: {}", e))
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("{}", e);
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("{}", e);
-                }
-            }
-        };
+async fn event_handler(
+    ctx: &serenity::Context,
+    event: &poise::Event<'_>,
+    framework: poise::FrameworkContext<'_, Data, Error>,
+) -> Result<(), Error> {
+    match event {
+        poise::Event::Ready { data_about_bot } => {
+            info!("{} is connected!", data_about_bot.user.name);
+            event_ready(ctx, framework).await;
+        }
+        poise::Event::VoiceStateUpdate { old, new } => {
+            event_voice_state_update(framework, old, new).await;
+        }
+        _ => {}
     }
 
-    async fn voice_state_update(&self, ctx: Context, old: Option<VoiceState>, new: VoiceState) {
-        let read = ctx.data.read().await;
-        let meeting_status = read.get::<MeetingStatus>().unwrap();
-        let mut meeting_status = meeting_status.write().await;
+    Ok(())
+}
 
-        if meeting_status.is_meeting_ongoing()
-            && old.is_none()
-            && new.channel_id.is_some()
-            && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
-        {
-            match Member::find_by_discord_id(new.user_id.0.to_string()) {
+async fn event_voice_state_update(
+    framework: poise::FrameworkContext<'_, Data, Error>,
+    old: &Option<serenity::VoiceState>,
+    new: &serenity::VoiceState,
+) {
+    let mut meeting_status = framework.user_data.meeting_status.write().await;
+
+    if meeting_status.is_meeting_ongoing()
+        && old.is_none()
+        && new.channel_id.is_some()
+        && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
+    {
+        match Member::find_by_discord_id(new.user_id.0.to_string()) {
+            Ok(member) => {
+                let output = match meeting_status.add_member(&member) {
+                    Ok(msg) => msg,
+                    Err(e) => format!("{} could not join the meeting: {}", member.name(), e),
+                };
+                info!("{}", output);
+            }
+            Err(e) => warn!(
+                "User {} is not member of the organization: {:?}",
+                new.user_id.0, e
+            ),
+        }
+    }
+}
+
+async fn event_ready(ctx: &serenity::Context, framework: poise::FrameworkContext<'_, Data, Error>) {
+    // if the meeting is running when the bot starts, add all members to the meeting
+    let mut meeting_status = framework.user_data.meeting_status.write().await;
+
+    if meeting_status.is_meeting_ongoing() {
+        let channel_id = SETTINGS.meeting.channel_id;
+        let channel = channel_id.to_channel(&ctx).await.unwrap();
+
+        for member in channel.guild().unwrap().members(&ctx).await.unwrap() {
+            match Member::find_by_discord_id(member.user.id.0.to_string()) {
                 Ok(member) => {
                     let output = match meeting_status.add_member(&member) {
                         Ok(msg) => msg,
-                        Err(e) => format!("{} could not join the meeting: {}", member.name(), e),
+                        Err(e) => {
+                            format!("{} could not join the meeting: {}", member.name(), e)
+                        }
                     };
                     info!("{}", output);
                 }
                 Err(e) => warn!(
                     "User {} is not member of the organization: {:?}",
-                    new.user_id.0, e
+                    member.user.id.0, e
                 ),
-            }
-        }
-    }
-
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("{} is connected!", ready.user.name);
-
-        let guild_id = SETTINGS.discord.server_id;
-
-        let guild_command = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
-            commands::create_application_commands(commands)
-        })
-        .await
-        .expect("Error creating global application command");
-
-        debug!("{:?}", guild_command);
-
-        // insert new meeting only when, there's no another one
-        if ctx.data.read().await.get::<MeetingStatus>().is_none() {
-            let meeting_status = crate::meeting::create_meeting_job(&ctx).await.unwrap();
-
-            ctx.data
-                .write()
-                .await
-                .insert::<MeetingStatus>(meeting_status);
-        } else {
-            let read = ctx.data.read().await;
-            let meeting_status = read.get::<MeetingStatus>().unwrap();
-            let mut meeting_status = meeting_status.write().await;
-
-            if meeting_status.is_meeting_ongoing() {
-                let channel_id = SETTINGS.meeting.channel_id;
-                let channel = channel_id.to_channel(&ctx.http).await.unwrap();
-
-                for member in channel.guild().unwrap().members(&ctx).await.unwrap() {
-                    match Member::find_by_discord_id(member.user.id.0.to_string()) {
-                        Ok(member) => {
-                            let output = match meeting_status.add_member(&member) {
-                                Ok(msg) => msg,
-                                Err(e) => {
-                                    format!("{} could not join the meeting: {}", member.name(), e)
-                                }
-                            };
-                            info!("{}", output);
-                        }
-                        Err(e) => warn!(
-                            "User {} is not member of the organization: {:?}",
-                            member.user.id.0, e
-                        ),
-                    }
-                }
             }
         }
     }
@@ -145,22 +103,46 @@ pub async fn start_bot() {
         | GatewayIntents::GUILD_PRESENCES
         | GatewayIntents::GUILD_MEMBERS;
 
-    let framework = StandardFramework::new().configure(|c| c.prefix("~"));
-
-    let mut client = Client::builder(token, intents)
-        .event_handler(Handler)
-        .framework(framework)
-        .await
-        .expect("Error creating client");
+    let options = poise::FrameworkOptions {
+        commands: vec![member()],
+        event_handler: |ctx, event, framework, _user_data| {
+            Box::pin(event_handler(ctx, event, framework))
+        },
+        prefix_options: poise::PrefixFrameworkOptions {
+            prefix: Some(String::from("~")),
+            mention_as_prefix: true,
+            edit_tracker: None,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
 
     info!("Starting bot...");
 
-    if let Err(why) = client.start().await {
+    if let Err(why) = poise::Framework::builder()
+        .token(token)
+        .options(options)
+        .intents(intents)
+        .setup(|ctx, _ready, framework| {
+            Box::pin(async move {
+                poise::builtins::register_in_guild(
+                    ctx,
+                    &framework.options().commands,
+                    SETTINGS.discord.server_id,
+                )
+                .await?;
+                let meeting_status = crate::meeting::create_meeting_job(ctx).await.unwrap();
+                Ok(Data { meeting_status })
+            })
+        })
+        .run()
+        .await
+    {
         error!("An error occurred while running the client: {:?}", why);
     }
 }
 
-pub(crate) fn split_message(message: String) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+pub(crate) fn split_message(message: String) -> Result<Vec<String>, Error> {
     let mut message_chunks = message.lines();
     let mut output = String::new();
     let mut messages = Vec::new();
@@ -176,6 +158,16 @@ pub(crate) fn split_message(message: String) -> Result<Vec<String>, Box<dyn std:
     output = output.trim_end().to_string();
     messages.push(output);
     Ok(messages)
+}
+
+async fn respond(ctx: Context<'_>, content: String) -> Result<(), Error> {
+    let content_chunks = split_message(content)?;
+
+    for content in content_chunks {
+        poise::reply::send_reply(ctx, |m| m.content(content)).await?;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
