@@ -67,7 +67,7 @@ pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
                 .to_string(),
         );
         output.push_str(" with id ");
-        output.push_str(&meeting_status.meeting_id().to_string());
+        output.push_str(&meeting_status.meeting_id().simple().to_string());
     }
 
     output.push_str("\nMembers:");

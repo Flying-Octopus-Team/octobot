@@ -7,7 +7,7 @@ use crate::database::models::summary::Summary;
 use crate::database::models::{member::Member, report::Report};
 use crate::discord::Context;
 
-#[poise::command(slash_command, aliases("add"))]
+#[poise::command(slash_command, rename="add")]
 pub(crate) async fn add_report(
     ctx: Context<'_>,
     #[description = "Report's content"] content: String,
@@ -71,7 +71,7 @@ pub(crate) async fn remove_report(
     crate::discord::respond(ctx, output).await
 }
 
-#[poise::command(slash_command, aliases("list"))]
+#[poise::command(slash_command, rename="list")]
 pub(crate) async fn list_reports(
     ctx: Context<'_>,
     #[description = "Page number"] page: Option<i64>,
@@ -97,7 +97,7 @@ pub(crate) async fn list_reports(
     crate::discord::respond(ctx, output).await
 }
 
-#[poise::command(slash_command, aliases("update"))]
+#[poise::command(slash_command, rename="update")]
 pub(crate) async fn update_report(
     ctx: Context<'_>,
     #[description = "Report's ID"] mut report: Report,
