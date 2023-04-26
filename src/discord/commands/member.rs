@@ -1,131 +1,117 @@
-use serenity::client::Context;
-use serenity::model::application::interaction::application_command::ApplicationCommandInteraction;
-use serenity::model::application::interaction::application_command::CommandDataOption;
 use std::fmt::Write;
+
 use tracing::error;
 use tracing::info;
-use uuid::Uuid;
+use poise::serenity_prelude as serenity;
 
+use super::Context;
+use super::Error;
+use crate::database::models::member::Member;
 use crate::database::models::member::MemberRole;
-use crate::discord::find_option_as_string;
-use crate::{database::models::member::Member, SETTINGS};
+use crate::SETTINGS;
 
-use super::find_option_value;
-
+#[poise::command(slash_command, rename = "add")]
 pub async fn add_member(
-    ctx: &Context,
-    _command: &ApplicationCommandInteraction,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    #[description = "Discord account"] member: serenity::Member,
+    #[description = "Trello ID account"] trello_id: Option<String>,
+    #[description = "Trello Report Card ID"] trello_report_card_id: Option<String>,
+    #[description = "Wiki ID"] wiki_id: Option<i64>,
+    #[description = "Display name"] name: Option<String>,
+    #[description = "Role"] role: Option<MemberRole>,
+) -> Result<(), Error> {
     info!("Adding member");
 
     let mut output = String::new();
 
-    let member = Member::from(&option.options[..]);
-    let mut new_name = String::new();
-    if let Some(discord_id) = member.discord_id() {
-        let discord_id = discord_id.parse().unwrap();
+    let name = if let Some(name) = name {
+        name
+    } else {
+        member.user.name
+    };
 
-        let dc_member = match ctx.cache.member(SETTINGS.discord.server_id, discord_id) {
-            Some(dc_member) => dc_member,
-            None => {
-                let error_msg = format!("Member not found in the guild: {}", discord_id);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        };
+    let discord_id = member.user.id;
 
-        new_name = if let Some(name) = find_option_as_string(&option.options[..], "name") {
-            name
-        } else {
-            match dc_member.nick {
-                Some(name) => name,
-                None => dc_member.user.name,
-            }
-        };
+    // check if member is already in the database
+    if let Ok(member) = Member::find_by_discord_id(discord_id.to_string()) {
+        let error_msg = format!("Member already exists in the database: {:?}", member);
 
-        member.role().add_role(ctx, discord_id).await?;
+        error!("{}", error_msg);
 
-        if member.wiki_id().is_some() {
-            if let Err(why) = member
-                .assign_wiki_group(SETTINGS.wiki.member_group_id)
-                .await
-            {
-                let error_msg = format!("Failed to assign wiki group: {}", why);
-                error!("{}", error_msg);
-                output.push_str(&(error_msg + "\n"));
-            }
+        output.push_str(&(error_msg + "\n"));
 
-            member
-                .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
-                .await?;
+        return Ok(());
+    }
+
+    let member = Member::new(
+        name,
+        Some(discord_id.to_string()),
+        trello_id,
+        trello_report_card_id,
+        role.unwrap_or_default(),
+        wiki_id,
+    );
+    match member.role().add_role(&ctx, discord_id.0).await {
+        Ok(_) => (),
+        Err(why) => {
+            let error_msg = format!("Failed to add role: {}", why);
+            error!("{}", error_msg);
+            output.push_str(&(error_msg + "\n"));
         }
     }
 
-    // check if member is already in the database
-    if let Ok(member) = Member::find_by_discord_id(member.discord_id().unwrap()) {
-        let mut msg = String::new();
-        write!(
-            msg,
-            "Member with this Discord ID already exists in the database with the following information:
-            Name: {}
-            Discord ID: {}
-            UUID: {}
-            Role: {}",
-            member.name(),
-            member.discord_id().unwrap(),
-            member.id(),
-            member.role()
-        )?;
-        return Ok(msg);
+    if member.wiki_id().is_some() {
+        if let Err(why) = member
+            .assign_wiki_group(SETTINGS.wiki.member_group_id)
+            .await
+        {
+            let error_msg = format!("Failed to assign wiki group: {}", why);
+            error!("{}", error_msg);
+            output.push_str(&(error_msg + "\n"));
+        }
+
+        match member
+            .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
+            .await
+        {
+            Ok(_) => (),
+            Err(why) => {
+                let error_msg = format!("Failed to unassign wiki group: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&(error_msg + "\n"));
+            }
+        }
     }
 
-    let mut member = match member.insert() {
+    let member = match member.insert() {
         Ok(member) => member,
         Err(e) => {
             let error_msg = format!("Failed to insert member into database: {}", e);
             error!("{}", error_msg);
-            return Err(error_msg.into());
+            return Err(anyhow!(error_msg));
         }
     };
-
-    match member.set_name(new_name) {
-        Ok(_) => {}
-        Err(why) => {
-            let error_msg = format!("Failed to update member name: {}", why);
-            error!("{}", error_msg);
-            return Err(error_msg.into());
-        }
-    }
 
     info!("Member added: {:?}", member);
 
     output.push_str(&format!("Added {}", member));
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
 
+#[poise::command(slash_command, rename = "remove")]
 pub async fn remove_member(
-    ctx: &Context,
-    _command: &ApplicationCommandInteraction,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    #[description = "Member ID"] member: crate::database::models::member::Member,
+    #[description = "Hard delete member from the database"] hard_delete: Option<bool>,
+) -> Result<(), Error> {
     info!("Removing member");
-    let id = option.options[0]
-        .value
-        .as_ref()
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .to_string();
-
     let mut output = String::new();
 
-    let member = Member::find_by_id(Uuid::parse_str(&id)?)?;
     if let Some(user_id) = member.discord_id() {
         let user_id = user_id.parse().unwrap();
 
-        match member.role().remove_role(ctx, user_id).await {
+        match member.role().remove_role(&ctx, user_id).await {
             Ok(_) => {}
             Err(why) => {
                 let error_msg = format!("Failed to remove member role: {}", why);
@@ -148,11 +134,7 @@ pub async fn remove_member(
         }
     }
 
-    let hard_delete = find_option_value(&option.options[..], "hard_delete")
-        .map(|v| v.as_bool().unwrap())
-        .unwrap_or(false);
-
-    if hard_delete {
+    if hard_delete.unwrap_or(false) {
         member.hard_delete()?;
     } else {
         member.delete()?;
@@ -162,100 +144,108 @@ pub async fn remove_member(
 
     output.push_str(&format!("Removed {}", member));
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
 
+#[poise::command(slash_command, rename = "update")]
+#[allow(clippy::too_many_arguments)]
 pub async fn update_member(
-    ctx: &Context,
-    _command: &ApplicationCommandInteraction,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    #[description = "Member ID"] mut member: crate::database::models::member::Member,
+    #[description = "Member name"] name: Option<String>,
+    #[description = "Member Discord"] discord_member: Option<serenity::Member>,
+    #[description = "Member Trello ID"] trello_id: Option<String>,
+    #[description = "Member Trello Report Card ID"] trello_report_card_id: Option<String>,
+    #[description = "Member role"] role: Option<MemberRole>,
+    #[description = "Member wiki ID"] wiki_id: Option<i64>,
+) -> Result<(), Error> {
     info!("Updating member");
 
     let mut output = String::new();
 
-    let mut updated_member = Member::from(&option.options[..]);
-
-    let old_member = Member::find_by_id(updated_member.id())?;
-
-    if let Some(name) = find_option_as_string(&option.options[..], "name") {
-        match updated_member.set_name(name) {
+    if let Some(new_name) = name {
+        match member.set_name(new_name) {
             Ok(_) => {}
             Err(why) => {
                 let error_msg = format!("Failed to update member name: {}", why);
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow!(error_msg));
             }
         }
-    } else {
-        updated_member.set_name(old_member.name())?;
     }
 
-    let updated_member = updated_member.update()?;
+    if let Some(new_discord_member) = discord_member {
+        let user_id = new_discord_member.user.id.0;
 
-    if old_member.discord_id() != updated_member.discord_id() && old_member.discord_id().is_some() {
-        let user_id = old_member.discord_id().unwrap().parse().unwrap();
-
-        old_member.role().remove_role(ctx, user_id).await?;
-    }
-    if updated_member.discord_id().is_some()
-        && old_member.discord_id() != updated_member.discord_id()
-    {
-        let user_id = updated_member
-            .discord_id()
-            .expect("Member has no Discord ID")
-            .parse()
-            .unwrap();
-
-        MemberRole::swap_roles(updated_member.role(), old_member.role(), ctx, user_id).await?;
-    }
-
-    if updated_member.wiki_id().is_some()
-        && (updated_member.role() == MemberRole::Member
-            || updated_member.role() == MemberRole::Apprentice)
-    {
-        if let Err(why) = updated_member
-            .assign_wiki_group(SETTINGS.wiki.member_group_id)
-            .await
-        {
-            let error_msg = format!("Failed to assign wiki group: {}", why);
-            error!("{}", error_msg);
-            output.push_str(&(error_msg + "\n"));
+        match member.role().remove_role(&ctx, user_id).await {
+            Ok(_) => {}
+            Err(why) => {
+                let error_msg = format!("Failed to remove member role: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&error_msg);
+                output.push('\n');
+            }
         }
-        updated_member
-            .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
-            .await?;
+
+        member.set_discord_id(new_discord_member.to_string());
+
+        member.role().add_role(&ctx, user_id).await?;
     }
 
-    if old_member.wiki_id() != updated_member.wiki_id()
-        && old_member.wiki_id().is_some()
-        && (old_member.role() == MemberRole::Member || old_member.role() == MemberRole::Apprentice)
-    {
-        old_member
-            .unassign_wiki_group(SETTINGS.wiki.member_group_id)
-            .await?;
-        if let Err(why) = old_member
-            .assign_wiki_group(SETTINGS.wiki.guest_group_id)
-            .await
-        {
-            let error_msg = format!("Failed to assign wiki group: {}", why);
+    if let Some(new_role) = role {
+        let user_id = member.discord_id().unwrap().parse().unwrap();
+
+        match member.role().remove_role(&ctx, user_id).await {
+            Ok(_) => {}
+            Err(why) => {
+                let error_msg = format!("Failed to remove member role: {}", why);
+                error!("{}", error_msg);
+                output.push_str(&error_msg);
+                output.push('\n');
+            }
+        }
+
+        member.set_role(new_role);
+
+        member.role().add_role(&ctx, user_id).await?;
+    }
+
+    if let Some(new_trello_id) = trello_id {
+        member.set_trello_id(new_trello_id)
+    }
+
+    if let Some(new_trello_report_card_id) = trello_report_card_id {
+        member.set_trello_report_card_id(new_trello_report_card_id)
+    }
+
+    if let Some(new_wiki_id) = wiki_id {
+        member.set_wiki_id(new_wiki_id)
+    }
+
+    match member.update() {
+        Ok(_) => {}
+        Err(e) => {
+            let error_msg = format!("Failed to update member in database: {}", e);
             error!("{}", error_msg);
-            output.push_str(&(error_msg + "\n"));
+            return Err(anyhow!(error_msg));
         }
     }
 
-    info!("Member updated: {:?}", updated_member);
+    info!("Member updated: {}", member);
 
-    output.push_str(&format!("Updated {}", updated_member));
+    output.push_str(&format!("Updated {}", member));
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
 
-pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::error::Error>> {
+#[poise::command(slash_command, rename = "list")]
+pub async fn list_members(
+    ctx: Context<'_>,
+    #[description = "Page number"] page: Option<i64>,
+    #[description = "Page size"] page_size: Option<i64>,
+) -> Result<(), Error> {
     info!("Listing members");
-    let page = find_option_value(&option.options[..], "page").map_or(1, |x| x.as_i64().unwrap());
-    let page_size =
-        find_option_value(&option.options[..], "page-size").map(|v| v.as_i64().unwrap());
+    let page = page.unwrap_or(1);
 
     let (members, total_pages) = Member::list(page, page_size)?;
 
@@ -266,5 +256,5 @@ pub fn list_members(option: &CommandDataOption) -> Result<String, Box<dyn std::e
     }
     write!(&mut output, "Page: {page}/{total_pages}")?;
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
