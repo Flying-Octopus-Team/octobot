@@ -1,33 +1,32 @@
 use std::fmt::Write;
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
-use serenity::model::prelude::interaction::application_command::CommandDataOption;
-use serenity::prelude::Context;
+use poise::serenity_prelude as serenity;
 use tracing::{error, info};
-use uuid::Uuid;
 
 use crate::database::models::meeting::Meeting;
 use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
-use crate::discord::{find_option_as_string, find_option_value};
+use crate::discord::Context;
+use crate::discord::Error;
 use crate::meeting::MeetingStatus;
 
-/// Ends the meeting. Returns the meeting summary, containing the meeting's members, their attendance and reports
+/// Ends the meeting. Returns the meeting summary which contains members' attendance and reports
+#[poise::command(slash_command, rename = "end")]
 pub(crate) async fn end_meeting(
-    option: &CommandDataOption,
-    ctx: &Context,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    #[description = "Note to add to the summary"]
+    #[rest]
+    note: String,
+) -> Result<(), Error> {
     info!("Received end-meeting command");
 
-    let note = find_option_as_string(&option.options[..], "note").unwrap_or_default();
-
-    let read = ctx.data.read().await;
-    let meeting_status = read.get::<MeetingStatus>().unwrap().clone();
+    let meeting_status = ctx.data().meeting_status.clone();
 
     if !meeting_status.read().await.is_meeting_ongoing() {
         let error = "No meeting is ongoing".to_string();
         error!("{}", error);
-        return Err(error.into());
+        return Err(anyhow!(error));
     }
 
     let rw_lock_read_guard = meeting_status.read().await;
@@ -39,20 +38,20 @@ pub(crate) async fn end_meeting(
     let summary_result = summary.send_summary(ctx, false).await?;
     drop(rw_lock_read_guard);
 
-    MeetingStatus::end_meeting(ctx, meeting_status).await?;
+    MeetingStatus::end_meeting(ctx.serenity_context(), meeting_status).await?;
 
-    Ok(summary_result)
+    crate::discord::respond(ctx, summary_result).await
 }
 
-/// Return the current or future meeting status.
-pub(crate) async fn status_meeting(ctx: &Context) -> Result<String, Box<dyn std::error::Error>> {
+/// Return the current or future meeting's status.
+#[poise::command(slash_command, rename = "status")]
+pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
     let mut output = String::new();
 
     info!("Received status-meeting command");
 
-    let data_read = ctx.data.read().await;
-    let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
-    let meeting_status = meeting_status.read().await;
+    let rw_lock = &ctx.data().meeting_status.clone();
+    let meeting_status = rw_lock.read().await;
 
     if meeting_status.is_meeting_ongoing() {
         output.push_str("Meeting is ongoing. ");
@@ -84,52 +83,43 @@ pub(crate) async fn status_meeting(ctx: &Context) -> Result<String, Box<dyn std:
 
     info!("Generated meeting status: \n{}", output);
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
 
 /// Change the meeting's details.
 ///
 /// Edit the meeting's schedule and channel.
+#[poise::command(slash_command, rename = "plan")]
 pub(crate) async fn plan_meeting(
-    ctx: &Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    // option: &CommandDataOption,
+    #[description = "Schedule of the meeting"] schedule: Option<cron::Schedule>,
+    #[description = "Channel to monitor"]
+    #[channel_types("Voice")]
+    channel: Option<poise::serenity_prelude::GuildChannel>,
+) -> Result<(), Error> {
     let mut output = String::new();
 
-    let data_read = ctx.data.read().await;
-    let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
-    let meeting_status = meeting_status.clone();
+    let meeting_status = ctx.data().meeting_status.clone();
 
-    if let Some(new_schedule) = find_option_as_string(&option.options, "schedule") {
-        // check if the schedule is valid
-        let schedule = match cron::Schedule::from_str(&new_schedule) {
-            Ok(schedule) => schedule,
-            Err(e) => {
-                error!("Invalid schedule: {}", e);
-                return Err("Invalid schedule".into());
-            }
-        };
+    if let Some(schedule) = schedule {
         let next = schedule.upcoming(chrono::Local).next().unwrap();
 
-        MeetingStatus::change_schedule(Arc::clone(&meeting_status), &new_schedule, ctx)
-            .await
-            .unwrap();
+        MeetingStatus::change_schedule(
+            Arc::clone(&meeting_status),
+            &schedule.to_string(),
+            ctx.serenity_context(),
+        )
+        .await?;
         output.push_str("New schedule set to ");
-        output.push_str(&new_schedule);
+        output.push_str(&schedule.to_string());
         output.push_str(" (next meeting on ");
         output.push_str(&next.to_string());
         output.push(')');
     }
 
-    if let Some(new_channel) = find_option_as_string(&option.options, "channel") {
-        let channel_id = new_channel.parse::<u64>().unwrap();
-        let channel = ctx.cache.guild_channel(channel_id).unwrap();
-
-        // check if channel is voice channel
-        if channel.kind != serenity::model::channel::ChannelType::Voice {
-            error!("Channel is not a voice channel: {}", channel_id);
-            return Err("Channel is not a voice channel".into());
-        }
+    if let Some(channel) = channel {
+        let channel_id = channel.id;
 
         let mut meeting_status = meeting_status.write().await;
 
@@ -138,7 +128,7 @@ pub(crate) async fn plan_meeting(
             Err(e) => {
                 let error = format!("Error changing channel: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow!(error));
             }
         }
         output.push_str("\nMeeting channel changed to <#");
@@ -146,121 +136,123 @@ pub(crate) async fn plan_meeting(
         output.push('>');
     }
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
 
+#[poise::command(slash_command, rename = "set-note")]
 pub(crate) async fn set_note(
-    ctx: &Context,
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
+    ctx: Context<'_>,
+    #[description = "Meeting ID to set the note for"] meeting: Option<Meeting>,
+    #[description = "Note to set"]
+    #[rest]
+    note: String,
+) -> Result<(), Error> {
     let mut output = String::new();
 
-    let data_read = ctx.data.read().await;
-    let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
-    let meeting_status = meeting_status.clone();
-    let meeting_status = meeting_status.read().await;
+    let meeting_status = ctx.data().meeting_status.read().await;
 
-    if let Some(new_note) = find_option_as_string(&option.options, "note") {
-        output.push_str("Meeting summary changed to ");
-        output.push_str(&new_note);
+    output.push_str("Meeting summary changed to ");
+    output.push_str(&note);
 
-        let meeting = if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
-            let meeting_id = Uuid::parse_str(&meeting)?;
-            Meeting::find_by_id(meeting_id)?
-        } else {
-            Meeting::find_by_id(meeting_status.meeting_id())?
-        };
-
-        let mut summary = Summary::find_by_id(meeting.summary_id())?;
-
-        match summary.set_note(new_note) {
-            Ok(_) => {}
-            Err(e) => {
-                let error_msg = format!("Error changing summary note: {}", e);
-                error!("{}", error_msg);
-                return Err(error_msg.into());
-            }
-        }
-
-        match summary.send_summary(ctx, true).await {
-            Ok(_) => {}
-            Err(e) => {
-                let error = format!("Error sending summary: {}", e);
-                error!("{}", error);
-                return Err(error.into());
-            }
-        }
-    } else {
-        output.push_str("Meeting summary unchanged");
+    let meeting = match meeting {
+        Some(meeting) => meeting,
+        None => Meeting::find_by_id(meeting_status.meeting_id())?,
     };
-    Ok(output)
-}
 
-pub(crate) async fn edit_meeting_members(
-    ctx: &Context,
-    option: &CommandDataOption,
-    remove: bool,
-) -> Result<String, Box<dyn std::error::Error>> {
-    info!(remove, ?option, "Adding/Removing members from meeting");
-    let mut output = String::new();
+    let mut summary = Summary::find_by_id(meeting.summary_id())?;
 
-    if let Some(member) = find_option_as_string(&option.options, "member") {
-        let member = Member::from_discord_id(member, ctx)?;
-
-        if let Some(meeting) = find_option_as_string(&option.options, "meeting-id") {
-            let meeting_id = match Uuid::parse_str(&meeting) {
-                Ok(id) => id,
-                Err(why) => {
-                    let error_msg = format!("Invalid meeting id: {}\nReason: {}", meeting, why);
-                    error!("{}", error_msg);
-                    return Err(error_msg.into());
-                }
-            };
-
-            let meeting = match Meeting::find_by_id(meeting_id) {
-                Ok(meeting) => meeting,
-                Err(why) => {
-                    let error_msg = format!(
-                        "Meeting not found in database: {}\nReason: {}",
-                        meeting_id, why
-                    );
-                    error!("{}", error_msg);
-                    return Err(error_msg.into());
-                }
-            };
-
-            if remove {
-                output.push_str(&meeting.remove_member(&member)?);
-            } else {
-                output.push_str(&meeting.add_member(&member)?);
-            }
-        } else {
-            let data_read = ctx.data.read().await;
-            let meeting_status = data_read.get::<MeetingStatus>().unwrap().clone();
-            let mut meeting_status = meeting_status.write().await;
-
-            if remove {
-                output.push_str(&meeting_status.remove_member(&member).unwrap());
-            } else {
-                output.push_str(&meeting_status.add_member(&member).unwrap());
-            }
+    match summary.set_note(note) {
+        Ok(_) => {}
+        Err(e) => {
+            let error_msg = format!("Error changing summary note: {}", e);
+            error!("{}", error_msg);
+            return Err(anyhow!(error_msg));
         }
-    } else {
-        output.push_str("No member specified");
     }
 
-    Ok(output)
+    match summary.send_summary(ctx, true).await {
+        Ok(_) => {}
+        Err(e) => {
+            let error = format!("Error sending summary: {}", e);
+            error!("{}", error);
+            return Err(anyhow!(error));
+        }
+    }
+
+    crate::discord::respond(ctx, output).await
 }
 
-pub(crate) async fn list_meetings(
-    option: &CommandDataOption,
-) -> Result<String, Box<dyn std::error::Error>> {
-    info!("Listing meetings");
-    let page =
-        find_option_value(&option.options[..], "page").map_or(1, |page| page.as_i64().unwrap());
+#[poise::command(slash_command, rename = "add-member")]
+pub async fn add_member(
+    ctx: Context<'_>,
+    #[description = "Member to add"] member: serenity::Member,
+    #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
+) -> Result<(), Error> {
+    info!("Adding member to meeting");
+    let mut output = String::new();
 
-    let page_size = find_option_value(&option.options[..], "page-size")
-        .map(|page_size| page_size.as_i64().unwrap());
+    let member = match Member::from_discord_id(member.user.id.to_string(), ctx) {
+        Ok(member) => member,
+        Err(e) => {
+            let error_msg = format!("Error finding member: {}", e);
+            error!("{}", error_msg);
+            return Err(anyhow!(error_msg));
+        }
+    };
+
+    let result = match meeting {
+        Some(meeting) => meeting.add_member(&member)?,
+        None => {
+            let mut meeting_status = ctx.data().meeting_status.write().await;
+            meeting_status.add_member(&member)?
+        }
+    };
+
+    output.push_str(&result);
+
+    crate::discord::respond(ctx, output).await
+}
+
+#[poise::command(slash_command, rename = "remove-member")]
+pub async fn remove_member(
+    ctx: Context<'_>,
+    #[description = "Member to remove"] member: serenity::Member,
+    #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
+) -> Result<(), Error> {
+    info!("Removing member from meeting");
+    let mut output = String::new();
+
+    let member = match Member::from_discord_id(member.user.id.to_string(), ctx) {
+        Ok(member) => member,
+        Err(e) => {
+            let error_msg = format!("Error finding member: {}", e);
+            error!("{}", error_msg);
+            return Err(anyhow!(error_msg));
+        }
+    };
+
+    let result = match meeting {
+        Some(meeting) => meeting.remove_member(&member)?,
+        None => {
+            let mut meeting_status = ctx.data().meeting_status.write().await;
+            meeting_status.remove_member(&member)?
+        }
+    };
+
+    output.push_str(&result);
+
+    crate::discord::respond(ctx, output).await
+}
+
+#[poise::command(slash_command, rename = "list")]
+pub(crate) async fn list_meetings(
+    ctx: Context<'_>,
+    #[description = "Page to list"] page: Option<i64>,
+    #[description = "Page size"] page_size: Option<i64>,
+) -> Result<(), Error> {
+    info!("Listing meetings");
+
+    let page = page.unwrap_or(1);
 
     let (meetings, total_pages) = Meeting::list(page, page_size)?;
 
@@ -271,5 +263,5 @@ pub(crate) async fn list_meetings(
     }
     write!(output, "Page {}/{}", page, total_pages)?;
 
-    Ok(output)
+    crate::discord::respond(ctx, output).await
 }
