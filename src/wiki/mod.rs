@@ -1,3 +1,4 @@
+use crate::discord::Error;
 use graphql_client::GraphQLQuery;
 use reqwest::header;
 
@@ -19,9 +20,7 @@ pub struct AssignUserGroup;
 )]
 pub struct UnassignUserGroup;
 
-pub async fn assign_user_group(
-    variables: assign_user_group::Variables,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn assign_user_group(variables: assign_user_group::Variables) -> Result<(), Error> {
     let mut headers = header::HeaderMap::new();
 
     let mut auth_value = header::HeaderValue::from_static(&SETTINGS.wiki.token);
@@ -41,7 +40,7 @@ pub async fn assign_user_group(
         res.json().await?;
 
     if response_body.errors.is_some() {
-        return Err(response_body.errors.unwrap()[0].message.clone().into());
+        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
     }
 
     let response_result = response_body
@@ -57,13 +56,11 @@ pub async fn assign_user_group(
     if response_result.succeeded {
         Ok(())
     } else {
-        Err(response_result.message.unwrap().into())
+        Err(anyhow!(response_result.message.unwrap()))
     }
 }
 
-pub async fn unassign_user_group(
-    variables: unassign_user_group::Variables,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> Result<(), Error> {
     let mut headers = header::HeaderMap::new();
 
     let mut auth_value = header::HeaderValue::from_static(&SETTINGS.wiki.token);
@@ -83,7 +80,7 @@ pub async fn unassign_user_group(
         res.json().await?;
 
     if response_body.errors.is_some() {
-        return Err(response_body.errors.unwrap()[0].message.clone().into());
+        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
     }
 
     let response_result = response_body
@@ -99,6 +96,6 @@ pub async fn unassign_user_group(
     if response_result.succeeded {
         Ok(())
     } else {
-        Err(response_result.message.unwrap().into())
+        Err(anyhow!(response_result.message.unwrap()))
     }
 }

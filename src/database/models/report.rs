@@ -1,11 +1,15 @@
+use super::summary::Summary;
 use crate::database::models::member::Member;
 use crate::database::pagination::Paginate;
 use crate::database::schema::report;
 use crate::database::schema::report::dsl;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
+use crate::discord::Error;
+
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
+use poise::serenity_prelude as serenity;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use tracing::error;
@@ -44,7 +48,7 @@ impl Report {
         }
     }
 
-    pub fn insert(member_id: Uuid, content: String) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(member_id: Uuid, content: String) -> Result<Self, Error> {
         let new_report = NewReport { member_id, content };
 
         Ok(diesel::insert_into(report::table)
@@ -52,13 +56,13 @@ impl Report {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self, Error> {
         Ok(diesel::update(self)
             .set(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<bool, Error> {
         use crate::database::schema::report::dsl::*;
 
         Ok(diesel::delete(report.filter(id.eq(self.id)))
@@ -69,13 +73,13 @@ impl Report {
     pub fn list(
         page: i64,
         per_page: Option<i64>,
-        member_dc_id: Option<Uuid>,
+        member_id: Option<Uuid>,
         published: Option<bool>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<Self>, i64), Error> {
         let mut query = report::table.into_boxed();
 
-        if let Some(member_dc_id) = member_dc_id {
-            query = query.filter(dsl::member_id.eq(member_dc_id));
+        if let Some(member_id) = member_id {
+            query = query.filter(dsl::member_id.eq(member_id));
         }
 
         if let Some(published) = published {
@@ -92,37 +96,37 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-    pub fn get_unpublished_reports() -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    pub fn get_unpublished_reports() -> Result<Vec<Self>, Error> {
         Ok(dsl::report
             .filter(dsl::published.eq(false))
             .load(&mut PG_POOL.get()?)?)
     }
 
-    pub fn set_publish(&mut self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn set_publish(&mut self) -> Result<Self, Error> {
         self.published = true;
         match self.update() {
             Ok(report) => Ok(report),
             Err(e) => {
                 let error = format!("Error publishing report: {}", e);
                 error!("{}", error);
-                Err(error.into())
+                Err(anyhow!(error))
             }
         }
     }
 
-    pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Error> {
         self.summary_id = Some(id);
         match self.update() {
             Ok(report) => Ok(report),
             Err(e) => {
                 let error = format!("Error setting summary id: {}", e);
                 error!("{}", error);
-                Err(error.into())
+                Err(anyhow!(error))
             }
         }
     }
 
-    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Error> {
         use crate::database::schema::report::dsl::*;
 
         let uuid = find_id.into();
@@ -136,7 +140,7 @@ impl Report {
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
         publish: bool,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> Result<String, Error> {
         let mut reports = Report::get_unpublished_reports()?;
 
         // get reports associated with summary
@@ -181,7 +185,7 @@ impl Report {
         Ok(output)
     }
 
-    fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>, Box<dyn std::error::Error>> {
+    fn get_by_summary_id(find_id: Uuid) -> Result<Vec<Self>, Error> {
         use crate::database::schema::report::dsl::*;
 
         Ok(report

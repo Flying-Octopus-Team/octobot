@@ -23,22 +23,11 @@ use crate::meeting::MeetingStatus;
 
 mod commands;
 
-#[async_trait]
-impl EventHandler for Handler {
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        debug!(?interaction, "Interaction created");
-        if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match commands::handle_interaction_command(&ctx, &command).await {
-                Ok(content) => content,
-                Err(e) => format!("{:?}", e),
-            };
-            let mut content_chunks = match split_message(content) {
-                Ok(content_chunks) => content_chunks.into_iter(),
-                Err(e) => {
-                    error!("{}", e);
-                    return;
-                }
-            };
+pub struct Data {
+    pub meeting_status: Arc<RwLock<MeetingStatus>>,
+}
+pub type Error = anyhow::Error;
+pub type Context<'a> = poise::Context<'a, Data, Error>;
 
             match command
                 .create_interaction_response(&ctx.http, |response| {

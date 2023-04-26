@@ -2,10 +2,13 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 use std::{str::FromStr, sync::Arc, time::Duration};
 
+use crate::discord::Error;
 use chrono::Local;
 use cron::Schedule;
-use serenity::client::Cache;
-use serenity::prelude::{Context, TypeMapKey};
+use poise::serenity_prelude::CacheHttp;
+use poise::serenity_prelude as serenity;
+use serenity::Cache;
+use serenity::TypeMapKey;
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -37,8 +40,8 @@ impl TypeMapKey for MeetingStatus {
 }
 
 pub async fn create_meeting_job(
-    ctx: &Context,
-) -> Result<Arc<RwLock<MeetingStatus>>, Box<dyn std::error::Error>> {
+    ctx: &serenity::Context,
+) -> Result<Arc<RwLock<MeetingStatus>>, Error> {
     let meeting_status = MeetingStatus::load_next_meeting()?;
 
     let meeting_status = Arc::new(RwLock::new(meeting_status));
@@ -49,10 +52,7 @@ pub async fn create_meeting_job(
 }
 
 impl MeetingStatus {
-    pub fn new(
-        scheduled_cron: &str,
-        channel_id: String,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(scheduled_cron: &str, channel_id: String) -> Result<Self, Error> {
         let meeting_status = Self {
             is_ongoing: AtomicBool::new(false),
             meeting_data: Meeting::try_from_cron(scheduled_cron, channel_id)?,
@@ -69,8 +69,8 @@ impl MeetingStatus {
     pub async fn change_schedule(
         meeting_status: Arc<RwLock<Self>>,
         scheduled_cron: &str,
-        ctx: &Context,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+        ctx: &serenity::Context,
+    ) -> Result<(), Error> {
         {
             let mut meeting_status = meeting_status.write().await;
 
@@ -86,7 +86,7 @@ impl MeetingStatus {
         Ok(())
     }
 
-    pub fn change_channel(&mut self, channel_id: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn change_channel(&mut self, channel_id: String) -> Result<(), Error> {
         match self.meeting_data.set_channel_id(channel_id) {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -110,7 +110,7 @@ impl MeetingStatus {
         self.meeting_data.id()
     }
 
-    pub fn schedule(&self) -> Result<Schedule, Box<dyn std::error::Error>> {
+    pub fn schedule(&self) -> Result<Schedule, Error> {
         self.meeting_data.schedule()
     }
 
@@ -125,9 +125,9 @@ impl MeetingStatus {
     /// Ends the meeting and inserts data to the database. Updates given meeting status.
     /// Clears the meeting data and members.
     pub async fn end_meeting(
-        ctx: &Context,
+        ctx: &serenity::Context,
         meeting_status: Arc<RwLock<MeetingStatus>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         let mut meeting = meeting_status.write().await;
 
         meeting.set_is_ongoing(false);
@@ -137,7 +137,7 @@ impl MeetingStatus {
             Err(e) => {
                 let error = format!("Error inserting meeting: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow!(error));
             }
         };
 
@@ -154,7 +154,7 @@ impl MeetingStatus {
         Ok(())
     }
 
-    pub fn add_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn add_member(&mut self, member: &Member) -> Result<String, Error> {
         let meeting = self.meeting();
         match meeting.add_member(member) {
             Ok(msg) => {
@@ -170,7 +170,7 @@ impl MeetingStatus {
         }
     }
 
-    pub fn remove_member(&mut self, member: &Member) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn remove_member(&mut self, member: &Member) -> Result<String, Error> {
         self.members.retain(|m| m.member_id() != member.id());
 
         let meeting = self.meeting();
@@ -179,7 +179,7 @@ impl MeetingStatus {
     }
 
     /// Loads the next meeting from the database, or defaults to a new meeting.
-    fn load_next_meeting() -> Result<Self, Box<dyn std::error::Error>> {
+    fn load_next_meeting() -> Result<Self, Error> {
         let meeting_data = Meeting::load_next_meeting()?;
         let s = String::from(meeting_data.scheduled_cron());
 
@@ -198,9 +198,9 @@ impl MeetingStatus {
     /// Saves the meeting to the database and creates a task that will start the meeting.
     ///
     /// The task will be cancelled if the schedule is changed.
-    async fn await_meeting(meeting_status: Arc<RwLock<Self>>, ctx: &Context) {
+    async fn await_meeting(meeting_status: Arc<RwLock<Self>>, ctx: &serenity::Context) {
         let meeting_status_clone = Arc::clone(&meeting_status);
-        let cache = ctx.cache.clone();
+        let cache = ctx.cache().unwrap().clone();
         let join_handle = tokio::spawn(async move {
             let meeting_status = meeting_status_clone;
             info!(
@@ -229,13 +229,13 @@ impl MeetingStatus {
         meeting_status.write().await.handle = Some(join_handle);
     }
 
-    fn load_duration(&self) -> Result<Duration, Box<dyn std::error::Error>> {
+    fn load_duration(&self) -> Result<Duration, Error> {
         let schedule = match self.schedule() {
             Ok(s) => s,
             Err(e) => {
                 let error = format!("Error while getting schedule: {}", e);
                 error!("{}", error);
-                return Err(error.into());
+                return Err(anyhow!(error));
             }
         };
 
@@ -267,20 +267,17 @@ impl MeetingStatus {
 
             Ok(duration)
         } else {
-            Err("No upcoming meeting".into())
+            Err(anyhow!("No upcoming meeting"))
         }
     }
 
     /// Starts the meeting and saves current users in the meeting channel
-    async fn start_meeting(
-        &mut self,
-        cache: &Arc<Cache>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
         let channel = match cache.guild_channel(SETTINGS.meeting.channel_id) {
             Some(c) => c,
             None => {
                 error!("Error getting channel");
-                return Err("Error getting channel".into());
+                return Err(anyhow!("Error getting channel"));
             }
         };
 
