@@ -1,6 +1,7 @@
 use config::Config;
 use config::ConfigError;
 use config::File;
+use poise::serenity_prelude as serenity;
 use serde::Deserialize;
 use serenity::model::prelude::ChannelId;
 use serenity::model::prelude::GuildId;
