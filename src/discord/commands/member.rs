@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
+use poise::serenity_prelude as serenity;
 use tracing::error;
 use tracing::info;
-use poise::serenity_prelude as serenity;
 
 use super::Context;
 use super::Error;
@@ -175,25 +175,25 @@ pub async fn update_member(
     }
 
     if let Some(new_discord_member) = discord_member {
-        let user_id = new_discord_member.user.id.0;
+        let dc_id = new_discord_member.user.id.0;
 
-        match member.role().remove_role(&ctx, user_id).await {
-            Ok(_) => {}
-            Err(why) => {
-                let error_msg = format!("Failed to remove member role: {}", why);
-                error!("{}", error_msg);
-                output.push_str(&error_msg);
-                output.push('\n');
+        if let Some(old_dc_id) = member.discord_id() {
+            match member.role().remove_role(&ctx, old_dc_id.parse()?).await {
+                Ok(_) => {}
+                Err(why) => {
+                    let error_msg = format!("Failed to remove member role: {}", why);
+                    error!("{}", error_msg);
+                    output.push_str(&error_msg);
+                    output.push('\n');
+                }
             }
         }
 
-        member.set_discord_id(new_discord_member.to_string());
-
-        member.role().add_role(&ctx, user_id).await?;
+        member.set_discord_id(dc_id.to_string());
     }
 
     if let Some(new_role) = role {
-        let user_id = member.discord_id().unwrap().parse().unwrap();
+        let user_id = member.discord_id().unwrap().parse()?;
 
         match member.role().remove_role(&ctx, user_id).await {
             Ok(_) => {}
@@ -206,8 +206,10 @@ pub async fn update_member(
         }
 
         member.set_role(new_role);
+    }
 
-        member.role().add_role(&ctx, user_id).await?;
+    if let Some(dc_id) = member.discord_id() {
+        member.role().add_role(&ctx, dc_id.parse::<u64>()?).await?;
     }
 
     if let Some(new_trello_id) = trello_id {
