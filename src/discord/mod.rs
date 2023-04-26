@@ -8,7 +8,7 @@ use tracing::log::trace;
 use tracing::{error, info, warn};
 
 use crate::database::models::member::Member;
-use crate::discord::commands::member;
+use crate::discord::commands::{member, report, summary, meeting};
 use crate::meeting::MeetingStatus;
 use crate::SETTINGS;
 
@@ -104,7 +104,7 @@ pub async fn start_bot() {
         | GatewayIntents::GUILD_MEMBERS;
 
     let options = poise::FrameworkOptions {
-        commands: vec![member()],
+        commands: vec![member(), report(), summary(), meeting()],
         event_handler: |ctx, event, framework, _user_data| {
             Box::pin(event_handler(ctx, event, framework))
         },
