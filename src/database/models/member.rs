@@ -287,7 +287,72 @@ impl Member {
             Err(why) => {
                 let error_msg = format!("Failed to update member name: {}", why);
                 error!("{}", error_msg);
-                Err(error_msg.into())
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+
+    pub fn set_discord_id(&mut self, new_id: String) -> Result<(), Error> {
+        self.discord_id = Some(new_id);
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member discord id: {}", why);
+                error!("{}", error_msg);
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+
+    pub fn set_trello_id(&mut self, new_id: String) -> Result<(), Error> {
+        self.trello_id = Some(new_id);
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member trello id: {}", why);
+                error!("{}", error_msg);
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+
+    pub fn set_trello_report_card_id(&mut self, new_id: String) -> Result<(), Error> {
+        self.trello_report_card_id = Some(new_id);
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member trello report card id: {}", why);
+                error!("{}", error_msg);
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+
+    pub fn set_role(&mut self, new_role: MemberRole) -> Result<(), Error> {
+        self.role = new_role;
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member role: {}", why);
+                error!("{}", error_msg);
+                Err(anyhow!(error_msg))
+            }
+        }
+    }
+
+    pub fn set_wiki_id(&mut self, new_id: i64) -> Result<(), Error> {
+        self.wiki_id = Some(new_id);
+
+        match self.update() {
+            Ok(_) => Ok(()),
+            Err(why) => {
+                let error_msg = format!("Failed to update member wiki id: {}", why);
+                error!("{}", error_msg);
+                Err(anyhow!(error_msg))
             }
         }
     }
