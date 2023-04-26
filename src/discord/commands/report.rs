@@ -1,6 +1,5 @@
 use std::fmt::Write;
 
-use tracing::error;
 use tracing::info;
 
 use super::Error;
