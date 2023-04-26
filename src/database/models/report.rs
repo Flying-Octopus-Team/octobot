@@ -10,12 +10,11 @@ use crate::discord::Error;
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
 use poise::serenity_prelude as serenity;
+use poise::SlashArgument;
 use std::fmt::Write;
 use std::fmt::{Display, Formatter};
 use tracing::error;
 use uuid::Uuid;
-
-use super::summary::Summary;
 
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(belongs_to(Member))]
@@ -212,5 +211,51 @@ impl Display for Report {
         write!(output, ": {}", self.content)?;
 
         write!(f, "{}", output)
+    }
+}
+
+#[async_trait::async_trait]
+impl SlashArgument for Report {
+    async fn extract(
+        _ctx: &serenity::Context,
+        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
+        value: &serenity::json::Value,
+    ) -> Result<Self, poise::SlashArgError> {
+        let id = match value {
+            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
+                Ok(id) => id,
+                Err(why) => {
+                    let error_msg = format!("Failed to parse report id: {}", id);
+                    error!("{}", error_msg);
+                    return Err(poise::SlashArgError::Parse {
+                        error: Box::new(why),
+                        input: id.to_string(),
+                    });
+                }
+            },
+            _ => {
+                return Err(poise::SlashArgError::CommandStructureMismatch(
+                    "Report id must be a string",
+                ))
+            }
+        };
+
+        let report = match Report::find_by_id(id) {
+            Ok(report) => report,
+            Err(why) => {
+                let error_msg = format!("Failed to get report: {}", why);
+                error!("{}", error_msg);
+                return Err(poise::SlashArgError::Parse {
+                    error: why.into(),
+                    input: id.to_string(),
+                });
+            }
+        };
+
+        Ok(report)
+    }
+
+    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
+        builder.kind(serenity::command::CommandOptionType::String);
     }
 }
