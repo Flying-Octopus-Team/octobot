@@ -17,10 +17,9 @@ use diesel::sql_types::Integer;
 use diesel::QueryDsl;
 use diesel::Table;
 use poise::serenity_prelude as serenity;
+use poise::SlashArgument;
 use serenity::http::CacheHttp;
-use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::model::prelude::RoleId;
-use serenity::prelude::Context;
 use tracing::error;
 use uuid::Uuid;
 
@@ -334,58 +333,54 @@ impl Display for Member {
     }
 }
 
-impl Display for MemberRole {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MemberRole::Member => write!(f, "Member"),
-            MemberRole::Apprentice => write!(f, "Apprentice"),
-            MemberRole::ExMember => write!(f, "Ex-Member"),
-        }
-    }
-}
-
 impl PartialEq for Member {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
-impl From<&[CommandDataOption]> for Member {
-    fn from(options: &[CommandDataOption]) -> Self {
-        let id = match find_option_as_string(options, "id") {
-            Some(id) => Uuid::parse_str(&id).unwrap(),
-            None => Uuid::new_v4(),
-        };
-        let discord_id = find_option_as_string(options, "discord-id");
-        let trello_id = find_option_as_string(options, "trello-id");
-        let trello_report_card_id = find_option_as_string(options, "trello-report-card");
-        let display_name = match find_option_as_string(options, "display-name") {
-            Some(display_name) => display_name,
-            None => "None".to_string(),
-        };
-        let role = match find_option_value(options, "role") {
-            Some(role_string) => match role_string.as_str() {
-                Some("member") => MemberRole::Member,
-                Some("apprentice") => MemberRole::Apprentice,
-                Some("ex-member") => MemberRole::ExMember,
-                _ => MemberRole::Member,
+#[async_trait::async_trait]
+impl SlashArgument for Member {
+    async fn extract(
+        _ctx: &serenity::Context,
+        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
+        value: &serenity::json::Value,
+    ) -> Result<Self, poise::SlashArgError> {
+        let id = match value {
+            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
+                Ok(id) => id,
+                Err(why) => {
+                    let error_msg = format!("Failed to parse member id: {}", id);
+                    error!("{}", error_msg);
+                    return Err(poise::SlashArgError::Parse {
+                        error: Box::new(why),
+                        input: id.to_string(),
+                    });
+                }
             },
-            None => MemberRole::Member,
+            _ => {
+                return Err(poise::SlashArgError::CommandStructureMismatch(
+                    "Member id must be a string",
+                ))
+            }
         };
 
-        let wiki_id = find_option_value(options, "wiki-id").map(|v| {
-            println!("wiki-id: {:?}", v);
-            v.as_i64().unwrap()
-        });
+        let member = match Member::find_by_id(id) {
+            Ok(member) => member,
+            Err(why) => {
+                let error_msg = format!("Failed to get member: {}", why);
+                error!("{}", error_msg);
+                return Err(poise::SlashArgError::Parse {
+                    error: why.into(),
+                    input: id.to_string(),
+                });
+            }
+        };
 
-        Member {
-            id,
-            display_name,
-            discord_id,
-            trello_id,
-            trello_report_card_id,
-            role,
-            wiki_id,
-        }
+        Ok(member)
+    }
+
+    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
+        builder.kind(serenity::command::CommandOptionType::String);
     }
 }

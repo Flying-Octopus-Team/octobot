@@ -3,8 +3,8 @@ use std::str::FromStr;
 
 use chrono::NaiveDateTime;
 use cron::Schedule;
-use poise::SlashArgument;
 use poise::serenity_prelude as serenity;
+use poise::SlashArgument;
 use tracing::{error, warn};
 use uuid::Uuid;
 
@@ -410,5 +410,51 @@ impl Display for Meeting {
             self.summary_id.as_simple(),
             self.members().unwrap().len()
         )
+    }
+}
+
+#[async_trait::async_trait]
+impl SlashArgument for Meeting {
+    async fn extract(
+        _ctx: &serenity::Context,
+        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
+        value: &serenity::json::Value,
+    ) -> Result<Self, poise::SlashArgError> {
+        let id = match value {
+            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
+                Ok(id) => id,
+                Err(why) => {
+                    let error_msg = format!("Failed to parse meeting id: {}", id);
+                    error!("{}", error_msg);
+                    return Err(poise::SlashArgError::Parse {
+                        error: Box::new(why),
+                        input: id.to_string(),
+                    });
+                }
+            },
+            _ => {
+                return Err(poise::SlashArgError::CommandStructureMismatch(
+                    "Meeting id must be a string",
+                ))
+            }
+        };
+
+        let meeting = match Meeting::find_by_id(id) {
+            Ok(meeting) => meeting,
+            Err(why) => {
+                let error_msg = format!("Failed to get meeting: {}", why);
+                error!("{}", error_msg);
+                return Err(poise::SlashArgError::Parse {
+                    error: why.into(),
+                    input: id.to_string(),
+                });
+            }
+        };
+
+        Ok(meeting)
+    }
+
+    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
+        builder.kind(serenity::command::CommandOptionType::String);
     }
 }
