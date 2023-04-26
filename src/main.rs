@@ -1,6 +1,9 @@
 #[macro_use]
 extern crate diesel;
 
+#[macro_use]
+extern crate anyhow;
+
 use lazy_static::lazy_static;
 use settings::Settings;
 use tracing_appender::non_blocking::WorkerGuard;
