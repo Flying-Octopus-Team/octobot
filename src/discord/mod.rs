@@ -8,7 +8,7 @@ use tracing::log::trace;
 use tracing::{error, info, warn};
 
 use crate::database::models::member::Member;
-use crate::discord::commands::{member, report, summary, meeting};
+use crate::discord::commands::{meeting, member, report, summary};
 use crate::meeting::MeetingStatus;
 use crate::SETTINGS;
 
