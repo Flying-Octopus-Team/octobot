@@ -5,8 +5,8 @@ use crate::database::schema::member;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
-use crate::discord::find_option_as_string;
-use crate::discord::find_option_value;
+use crate::discord::Context;
+use crate::discord::Error;
 use crate::SETTINGS;
 use diesel::backend;
 use diesel::backend::Backend;
@@ -16,6 +16,7 @@ use diesel::serialize::ToSql;
 use diesel::sql_types::Integer;
 use diesel::QueryDsl;
 use diesel::Table;
+use poise::serenity_prelude as serenity;
 use serenity::http::CacheHttp;
 use serenity::model::application::interaction::application_command::CommandDataOption;
 use serenity::model::prelude::RoleId;
@@ -35,11 +36,17 @@ pub struct Member {
     wiki_id: Option<i64>,
 }
 
-#[derive(Copy, Clone, Debug, FromSqlRow, PartialEq, Eq, AsExpression)]
+#[derive(
+    Copy, Clone, Default, Debug, FromSqlRow, PartialEq, Eq, AsExpression, poise::ChoiceParameter,
+)]
 #[diesel(sql_type = diesel::sql_types::Integer)]
 pub enum MemberRole {
+    #[name = "Ex-Member"]
     ExMember = -1,
+    #[name = "Member"]
+    #[default]
     Member = 0,
+    #[name = "Apprentice"]
     Apprentice = 1, // if you add more roles, make sure to update the FromSql implementation below
 }
 
@@ -52,11 +59,7 @@ impl MemberRole {
         }
     }
 
-    pub async fn add_role(
-        &self,
-        cache_http: &impl CacheHttp,
-        member_id: u64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn add_role(&self, cache_http: &impl CacheHttp, member_id: u64) -> Result<(), Error> {
         if let Some(role_id) = self.discord_role() {
             cache_http
                 .http()
@@ -71,7 +74,7 @@ impl MemberRole {
         &self,
         cache_http: &impl CacheHttp,
         member_id: u64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         if let Some(role_id) = self.discord_role() {
             cache_http
                 .http()
@@ -87,7 +90,7 @@ impl MemberRole {
         remove_role: MemberRole,
         cache_http: &impl CacheHttp,
         member_id: u64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Error> {
         add_role.add_role(cache_http, member_id).await?;
         remove_role.remove_role(cache_http, member_id).await?;
         Ok(())
@@ -130,6 +133,7 @@ impl Member {
         trello_id: Option<String>,
         trello_report_card_id: Option<String>,
         role: MemberRole,
+        wiki_id: Option<i64>,
     ) -> Member {
         Member {
             id: Uuid::new_v4(),
@@ -138,24 +142,24 @@ impl Member {
             trello_id,
             trello_report_card_id,
             role,
-            wiki_id: None,
+            wiki_id,
         }
     }
 
-    pub fn insert(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn insert(&self) -> Result<Self, Error> {
         Ok(diesel::insert_into(member::table)
             .values(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn update(&self) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn update(&self) -> Result<Self, Error> {
         Ok(diesel::update(self)
             .set(self)
             .get_result(&mut PG_POOL.get()?)?)
     }
 
     /// Sets users role to Ex-member and removes their discord role
-    pub fn delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn delete(&self) -> Result<bool, Error> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::update(member.filter(id.eq(self.id)))
@@ -169,10 +173,7 @@ impl Member {
             .map(|rows| rows != 0)?)
     }
 
-    pub async fn unassign_wiki_group(
-        &self,
-        group_id: i64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn unassign_wiki_group(&self, group_id: i64) -> Result<(), Error> {
         crate::wiki::unassign_user_group(crate::wiki::unassign_user_group::Variables {
             user_id: self.wiki_id.expect("User must have a wiki id"),
             group_id,
@@ -180,7 +181,7 @@ impl Member {
         .await
     }
 
-    pub async fn assign_wiki_group(&self, group_id: i64) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn assign_wiki_group(&self, group_id: i64) -> Result<(), Error> {
         crate::wiki::assign_user_group(crate::wiki::assign_user_group::Variables {
             user_id: self.wiki_id.expect("User must have a wiki id"),
             group_id,
@@ -188,7 +189,7 @@ impl Member {
         .await
     }
 
-    pub fn hard_delete(&self) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn hard_delete(&self) -> Result<bool, Error> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::delete(member.filter(id.eq(self.id)))
@@ -196,10 +197,7 @@ impl Member {
             .map(|rows| rows != 0)?)
     }
 
-    pub fn list(
-        page: i64,
-        per_page: Option<i64>,
-    ) -> Result<(Vec<Self>, i64), Box<dyn std::error::Error>> {
+    pub fn list(page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Error> {
         use crate::database::schema::member::dsl::*;
 
         let mut query = member
@@ -215,7 +213,7 @@ impl Member {
         Ok((vec, total_pages))
     }
 
-    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Error> {
         use crate::database::schema::member::dsl::*;
 
         let uuid = find_id.into();
@@ -223,9 +221,7 @@ impl Member {
         Ok(member.find(uuid).get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn find_by_discord_id(
-        find_id: impl Into<String>,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn find_by_discord_id(find_id: impl Into<String>) -> Result<Self, Error> {
         use crate::database::schema::member::dsl::*;
 
         let dc_id = find_id.into();
@@ -243,24 +239,25 @@ impl Member {
         self.id
     }
 
-    pub(crate) fn from_discord_id(
-        user_id: String,
-        ctx: &Context,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn from_discord_id(user_id: String, ctx: Context<'_>) -> Result<Self, Error> {
         let member_id = match user_id.parse::<u64>() {
             Ok(id) => id,
             Err(_) => {
                 let error_msg = format!("Invalid member id: {}", user_id);
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow!(error_msg));
             }
         };
-        let guild_member = match ctx.cache.member(SETTINGS.discord.server_id, member_id) {
+        let guild_member = match ctx
+            .cache()
+            .unwrap()
+            .member(SETTINGS.discord.server_id, member_id)
+        {
             Some(guild_member) => guild_member,
             None => {
                 let error_msg = format!("Member not found in the guild: {}", member_id);
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow!(error_msg));
             }
         };
 
@@ -272,7 +269,7 @@ impl Member {
                     member_id, why
                 );
                 error!("{}", error_msg);
-                return Err(error_msg.into());
+                return Err(anyhow!(error_msg));
             }
         };
 
@@ -283,7 +280,7 @@ impl Member {
         self.display_name.clone()
     }
 
-    pub(crate) fn set_name(&mut self, new_name: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn set_name(&mut self, new_name: String) -> Result<(), Error> {
         self.display_name = new_name;
 
         match self.update() {
