@@ -8,7 +8,6 @@ use crate::diesel::RunQueryDsl;
 use crate::discord::Context;
 use crate::discord::Error;
 use crate::SETTINGS;
-use diesel::backend;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
 use diesel::serialize::Output;
@@ -101,7 +100,7 @@ where
     DB: Backend,
     i32: FromSql<Integer, DB>,
 {
-    fn from_sql(bytes: backend::RawValue<DB>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: DB::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         match i32::from_sql(bytes)? {
             -1 => Ok(MemberRole::ExMember),
             0 => Ok(MemberRole::Member),
