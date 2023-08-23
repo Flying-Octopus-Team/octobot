@@ -55,7 +55,7 @@ pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
 
     if meeting_status.is_meeting_ongoing() {
         output.push_str("Meeting is ongoing. ");
-        output.push_str(&meeting_status.meeting_id().to_string());
+        output.push_str(&meeting_status.meeting_id().simple().to_string());
     } else {
         output.push_str("Planned meeting on ");
         output.push_str(
