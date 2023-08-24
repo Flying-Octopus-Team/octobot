@@ -65,7 +65,7 @@ impl MeetingStatus {
     /// This will cancel the current task and create a new one.
     pub async fn change_schedule(
         meeting_status: Arc<RwLock<Self>>,
-        scheduled_cron: &str,
+        scheduled_cron: Schedule,
         ctx: &serenity::Context,
     ) -> Result<(), Error> {
         {
@@ -74,7 +74,7 @@ impl MeetingStatus {
             meeting_status.abort_meeting();
             meeting_status.set_is_ongoing(false);
 
-            meeting_status.schedule = Schedule::from_str(scheduled_cron)?;
+            meeting_status.schedule = scheduled_cron.clone();
             meeting_status.meeting_data.set_schedule(scheduled_cron.to_owned())?;
         }
 
