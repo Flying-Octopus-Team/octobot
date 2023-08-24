@@ -72,10 +72,10 @@ impl MeetingStatus {
             let mut meeting_status = meeting_status.write().await;
 
             meeting_status.abort_meeting();
+            meeting_status.set_is_ongoing(false);
 
             meeting_status.schedule = Schedule::from_str(scheduled_cron)?;
-            meeting_status.meeting_data =
-                Meeting::try_from_cron(scheduled_cron, meeting_status.channel().to_string())?;
+            meeting_status.meeting_data.set_schedule(scheduled_cron.to_owned())?;
         }
 
         MeetingStatus::await_meeting(meeting_status, ctx).await;
@@ -94,8 +94,7 @@ impl MeetingStatus {
     }
 
     fn abort_meeting(&self) {
-        info!("Removing meeting from the database {:?}", self.meeting_data);
-        self.meeting_data.delete().unwrap();
+        info!("Aborting meeting {:?}", self.meeting_data);
         self.handle.as_ref().unwrap().abort();
     }
 

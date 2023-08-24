@@ -98,6 +98,22 @@ impl Meeting {
         Ok(Schedule::from_str(&self.scheduled_cron)?)
     }
 
+    pub fn set_schedule(&mut self, new_schedule: String) -> Result<Self, Error> {
+        let schedule = Schedule::from_str(&new_schedule)?;
+        let next = schedule.upcoming(chrono::Local).next().unwrap();
+        self.start_date = next.naive_local();
+        self.scheduled_cron = new_schedule;
+
+        match self.update() {
+            Ok(s) => Ok(s),
+            Err(e) => {
+                let error = format!("Error while updating meeting's schedule: {}", e);
+                warn!("{}", error);
+                Err(anyhow!(error))
+            }
+        }
+    }
+
     pub fn channel_id(&self) -> &str {
         self.channel_id.as_ref()
     }
