@@ -13,12 +13,9 @@ use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::{
-    database::models::{
-        meeting::{Meeting, MeetingMembers},
-        member::Member,
-    },
-    SETTINGS,
+use crate::database::models::{
+    meeting::{Meeting, MeetingMembers},
+    member::Member,
 };
 
 /// Struct that holds the current meeting status.
@@ -273,7 +270,7 @@ impl MeetingStatus {
 
     /// Starts the meeting and saves current users in the meeting channel
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
-        let channel = match cache.guild_channel(SETTINGS.meeting.channel_id) {
+        let channel = match cache.guild_channel(self.channel().parse::<u64>()?) {
             Some(c) => c,
             None => {
                 error!("Error getting channel");
