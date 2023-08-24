@@ -50,7 +50,7 @@ pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
 
     info!("Received status-meeting command");
 
-    let rw_lock = &ctx.data().meeting_status.clone();
+    let rw_lock = ctx.data().meeting_status.clone();
     let meeting_status = rw_lock.read().await;
 
     if meeting_status.is_meeting_ongoing() {
@@ -102,14 +102,15 @@ pub(crate) async fn plan_meeting(
     let meeting_status = ctx.data().meeting_status.clone();
 
     if let Some(schedule) = schedule {
-        let next = schedule.upcoming(chrono::Local).next().unwrap();
-
         MeetingStatus::change_schedule(
             Arc::clone(&meeting_status),
             &schedule.to_string(),
             ctx.serenity_context(),
         )
         .await?;
+
+        let next = schedule.upcoming(chrono::Local).next().unwrap();
+
         output.push_str("New schedule set to ");
         output.push_str(&schedule.to_string());
         output.push_str(" (next meeting on ");
