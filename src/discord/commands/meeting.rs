@@ -92,7 +92,6 @@ pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
 #[poise::command(slash_command, rename = "plan")]
 pub(crate) async fn plan_meeting(
     ctx: Context<'_>,
-    // option: &CommandDataOption,
     #[description = "Schedule of the meeting"] schedule: Option<cron::Schedule>,
     #[description = "Channel to monitor"]
     #[channel_types("Voice")]

@@ -49,7 +49,7 @@ async fn event_voice_state_update(
     if meeting_status.is_meeting_ongoing()
         && old.is_none()
         && new.channel_id.is_some()
-        && new.channel_id.unwrap() == SETTINGS.meeting.channel_id
+        && new.channel_id.unwrap() == meeting_status.channel().parse::<u64>().unwrap()
     {
         match Member::find_by_discord_id(new.user_id.0.to_string()) {
             Ok(member) => {
