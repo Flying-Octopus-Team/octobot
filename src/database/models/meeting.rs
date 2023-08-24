@@ -98,11 +98,10 @@ impl Meeting {
         Ok(Schedule::from_str(&self.scheduled_cron)?)
     }
 
-    pub fn set_schedule(&mut self, new_schedule: String) -> Result<Self, Error> {
-        let schedule = Schedule::from_str(&new_schedule)?;
-        let next = schedule.upcoming(chrono::Local).next().unwrap();
+    pub fn set_schedule(&mut self, new_schedule: Schedule) -> Result<Self, Error> {
+        let next = new_schedule.upcoming(chrono::Local).next().unwrap();
         self.start_date = next.naive_local();
-        self.scheduled_cron = new_schedule;
+        self.scheduled_cron = new_schedule.to_string();
 
         match self.update() {
             Ok(s) => Ok(s),

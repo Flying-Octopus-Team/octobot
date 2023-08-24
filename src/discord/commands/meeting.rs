@@ -104,7 +104,7 @@ pub(crate) async fn plan_meeting(
     if let Some(schedule) = schedule {
         MeetingStatus::change_schedule(
             Arc::clone(&meeting_status),
-            &schedule.to_string(),
+            schedule.clone(),
             ctx.serenity_context(),
         )
         .await?;
