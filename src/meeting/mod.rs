@@ -75,7 +75,9 @@ impl MeetingStatus {
             meeting_status.set_is_ongoing(false);
 
             meeting_status.schedule = scheduled_cron.clone();
-            meeting_status.meeting_data.set_schedule(scheduled_cron.to_owned())?;
+            meeting_status
+                .meeting_data
+                .set_schedule(scheduled_cron.to_owned())?;
         }
 
         MeetingStatus::await_meeting(meeting_status, ctx).await;
