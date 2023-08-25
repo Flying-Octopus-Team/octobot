@@ -1,0 +1,20 @@
+mutation CreateUser($email: String!, $name: String!, $groups: [Int]!) {
+    users {
+        create(
+            email: $email
+            name: $name
+            providerKey: "Discord"
+            groups: $groups
+        ) {
+            responseResult {
+                succeeded
+                errorCode
+                slug
+                message
+            }
+            user {
+                id
+            }
+        }
+    }
+}
