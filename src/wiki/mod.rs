@@ -104,7 +104,7 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
     }
 }
 
-pub async fn create_user(variables: create_user::Variables) -> Result<(), Error> {
+pub async fn create_user(variables: create_user::Variables) -> Result<i64, Error> {
     let client = get_client()?;
 
     let body = CreateUser::build_query(variables);
@@ -117,18 +117,13 @@ pub async fn create_user(variables: create_user::Variables) -> Result<(), Error>
         return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
     }
 
-    let response_result = response_body
-        .data
-        .unwrap()
-        .users
-        .unwrap()
-        .create
-        .unwrap()
-        .response_result;
+    let create_user_users_create = response_body.data.unwrap().users.unwrap().create;
+
+    let response_result = &create_user_users_create.as_ref().unwrap().response_result;
 
     if response_result.succeeded {
-        Ok(())
+        Ok(create_user_users_create.unwrap().user.unwrap().id)
     } else {
-        Err(anyhow!(response_result.message.unwrap()))
+        Err(anyhow!(response_result.message.clone().unwrap()))
     }
 }
