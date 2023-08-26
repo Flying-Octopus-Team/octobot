@@ -34,6 +34,7 @@ pub struct Discord {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Wiki {
     pub url: String,
+    pub graphql: String,
     pub token: String,
     pub member_group_id: i64,
     pub guest_group_id: i64,
