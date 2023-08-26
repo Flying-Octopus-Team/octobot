@@ -263,11 +263,7 @@ impl Member {
                 return Err(anyhow!(error_msg));
             }
         };
-        let guild_member = match ctx
-            .cache()
-            .unwrap()
-            .member(SETTINGS.discord.server_id, member_id)
-        {
+        let guild_member = match ctx.cache().member(SETTINGS.discord.server_id, member_id) {
             Some(guild_member) => guild_member,
             None => {
                 let error_msg = format!("Member not found in the guild: {}", member_id);
