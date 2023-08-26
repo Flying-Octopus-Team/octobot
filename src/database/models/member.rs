@@ -190,18 +190,30 @@ impl Member {
     /// Assigns member appropriate group on wiki. This sould be used when assigning a member role to a user.
     /// This function will also remove the guest group if the user had one.
     pub async fn assign_wiki_group_by_role(&self) -> Result<(), Error> {
-        let group_id = match self.role {
-            MemberRole::Member => SETTINGS.wiki.member_group_id,
-            MemberRole::Apprentice => SETTINGS.wiki.member_group_id,
-            MemberRole::ExMember => SETTINGS.wiki.guest_group_id,
-        };
-
-        self.unassign_wiki_group(SETTINGS.wiki.guest_group_id)
-            .await?;
+        let group_id = self.wiki_group();
 
         self.assign_wiki_group(group_id).await?;
 
         Ok(())
+    }
+
+    /// Unassigns member appropriate group on wiki. This sould be used when unassigning a member role to a user.
+    /// This function will also remove the guest group if the user had one.
+    pub async fn unassign_wiki_group_by_role(&self) -> Result<(), Error> {
+        let group_id = self.wiki_group();
+
+        self.unassign_wiki_group(group_id).await?;
+
+        Ok(())
+    }
+
+    /// Returns wiki group id based on member role
+    pub fn wiki_group(&self) -> i64 {
+        match self.role {
+            MemberRole::Member => SETTINGS.wiki.member_group_id,
+            MemberRole::Apprentice => SETTINGS.wiki.member_group_id,
+            MemberRole::ExMember => SETTINGS.wiki.guest_group_id,
+        }
     }
 
     pub fn hard_delete(&self) -> Result<bool, Error> {

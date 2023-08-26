@@ -31,7 +31,7 @@ fn discord_email_button() -> CreateButton {
     button
 }
 
-fn ask_wiki_details<'a, 'b>(c: &'a mut CreateMessage<'b>) -> &'a mut CreateMessage<'b> {
+fn dm_wiki_details<'a, 'b>(c: &'a mut CreateMessage<'b>) -> &'a mut CreateMessage<'b> {
     c.content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address.")
         .components(|c|
             c.create_action_row(|a|
@@ -57,7 +57,7 @@ pub async fn add_member(
     let name = if let Some(name) = name {
         name
     } else {
-        member.user.name
+        member.display_name().to_string()
     };
 
     let discord_id = member.user.id;
@@ -81,6 +81,7 @@ pub async fn add_member(
         role.unwrap_or_default(),
         wiki_id,
     );
+
     match member.role().add_role(&ctx, discord_id.0).await {
         Ok(_) => (),
         Err(why) => {
@@ -107,20 +108,20 @@ pub async fn add_member(
 
     output.push_str(&format!("Added {}", member));
 
-    let mut dm_wiki_details = false;
+    let mut ask_wiki_details = false;
 
     if member.wiki_id().is_none() {
         output.push_str("\nInstructions to create wiki account sent via DM to the new member.");
-        dm_wiki_details = true;
+        ask_wiki_details = true;
     }
 
     crate::discord::respond(ctx, output).await?;
 
-    if dm_wiki_details {
+    if ask_wiki_details {
         // DM new member to get either their Discord email to create new wiki account or their wiki ID
         let dm = discord_id.create_dm_channel(&ctx).await?;
 
-        let msg = dm.send_message(&ctx, ask_wiki_details).await?;
+        let msg = dm.send_message(&ctx, dm_wiki_details).await?;
 
         let mut wiki_id = None;
 
@@ -156,6 +157,10 @@ pub async fn add_member(
 
         if let Some(wiki_id) = wiki_id {
             member.set_wiki_id(wiki_id);
+
+            member
+                .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
+                .await?;
 
             member.assign_wiki_group_by_role().await?;
 
@@ -206,15 +211,14 @@ pub async fn remove_member(
     }
 
     if member.wiki_id().is_some() {
-        member
-            .unassign_wiki_group(SETTINGS.wiki.member_group_id)
-            .await?;
+        member.unassign_wiki_group_by_role().await?;
 
-        if let Err(why) = member.assign_wiki_group(SETTINGS.wiki.guest_group_id).await {
-            let error_msg = format!("Failed to assign wiki group: {}", why);
-            error!("{}", error_msg);
-            output.push_str(&(error_msg + "\n"));
-        }
+        // assign account to guest group
+        crate::wiki::assign_user_group(crate::wiki::assign_user_group::Variables {
+            user_id: member.wiki_id().unwrap(),
+            group_id: SETTINGS.wiki.guest_group_id,
+        })
+        .await?;
     }
 
     if hard_delete.unwrap_or(false) {
@@ -288,7 +292,13 @@ pub async fn update_member(
             }
         }
 
+        // remove wiki account from old group
+        member.unassign_wiki_group_by_role().await?;
+
         member.set_role(new_role);
+
+        // assign wiki account to new group
+        member.assign_wiki_group_by_role().await?;
     }
 
     if let Some(dc_id) = member.discord_id() {
@@ -304,7 +314,33 @@ pub async fn update_member(
     }
 
     if let Some(new_wiki_id) = wiki_id {
-        member.set_wiki_id(new_wiki_id)
+        // remove old account from group - only if it's not guest group
+        let is_guest_group = member.wiki_group() != SETTINGS.wiki.guest_group_id;
+
+        if is_guest_group {
+            member.unassign_wiki_group_by_role().await?;
+
+            // assign old account to guest group
+            crate::wiki::assign_user_group(crate::wiki::assign_user_group::Variables {
+                user_id: member.wiki_id().unwrap(),
+                group_id: SETTINGS.wiki.guest_group_id,
+            })
+            .await?;
+
+            member.set_wiki_id(new_wiki_id);
+
+            // remove new account from guest group
+            crate::wiki::unassign_user_group(crate::wiki::unassign_user_group::Variables {
+                user_id: member.wiki_id().unwrap(),
+                group_id: SETTINGS.wiki.guest_group_id,
+            })
+            .await?;
+
+            // assign new account to group
+            member.assign_wiki_group_by_role().await?;
+        } else {
+            member.set_wiki_id(new_wiki_id);
+        }
     }
 
     match member.update() {

@@ -121,7 +121,7 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
     }
 }
 
-pub async fn create_user(variables: create_user::Variables) -> Result<i64, Error> {
+pub async fn create_user(variables: create_user::Variables) -> Result<Option<i64>, Error> {
     let client = get_client()?;
 
     let body = CreateUser::build_query(variables);
@@ -143,7 +143,11 @@ pub async fn create_user(variables: create_user::Variables) -> Result<i64, Error
     let response_result = &create_user_users_create.as_ref().unwrap().response_result;
 
     if response_result.succeeded {
-        Ok(create_user_users_create.unwrap().user.unwrap().id)
+        Ok(create_user_users_create
+            .unwrap()
+            .user
+            .as_ref()
+            .map(|user| user.id))
     } else {
         Err(anyhow!(response_result.message.clone().unwrap()))
     }
@@ -187,10 +191,17 @@ pub async fn find_or_create_user(email: String, name: String) -> Result<i64, Err
     }
 
     let variables = create_user::Variables {
-        email,
+        email: email.clone(),
         name,
-        groups: vec![Some(SETTINGS.wiki.member_group_id)],
+        provider_key: SETTINGS.wiki.provider_key.clone(),
+        groups: vec![Some(SETTINGS.wiki.guest_group_id)],
     };
 
-    create_user(variables).await
+    let user_id = create_user(variables).await?;
+
+    if let Some(id) = user_id {
+        Ok(id)
+    } else {
+        find_user_by_email(email).await.map(|id| id.unwrap())
+    }
 }
