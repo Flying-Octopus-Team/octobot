@@ -1,6 +1,8 @@
 use std::fmt::Write;
 
 use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::CreateButton;
+use poise::serenity_prelude::CreateMessage;
 use tracing::error;
 use tracing::info;
 
@@ -9,6 +11,34 @@ use super::Error;
 use crate::database::models::member::Member;
 use crate::database::models::member::MemberRole;
 use crate::SETTINGS;
+
+/// Modal to get the Discord email of a user to connect or create a new wiki account
+#[derive(Debug, poise::Modal)]
+#[name = "Discord email for Wiki account"]
+struct WikiEmailModal {
+    #[name = "Discord email"]
+    #[placeholder = "example@domain.com"]
+    #[min_length = 1]
+    #[max_length = 254]
+    wiki_email: String,
+}
+
+fn discord_email_button() -> CreateButton {
+    let mut button = CreateButton::default();
+    button
+        .label("Discord email")
+        .custom_id("discord_email_button");
+    button
+}
+
+fn ask_wiki_details<'a, 'b>(c: &'a mut CreateMessage<'b>) -> &'a mut CreateMessage<'b> {
+    c.content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address.")
+        .components(|c|
+            c.create_action_row(|a|
+                a.add_button(discord_email_button())
+            )
+        )
+}
 
 #[poise::command(slash_command, rename = "add")]
 pub async fn add_member(
@@ -64,7 +94,7 @@ pub async fn add_member(
         member.assign_wiki_group_by_role().await?;
     }
 
-    let member = match member.insert() {
+    let mut member = match member.insert() {
         Ok(member) => member,
         Err(e) => {
             let error_msg = format!("Failed to insert member into database: {}", e);
@@ -77,7 +107,79 @@ pub async fn add_member(
 
     output.push_str(&format!("Added {}", member));
 
-    crate::discord::respond(ctx, output).await
+    let mut dm_wiki_details = false;
+
+    if member.wiki_id().is_none() {
+        output.push_str("\nInstructions to create wiki account sent via DM to the new member.");
+        dm_wiki_details = true;
+    }
+
+    crate::discord::respond(ctx, output).await?;
+
+    if dm_wiki_details {
+        // DM new member to get either their Discord email to create new wiki account or their wiki ID
+        let dm = discord_id.create_dm_channel(&ctx).await?;
+
+        let msg = dm.send_message(&ctx, ask_wiki_details).await?;
+
+        let mut wiki_id = None;
+
+        while let Some(interaction) =
+            poise::serenity_prelude::CollectComponentInteraction::new(ctx.serenity_context())
+                .channel_id(dm.id)
+                .author_id(discord_id)
+                .message_id(msg.id)
+                .await
+        {
+            info!("User {} responded to wiki email modal", interaction.user.id);
+
+            let email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(
+                ctx,
+                interaction,
+                None,
+                None,
+            )
+            .await?;
+
+            if let Some(email) = email {
+                let email = email.wiki_email;
+
+                let user_id = crate::wiki::find_or_create_user(email, member.name().clone())
+                    .await
+                    .unwrap();
+
+                wiki_id = Some(user_id);
+
+                break;
+            }
+        }
+
+        if let Some(wiki_id) = wiki_id {
+            member.set_wiki_id(wiki_id);
+
+            member.assign_wiki_group_by_role().await?;
+
+            match member.update() {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_msg = format!("Failed to update member in database: {}", e);
+                    error!("{}", error_msg);
+                    return Err(anyhow!(error_msg));
+                }
+            }
+        }
+
+        let _ = dm
+            .send_message(&ctx, |m| {
+                m.content(format!(
+                    "Your wiki account has been created. You can now login at {}",
+                    SETTINGS.wiki.url
+                ))
+            })
+            .await;
+    }
+
+    Ok(())
 }
 
 #[poise::command(slash_command, rename = "remove")]
