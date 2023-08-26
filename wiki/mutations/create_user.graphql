@@ -1,9 +1,9 @@
-mutation CreateUser($email: String!, $name: String!, $groups: [Int]!) {
+mutation CreateUser($email: String!, $name: String!, $providerKey: String!, $groups: [Int]!) {
     users {
         create(
             email: $email
             name: $name
-            providerKey: "Discord"
+            providerKey: $providerKey
             groups: $groups
         ) {
             responseResult {
