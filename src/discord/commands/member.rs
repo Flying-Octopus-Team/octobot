@@ -61,26 +61,7 @@ pub async fn add_member(
     }
 
     if member.wiki_id().is_some() {
-        if let Err(why) = member
-            .assign_wiki_group(SETTINGS.wiki.member_group_id)
-            .await
-        {
-            let error_msg = format!("Failed to assign wiki group: {}", why);
-            error!("{}", error_msg);
-            output.push_str(&(error_msg + "\n"));
-        }
-
-        match member
-            .unassign_wiki_group(SETTINGS.wiki.guest_group_id)
-            .await
-        {
-            Ok(_) => (),
-            Err(why) => {
-                let error_msg = format!("Failed to unassign wiki group: {}", why);
-                error!("{}", error_msg);
-                output.push_str(&(error_msg + "\n"));
-            }
-        }
+        member.assign_wiki_group_by_role().await?;
     }
 
     let member = match member.insert() {
