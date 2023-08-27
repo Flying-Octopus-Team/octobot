@@ -11,7 +11,7 @@ use crate::discord::Context;
 pub(crate) async fn add_report(
     ctx: Context<'_>,
     #[description = "Report's content"] content: String,
-    #[description = "Member's ID"] member: Option<Member>,
+    #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Summary's ID"] summary: Option<Summary>,
 ) -> Result<(), Error> {
     info!("Adding report");
@@ -76,7 +76,7 @@ pub(crate) async fn list_reports(
     ctx: Context<'_>,
     #[description = "Page number"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
-    #[description = "Member's ID"] member: Option<Member>,
+    #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Published"] published: Option<bool>,
 ) -> Result<(), Error> {
     info!("Listing reports");
@@ -102,7 +102,7 @@ pub(crate) async fn update_report(
     ctx: Context<'_>,
     #[description = "Report's ID"] mut report: Report,
     #[description = "Report's content"] content: Option<String>,
-    #[description = "Member's ID"] member: Option<Member>,
+    #[description = "Member of the organization"] member: Option<Member>,
 ) -> Result<(), Error> {
     info!("Updating report");
 

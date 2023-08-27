@@ -190,7 +190,7 @@ pub async fn add_member(
 #[poise::command(slash_command, rename = "remove")]
 pub async fn remove_member(
     ctx: Context<'_>,
-    #[description = "Member ID"] member: crate::database::models::member::Member,
+    #[description = "Member of the organization"] member: crate::database::models::member::Member,
     #[description = "Hard delete member from the database"] hard_delete: Option<bool>,
 ) -> Result<(), Error> {
     info!("Removing member");
@@ -238,7 +238,7 @@ pub async fn remove_member(
 #[allow(clippy::too_many_arguments)]
 pub async fn update_member(
     ctx: Context<'_>,
-    #[description = "Member ID"] mut member: crate::database::models::member::Member,
+    #[description = "Member of the organization"] mut member: crate::database::models::member::Member,
     #[description = "Member name"] name: Option<String>,
     #[description = "Member Discord"] discord_member: Option<serenity::Member>,
     #[description = "Member Trello ID"] trello_id: Option<String>,
