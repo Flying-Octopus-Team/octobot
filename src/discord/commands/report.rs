@@ -19,10 +19,7 @@ pub(crate) async fn add_report(
         Some(member) => member,
         None => {
             let author_id = ctx.author().id.to_string();
-            match Member::find_by_discord_id(author_id) {
-                Ok(member) => member,
-                Err(why) => return Err(anyhow!("Member not found in the database: {}", why))?,
-            }
+            Member::find_by_discord_id(author_id)?
         }
     };
 
@@ -114,10 +111,7 @@ pub(crate) async fn update_report(
         report.member_id = member.id();
     }
 
-    let report = match report.update() {
-        Ok(report) => report,
-        Err(why) => return Err(anyhow!("Can't update report: {}", why))?,
-    };
+    let report = report.update()?;
 
     let mut output = String::new();
 

@@ -36,6 +36,26 @@ pub enum Error {
         #[from]
         source: r2d2::Error,
     },
+    #[error("User {} already in meeting {}", .user_id, .meeting_id)]
+    UserAlreadyInMeeting {
+        user_id: uuid::Uuid,
+        meeting_id: uuid::Uuid,
+    },
+    #[error("User {} not in meeting {}", .user_id, .meeting_id)]
+    UserNotInMeeting {
+        user_id: uuid::Uuid,
+        meeting_id: uuid::Uuid,
+    },
+    #[error("Summary too long to fit in messages")]
+    SummaryTooLong,
+    #[error("No messages to send summary to")]
+    NoSummaryMessages,
+    #[error("No meeting is ongoing")]
+    NoMeetingOngoing,
+    #[error("No meeting is planned")]
+    NoMeetingPlanned,
+    #[error("Guild channel not found")]
+    GuildChannelNotFound,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

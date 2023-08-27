@@ -130,14 +130,7 @@ impl MeetingStatus {
 
         meeting.set_is_ongoing(false);
 
-        match meeting.meeting_data.end_meeting(Local::now()) {
-            Ok(_) => {}
-            Err(e) => {
-                let error = format!("Error inserting meeting: {}", e);
-                error!("{}", error);
-                return Err(anyhow!(error))?;
-            }
-        };
+        meeting.meeting_data.end_meeting(Local::now())?;
 
         let scheduled_cron = String::from(meeting.meeting_data.scheduled_cron());
 
@@ -228,14 +221,7 @@ impl MeetingStatus {
     }
 
     fn load_duration(&self) -> Result<Duration, Error> {
-        let schedule = match self.schedule() {
-            Ok(s) => s,
-            Err(e) => {
-                let error = format!("Error while getting schedule: {}", e);
-                error!("{}", error);
-                return Err(anyhow!(error))?;
-            }
-        };
+        let schedule = self.schedule()?;
 
         if let Some(datetime) = schedule.upcoming(Local).next() {
             let mut duration = datetime
@@ -265,7 +251,7 @@ impl MeetingStatus {
 
             Ok(duration)
         } else {
-            Err(anyhow!("No upcoming meeting"))?
+            Err(Error::NoMeetingPlanned)
         }
     }
 
@@ -274,8 +260,8 @@ impl MeetingStatus {
         let channel = match cache.guild_channel(self.channel().parse::<u64>()?) {
             Some(c) => c,
             None => {
-                error!("Error getting channel");
-                return Err(anyhow!("Error getting channel"))?;
+                error!("Channel not found");
+                return Err(Error::GuildChannelNotFound);
             }
         };
 

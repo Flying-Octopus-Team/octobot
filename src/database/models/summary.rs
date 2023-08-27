@@ -165,37 +165,23 @@ impl Summary {
                             .edit_message(ctx, message_id.parse::<u64>().unwrap(), |m| {
                                 m.content(message)
                             })
-                            .await
-                            .map_err(|e| anyhow!(format!("Error editing summary: {}", e)))?;
+                            .await?;
                     }
                 } else {
-                    // if there are different number of messages, return message notifying about it
-                    return Err(anyhow!(
-                        "New summary is too long to fit in the old messages. Summary was not edited"
-                    ))?;
+                    return Err(Error::SummaryTooLong);
                 }
             } else {
-                return Err(anyhow!("No previous summary messages to resend to"))?;
+                return Err(Error::NoSummaryMessages);
             }
         } else {
             let mut messages_id = Vec::new();
             for message in messages {
-                let message_id = channel_id
-                    .say(ctx, message)
-                    .await
-                    .map_err(|e| anyhow!(format!("Error sending summary: {}", e)))?
-                    .id
-                    .0;
+                let message_id = channel_id.say(ctx, message).await?.id.0;
+
                 messages_id.push(message_id.to_string());
             }
 
-            match self.set_messages_id(messages_id) {
-                Ok(_) => {}
-                Err(e) => {
-                    error!("Error saving summary: {}", e);
-                    return Err(anyhow!("Error saving summary: {}", e))?;
-                }
-            }
+            self.set_messages_id(messages_id)?;
         }
 
         Ok("Summary was generated and sent to the channel".to_string())

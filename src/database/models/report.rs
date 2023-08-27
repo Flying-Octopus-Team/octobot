@@ -103,14 +103,8 @@ impl Report {
 
     pub fn set_publish(&mut self) -> Result<Self, Error> {
         self.published = true;
-        match self.update() {
-            Ok(report) => Ok(report),
-            Err(e) => {
-                let error = format!("Error publishing report: {}", e);
-                error!("{}", error);
-                Err(anyhow!(error))?
-            }
-        }
+
+        self.update()
     }
 
     pub(crate) fn summary_id(&self) -> Option<Uuid> {
@@ -119,14 +113,8 @@ impl Report {
 
     pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Error> {
         self.summary_id = Some(id);
-        match self.update() {
-            Ok(report) => Ok(report),
-            Err(e) => {
-                let error = format!("Error setting summary id: {}", e);
-                error!("{}", error);
-                Err(anyhow!(error))?
-            }
-        }
+
+        self.update()
     }
 
     pub fn find_by_id(find_id: impl Into<Uuid>) -> Result<Self, Error> {
