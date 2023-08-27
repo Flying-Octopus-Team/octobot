@@ -95,14 +95,7 @@ pub async fn add_member(
         member.assign_wiki_group_by_role().await?;
     }
 
-    let mut member = match member.insert() {
-        Ok(member) => member,
-        Err(e) => {
-            let error_msg = format!("Failed to insert member into database: {}", e);
-            error!("{}", error_msg);
-            return Err(anyhow!(error_msg))?;
-        }
-    };
+    let mut member = member.insert()?;
 
     info!("Member added: {:?}", member);
 
@@ -164,14 +157,7 @@ pub async fn add_member(
 
             member.assign_wiki_group_by_role().await?;
 
-            match member.update() {
-                Ok(_) => {}
-                Err(e) => {
-                    let error_msg = format!("Failed to update member in database: {}", e);
-                    error!("{}", error_msg);
-                    return Err(anyhow!(error_msg))?;
-                }
-            }
+            member.update()?;
         }
 
         let _ = dm
@@ -251,14 +237,7 @@ pub async fn update_member(
     let mut output = String::new();
 
     if let Some(new_name) = name {
-        match member.set_name(new_name) {
-            Ok(_) => {}
-            Err(why) => {
-                let error_msg = format!("Failed to update member name: {}", why);
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg))?;
-            }
-        }
+        member.set_name(new_name)?
     }
 
     if let Some(new_discord_member) = discord_member {
@@ -343,14 +322,7 @@ pub async fn update_member(
         }
     }
 
-    match member.update() {
-        Ok(_) => {}
-        Err(e) => {
-            let error_msg = format!("Failed to update member in database: {}", e);
-            error!("{}", error_msg);
-            return Err(anyhow!(error_msg))?;
-        }
-    }
+    member.update()?;
 
     info!("Member updated: {}", member);
 

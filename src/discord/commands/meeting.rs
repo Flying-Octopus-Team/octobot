@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
-use tracing::{error, info};
+use tracing::info;
 
 use crate::database::models::meeting::Meeting;
 use crate::database::models::summary::Summary;
@@ -22,9 +22,7 @@ pub(crate) async fn end_meeting(
     let meeting_status = ctx.data().meeting_status.clone();
 
     if !meeting_status.read().await.is_meeting_ongoing() {
-        let error = "No meeting is ongoing".to_string();
-        error!("{}", error);
-        return Err(anyhow!(error))?;
+        return Err(Error::NoMeetingOngoing);
     }
 
     let rw_lock_read_guard = meeting_status.read().await;
@@ -121,14 +119,8 @@ pub(crate) async fn plan_meeting(
 
         let mut meeting_status = meeting_status.write().await;
 
-        match meeting_status.change_channel(channel_id.to_string()) {
-            Ok(_) => {}
-            Err(e) => {
-                let error = format!("Error changing channel: {}", e);
-                error!("{}", error);
-                return Err(anyhow!(error))?;
-            }
-        }
+        meeting_status.change_channel(channel_id.to_string())?;
+
         output.push_str("\nMeeting channel changed to <#");
         output.push_str(&channel_id.to_string());
         output.push('>');
@@ -159,23 +151,9 @@ pub(crate) async fn set_note(
 
     let mut summary = Summary::find_by_id(meeting.summary_id())?;
 
-    match summary.set_note(note) {
-        Ok(_) => {}
-        Err(e) => {
-            let error_msg = format!("Error changing summary note: {}", e);
-            error!("{}", error_msg);
-            return Err(anyhow!(error_msg))?;
-        }
-    }
+    summary.set_note(note)?;
 
-    match summary.send_summary(ctx, true).await {
-        Ok(_) => {}
-        Err(e) => {
-            let error = format!("Error sending summary: {}", e);
-            error!("{}", error);
-            return Err(anyhow!(error))?;
-        }
-    }
+    summary.send_summary(ctx, true).await?;
 
     crate::discord::respond(ctx, output).await
 }

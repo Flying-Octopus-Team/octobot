@@ -272,14 +272,9 @@ impl Member {
     pub(crate) fn set_name(&mut self, new_name: String) -> Result<(), Error> {
         self.display_name = new_name;
 
-        match self.update() {
-            Ok(_) => Ok(()),
-            Err(why) => {
-                let error_msg = format!("Failed to update member name: {}", why);
-                error!("{}", error_msg);
-                Err(anyhow!(error_msg))?
-            }
-        }
+        self.update()?;
+
+        Ok(())
     }
 
     pub fn set_discord_id(&mut self, new_id: String) {

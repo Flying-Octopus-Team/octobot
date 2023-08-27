@@ -103,14 +103,7 @@ impl Meeting {
         self.start_date = next.naive_local();
         self.scheduled_cron = new_schedule.to_string();
 
-        match self.update() {
-            Ok(s) => Ok(s),
-            Err(e) => {
-                let error = format!("Error while updating meeting's schedule: {}", e);
-                warn!("{}", error);
-                Err(anyhow!(error))?
-            }
-        }
+        self.update()
     }
 
     pub fn channel_id(&self) -> &str {
@@ -120,14 +113,7 @@ impl Meeting {
     pub fn set_channel_id(&mut self, new_channel_id: String) -> Result<Self, Error> {
         self.channel_id = new_channel_id;
 
-        match self.update() {
-            Ok(s) => Ok(s),
-            Err(e) => {
-                let error = format!("Error while updating meeting's channel id: {}", e);
-                warn!("{}", error);
-                Err(anyhow!(error))?
-            }
-        }
+        self.update()
     }
 
     /// Set summary note
@@ -196,39 +182,20 @@ impl Meeting {
     pub(crate) fn remove_member(&self, member: &Member) -> Result<String, Error> {
         let member_dc_id = member.discord_id().unwrap();
         let mut output = String::new();
-        if !match MeetingMembers::is_user_in_meeting(self.id(), member.id()) {
-            Ok(is_in_meeting) => is_in_meeting,
-            Err(why) => {
-                let error_msg = format!(
-                    "Error checking if user is in meeting: {}\nReason: {}",
-                    self.id(),
-                    why
-                );
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg))?;
-            }
-        } {
-            let error_msg = format!("Member <@{}> is not in meeting {}", member_dc_id, self.id());
-            warn!("{}", error_msg);
-            return Err(anyhow!(error_msg))?;
+
+        if !MeetingMembers::is_user_in_meeting(self.id(), member.id())? {
+            return Err(Error::UserNotInMeeting {
+                user_id: member.id(),
+                meeting_id: self.id(),
+            })?;
         }
-        match self._remove_member(member.id()) {
-            Ok(_) => {
-                output.push_str("Removed member <@");
-                output.push_str(member_dc_id);
-                output.push('>');
-            }
-            Err(why) => {
-                let error_msg = format!(
-                    "Error removing member <@{}> from meeting: {}\nReason: {}",
-                    member_dc_id,
-                    self.id(),
-                    why
-                );
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg))?;
-            }
-        }
+
+        self._remove_member(member.id())?;
+
+        output.push_str("Removed member <@");
+        output.push_str(member_dc_id);
+        output.push('>');
+
         Ok(output)
     }
 
@@ -245,43 +212,20 @@ impl Meeting {
     pub(crate) fn add_member(&self, member: &Member) -> Result<String, Error> {
         let member_dc_id = member.discord_id().unwrap();
         let mut output = String::new();
-        if match MeetingMembers::is_user_in_meeting(self.id(), member.id()) {
-            Ok(is_in_meeting) => is_in_meeting,
-            Err(why) => {
-                let error_msg = format!(
-                    "Error checking if user is in meeting: {}\nReason: {}",
-                    self.id(),
-                    why
-                );
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg))?;
-            }
-        } {
-            let error_msg = format!(
-                "Member <@{}> is already in meeting {}",
-                member_dc_id,
-                self.id()
-            );
-            warn!("{}", error_msg);
-            return Err(anyhow!(error_msg))?;
+
+        if MeetingMembers::is_user_in_meeting(self.id(), member.id())? {
+            return Err(Error::UserAlreadyInMeeting {
+                user_id: member.id(),
+                meeting_id: self.id(),
+            })?;
         }
-        match self._add_member(member.id()) {
-            Ok(_) => {
-                output.push_str("Added member <@");
-                output.push_str(&member_dc_id.to_string());
-                output.push('>');
-            }
-            Err(why) => {
-                let error_msg = format!(
-                    "Error adding member <@{}> to meeting: {}\nReason: {}",
-                    member_dc_id,
-                    self.id(),
-                    why
-                );
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg))?;
-            }
-        }
+
+        self._add_member(member.id())?;
+
+        output.push_str("Added member <@");
+        output.push_str(&member_dc_id.to_string());
+        output.push('>');
+
         Ok(output)
     }
 
@@ -292,14 +236,7 @@ impl Meeting {
             meeting_id: self.id,
         };
 
-        match meeting_member.insert() {
-            Ok(_) => Ok(meeting_member),
-            Err(e) => {
-                let error = format!("Error while adding member to meeting: {}", e);
-                error!("{}", error);
-                Err(anyhow!(error))?
-            }
-        }
+        meeting_member.insert()
     }
 
     /// Check if meeting exists in the database.
