@@ -341,7 +341,12 @@ impl Display for Member {
         write!(
             f,
             "{} <@{}> ({}) Trello ID: {}, Trello Report Card ID: {}, Wiki ID: {}",
-            self.role, discord_id, self.id.simple(), trello_id, trello_report_card_id, wiki_id
+            self.role,
+            discord_id,
+            self.id.simple(),
+            trello_id,
+            trello_report_card_id,
+            wiki_id
         )
     }
 }

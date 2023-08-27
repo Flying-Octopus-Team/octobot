@@ -164,8 +164,10 @@ async fn respond(ctx: Context<'_>, content: String) -> Result<(), Error> {
     let content_chunks = split_message(content)?;
 
     for content in content_chunks {
-        poise::reply::send_reply(ctx, |m| m.content(content).allowed_mentions(|m|
-        m.empty_parse())).await?;
+        poise::reply::send_reply(ctx, |m| {
+            m.content(content).allowed_mentions(|m| m.empty_parse())
+        })
+        .await?;
     }
 
     Ok(())
