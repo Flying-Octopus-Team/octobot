@@ -5,7 +5,7 @@ use crate::database::schema::member;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
-use crate::discord::Error;
+use crate::error::Error;
 use crate::SETTINGS;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
@@ -277,7 +277,7 @@ impl Member {
             Err(why) => {
                 let error_msg = format!("Failed to update member name: {}", why);
                 error!("{}", error_msg);
-                Err(anyhow!(error_msg))
+                Err(anyhow!(error_msg))?
             }
         }
     }

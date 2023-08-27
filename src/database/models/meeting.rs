@@ -17,7 +17,7 @@ use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::diesel::Table;
-use crate::discord::Error;
+use crate::error::Error;
 use crate::SETTINGS;
 
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
@@ -108,7 +108,7 @@ impl Meeting {
             Err(e) => {
                 let error = format!("Error while updating meeting's schedule: {}", e);
                 warn!("{}", error);
-                Err(anyhow!(error))
+                Err(anyhow!(error))?
             }
         }
     }
@@ -125,7 +125,7 @@ impl Meeting {
             Err(e) => {
                 let error = format!("Error while updating meeting's channel id: {}", e);
                 warn!("{}", error);
-                Err(anyhow!(error))
+                Err(anyhow!(error))?
             }
         }
     }
@@ -205,12 +205,12 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
+                return Err(anyhow!(error_msg))?;
             }
         } {
             let error_msg = format!("Member <@{}> is not in meeting {}", member_dc_id, self.id());
             warn!("{}", error_msg);
-            return Err(anyhow!(error_msg));
+            return Err(anyhow!(error_msg))?;
         }
         match self._remove_member(member.id()) {
             Ok(_) => {
@@ -226,7 +226,7 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
+                return Err(anyhow!(error_msg))?;
             }
         }
         Ok(output)
@@ -254,7 +254,7 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
+                return Err(anyhow!(error_msg))?;
             }
         } {
             let error_msg = format!(
@@ -263,7 +263,7 @@ impl Meeting {
                 self.id()
             );
             warn!("{}", error_msg);
-            return Err(anyhow!(error_msg));
+            return Err(anyhow!(error_msg))?;
         }
         match self._add_member(member.id()) {
             Ok(_) => {
@@ -279,7 +279,7 @@ impl Meeting {
                     why
                 );
                 error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
+                return Err(anyhow!(error_msg))?;
             }
         }
         Ok(output)
@@ -297,7 +297,7 @@ impl Meeting {
             Err(e) => {
                 let error = format!("Error while adding member to meeting: {}", e);
                 error!("{}", error);
-                Err(anyhow!(error))
+                Err(anyhow!(error))?
             }
         }
     }

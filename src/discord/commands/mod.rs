@@ -1,5 +1,5 @@
 use super::Context;
-use super::Error;
+use crate::error::Error;
 
 mod meeting;
 mod member;

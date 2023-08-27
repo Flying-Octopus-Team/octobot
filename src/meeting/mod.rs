@@ -2,7 +2,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 use std::{str::FromStr, sync::Arc, time::Duration};
 
-use crate::discord::Error;
 use chrono::Local;
 use cron::Schedule;
 use poise::serenity_prelude as serenity;
@@ -17,6 +16,7 @@ use crate::database::models::{
     meeting::{Meeting, MeetingMembers},
     member::Member,
 };
+use crate::error::Error;
 
 /// Struct that holds the current meeting status.
 /// It is used to keep track of the meeting's members and to check if the meeting is ongoing.
@@ -135,7 +135,7 @@ impl MeetingStatus {
             Err(e) => {
                 let error = format!("Error inserting meeting: {}", e);
                 error!("{}", error);
-                return Err(anyhow!(error));
+                return Err(anyhow!(error))?;
             }
         };
 
@@ -233,7 +233,7 @@ impl MeetingStatus {
             Err(e) => {
                 let error = format!("Error while getting schedule: {}", e);
                 error!("{}", error);
-                return Err(anyhow!(error));
+                return Err(anyhow!(error))?;
             }
         };
 
@@ -265,7 +265,7 @@ impl MeetingStatus {
 
             Ok(duration)
         } else {
-            Err(anyhow!("No upcoming meeting"))
+            Err(anyhow!("No upcoming meeting"))?
         }
     }
 
@@ -275,7 +275,7 @@ impl MeetingStatus {
             Some(c) => c,
             None => {
                 error!("Error getting channel");
-                return Err(anyhow!("Error getting channel"));
+                return Err(anyhow!("Error getting channel"))?;
             }
         };
 

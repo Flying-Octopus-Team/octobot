@@ -15,12 +15,13 @@ use tracing_subscriber::{
 
 mod database;
 mod discord;
+pub mod error;
 mod meeting;
 mod settings;
 pub mod wiki;
 
 lazy_static! {
-    static ref SETTINGS: Settings = settings::Settings::new().unwrap();
+    static ref SETTINGS: Settings = settings::Settings::new().expect("Unable to load settings");
 }
 
 #[tokio::main]
@@ -32,7 +33,9 @@ async fn main() {
 }
 
 fn setup_tracing() -> WorkerGuard {
-    let dir = std::env::current_dir().unwrap().join("logs");
+    let dir = std::env::current_dir()
+        .expect("Unable to get current directory")
+        .join("logs");
 
     let file_appender = tracing_appender::rolling::daily(dir, "octobot.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);

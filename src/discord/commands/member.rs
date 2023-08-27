@@ -7,9 +7,9 @@ use tracing::error;
 use tracing::info;
 
 use super::Context;
-use super::Error;
 use crate::database::models::member::Member;
 use crate::database::models::member::MemberRole;
+use crate::error::Error;
 use crate::SETTINGS;
 
 /// Modal to get the Discord email of a user to connect or create a new wiki account
@@ -100,7 +100,7 @@ pub async fn add_member(
         Err(e) => {
             let error_msg = format!("Failed to insert member into database: {}", e);
             error!("{}", error_msg);
-            return Err(anyhow!(error_msg));
+            return Err(anyhow!(error_msg))?;
         }
     };
 
@@ -169,7 +169,7 @@ pub async fn add_member(
                 Err(e) => {
                     let error_msg = format!("Failed to update member in database: {}", e);
                     error!("{}", error_msg);
-                    return Err(anyhow!(error_msg));
+                    return Err(anyhow!(error_msg))?;
                 }
             }
         }
@@ -256,7 +256,7 @@ pub async fn update_member(
             Err(why) => {
                 let error_msg = format!("Failed to update member name: {}", why);
                 error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
+                return Err(anyhow!(error_msg))?;
             }
         }
     }
@@ -348,7 +348,7 @@ pub async fn update_member(
         Err(e) => {
             let error_msg = format!("Failed to update member in database: {}", e);
             error!("{}", error_msg);
-            return Err(anyhow!(error_msg));
+            return Err(anyhow!(error_msg))?;
         }
     }
 
