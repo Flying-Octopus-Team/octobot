@@ -5,7 +5,7 @@ use crate::database::schema::report;
 use crate::database::schema::report::dsl;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
-use crate::discord::Error;
+use crate::error::Error;
 
 use chrono::NaiveDate;
 use diesel::{QueryDsl, RunQueryDsl};
@@ -108,7 +108,7 @@ impl Report {
             Err(e) => {
                 let error = format!("Error publishing report: {}", e);
                 error!("{}", error);
-                Err(anyhow!(error))
+                Err(anyhow!(error))?
             }
         }
     }
@@ -124,7 +124,7 @@ impl Report {
             Err(e) => {
                 let error = format!("Error setting summary id: {}", e);
                 error!("{}", error);
-                Err(anyhow!(error))
+                Err(anyhow!(error))?
             }
         }
     }

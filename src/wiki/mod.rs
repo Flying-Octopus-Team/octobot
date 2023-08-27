@@ -1,8 +1,32 @@
-use crate::discord::Error;
 use graphql_client::GraphQLQuery;
 use reqwest::header;
+use thiserror::Error;
 
+use crate::error::Error;
 use crate::SETTINGS;
+
+#[derive(Error, Debug)]
+pub enum WikiError {
+    #[error("Wiki error: {code:?} {slug:?} {message:?}")]
+    Error {
+        code: i64,
+        slug: String,
+        message: Option<String>,
+    },
+    #[error("Wiki error: {source:?}")]
+    ReqwestError {
+        #[from]
+        source: reqwest::Error,
+    },
+    #[error("Wiki error: {errors:?}")]
+    GraphqlClientError { errors: Vec<graphql_client::Error> },
+}
+
+impl From<Vec<graphql_client::Error>> for WikiError {
+    fn from(errors: Vec<graphql_client::Error>) -> Self {
+        WikiError::GraphqlClientError { errors }
+    }
+}
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -65,8 +89,8 @@ pub async fn assign_user_group(variables: assign_user_group::Variables) -> Resul
     let response_body: graphql_client::Response<assign_user_group::ResponseData> =
         res.json().await?;
 
-    if response_body.errors.is_some() {
-        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
+    if let Some(errors) = response_body.errors {
+        return Err(Into::<WikiError>::into(errors))?;
     }
 
     let response_result = response_body
@@ -82,7 +106,12 @@ pub async fn assign_user_group(variables: assign_user_group::Variables) -> Resul
     if response_result.succeeded {
         Ok(())
     } else {
-        Err(anyhow!(response_result.message.unwrap()))
+        Err(WikiError::Error {
+            code: response_result.error_code,
+            slug: response_result.slug,
+            message: response_result.message,
+        }
+        .into())
     }
 }
 
@@ -100,8 +129,8 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
     let response_body: graphql_client::Response<unassign_user_group::ResponseData> =
         res.json().await?;
 
-    if response_body.errors.is_some() {
-        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
+    if let Some(errors) = response_body.errors {
+        return Err(Into::<WikiError>::into(errors))?;
     }
 
     let response_result = response_body
@@ -117,7 +146,12 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
     if response_result.succeeded {
         Ok(())
     } else {
-        Err(anyhow!(response_result.message.unwrap()))
+        Err(WikiError::Error {
+            code: response_result.error_code,
+            slug: response_result.slug,
+            message: response_result.message,
+        }
+        .into())
     }
 }
 
@@ -134,8 +168,8 @@ pub async fn create_user(variables: create_user::Variables) -> Result<Option<i64
 
     let response_body: graphql_client::Response<create_user::ResponseData> = res.json().await?;
 
-    if response_body.errors.is_some() {
-        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
+    if let Some(errors) = response_body.errors {
+        return Err(Into::<WikiError>::into(errors))?;
     }
 
     let create_user_users_create = response_body.data.unwrap().users.unwrap().create;
@@ -149,7 +183,12 @@ pub async fn create_user(variables: create_user::Variables) -> Result<Option<i64
             .as_ref()
             .map(|user| user.id))
     } else {
-        Err(anyhow!(response_result.message.clone().unwrap()))
+        Err(WikiError::Error {
+            code: response_result.error_code,
+            slug: response_result.slug.clone(),
+            message: response_result.message.clone(),
+        }
+        .into())
     }
 }
 
@@ -168,8 +207,8 @@ pub async fn find_user_by_email(email: String) -> Result<Option<i64>, Error> {
 
     let response_body: graphql_client::Response<search_user::ResponseData> = res.json().await?;
 
-    if response_body.errors.is_some() {
-        return Err(anyhow!(response_body.errors.unwrap()[0].message.clone()));
+    if let Some(errors) = response_body.errors {
+        return Err(Into::<WikiError>::into(errors))?;
     }
 
     let search_user_users = response_body.data.unwrap().users.unwrap().search.unwrap();

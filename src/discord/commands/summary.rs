@@ -3,7 +3,7 @@ use tracing::info;
 
 use crate::database::models::summary::Summary;
 use crate::discord::Context;
-use crate::discord::Error;
+use crate::error::Error;
 
 #[poise::command(slash_command, rename = "preview")]
 pub(crate) async fn preview_summary(

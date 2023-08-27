@@ -8,7 +8,7 @@ use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::discord::split_message;
 use crate::discord::Context;
-use crate::discord::Error;
+use crate::error::Error;
 use crate::SETTINGS;
 
 use chrono::NaiveDate;
@@ -172,10 +172,10 @@ impl Summary {
                     // if there are different number of messages, return message notifying about it
                     return Err(anyhow!(
                         "New summary is too long to fit in the old messages. Summary was not edited"
-                    ));
+                    ))?;
                 }
             } else {
-                return Err(anyhow!("No previous summary messages to resend to"));
+                return Err(anyhow!("No previous summary messages to resend to"))?;
             }
         } else {
             let mut messages_id = Vec::new();
@@ -193,7 +193,7 @@ impl Summary {
                 Ok(_) => {}
                 Err(e) => {
                     error!("Error saving summary: {}", e);
-                    return Err(anyhow!("Error saving summary: {}", e));
+                    return Err(anyhow!("Error saving summary: {}", e))?;
                 }
             }
         }

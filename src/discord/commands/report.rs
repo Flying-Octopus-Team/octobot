@@ -2,10 +2,10 @@ use std::fmt::Write;
 
 use tracing::info;
 
-use super::Error;
 use crate::database::models::summary::Summary;
 use crate::database::models::{member::Member, report::Report};
 use crate::discord::Context;
+use crate::error::Error;
 
 #[poise::command(slash_command, rename = "add")]
 pub(crate) async fn add_report(
@@ -21,7 +21,7 @@ pub(crate) async fn add_report(
             let author_id = ctx.author().id.to_string();
             match Member::find_by_discord_id(author_id) {
                 Ok(member) => member,
-                Err(why) => return Err(anyhow!("Member not found in the database: {}", why)),
+                Err(why) => return Err(anyhow!("Member not found in the database: {}", why))?,
             }
         }
     };
@@ -116,7 +116,7 @@ pub(crate) async fn update_report(
 
     let report = match report.update() {
         Ok(report) => report,
-        Err(why) => return Err(anyhow!("Can't update report: {}", why)),
+        Err(why) => return Err(anyhow!("Can't update report: {}", why))?,
     };
 
     let mut output = String::new();

@@ -24,6 +24,8 @@ reqwest = "0.11.19"
 poise = { git = "https://github.com/serenity-rs/poise.git", rev = "5d02b8757d30e4588c193c5ba06e38806bbc1021", features = ["cache"] }
 anyhow = "1.0.75"
 async-trait = "0.1.73"
+thiserror = "1.0.47"
+r2d2 = "0.8.10"
 
 [dependencies.diesel]
 version = "2.1.0"

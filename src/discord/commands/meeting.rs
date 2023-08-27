@@ -6,7 +6,7 @@ use tracing::{error, info};
 use crate::database::models::meeting::Meeting;
 use crate::database::models::summary::Summary;
 use crate::discord::Context;
-use crate::discord::Error;
+use crate::error::Error;
 use crate::meeting::MeetingStatus;
 
 /// Ends the meeting. Returns the meeting summary which contains members' attendance and reports
@@ -24,7 +24,7 @@ pub(crate) async fn end_meeting(
     if !meeting_status.read().await.is_meeting_ongoing() {
         let error = "No meeting is ongoing".to_string();
         error!("{}", error);
-        return Err(anyhow!(error));
+        return Err(anyhow!(error))?;
     }
 
     let rw_lock_read_guard = meeting_status.read().await;
@@ -126,7 +126,7 @@ pub(crate) async fn plan_meeting(
             Err(e) => {
                 let error = format!("Error changing channel: {}", e);
                 error!("{}", error);
-                return Err(anyhow!(error));
+                return Err(anyhow!(error))?;
             }
         }
         output.push_str("\nMeeting channel changed to <#");
@@ -164,7 +164,7 @@ pub(crate) async fn set_note(
         Err(e) => {
             let error_msg = format!("Error changing summary note: {}", e);
             error!("{}", error_msg);
-            return Err(anyhow!(error_msg));
+            return Err(anyhow!(error_msg))?;
         }
     }
 
@@ -173,7 +173,7 @@ pub(crate) async fn set_note(
         Err(e) => {
             let error = format!("Error sending summary: {}", e);
             error!("{}", error);
-            return Err(anyhow!(error));
+            return Err(anyhow!(error))?;
         }
     }
 

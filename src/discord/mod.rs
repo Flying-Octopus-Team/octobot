@@ -9,6 +9,7 @@ use tracing::{error, info, warn};
 
 use crate::database::models::member::Member;
 use crate::discord::commands::{meeting, member, report, summary};
+use crate::error::Error;
 use crate::meeting::MeetingStatus;
 use crate::SETTINGS;
 
@@ -17,7 +18,6 @@ mod commands;
 pub struct Data {
     pub meeting_status: Arc<RwLock<MeetingStatus>>,
 }
-pub type Error = anyhow::Error;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 async fn event_handler(
