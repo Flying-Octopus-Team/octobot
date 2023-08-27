@@ -32,7 +32,7 @@ fn discord_email_button() -> CreateButton {
 }
 
 fn dm_wiki_details<'a, 'b>(c: &'a mut CreateMessage<'b>) -> &'a mut CreateMessage<'b> {
-    c.content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address.")
+    c.content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address (the one you use to log into Discord).")
         .components(|c|
             c.create_action_row(|a|
                 a.add_button(discord_email_button())
