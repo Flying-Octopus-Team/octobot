@@ -40,7 +40,7 @@ pub(crate) async fn add_report(
 
     info!("Report added: {:?}", report);
 
-    let output = format!("Report added: {}", report);
+    let output = format!("Added: {}", report);
 
     crate::discord::respond(ctx, output).await
 }
@@ -58,7 +58,7 @@ pub(crate) async fn remove_report(
         Ok(deleted) => match deleted {
             true => {
                 info!("Report removed: {:?}", report);
-                writeln!(&mut output, "Report removed: {}", report)?;
+                writeln!(&mut output, "Removed: {}", report)?;
             }
             false => {
                 info!("Removed 0 reports");
@@ -133,7 +133,7 @@ pub(crate) async fn update_report(
 
     info!("Report updated: {:?}", report);
 
-    output.push_str(&format!("\nReport updated: {}", report));
+    output.push_str(&format!("\nUpdated: {}", report));
 
     crate::discord::respond(ctx, output).await
 }
