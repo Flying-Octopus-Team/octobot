@@ -318,11 +318,13 @@ impl Display for Member {
         } else {
             "None".to_string()
         };
+
         let trello_id = if let Some(trello_id) = &self.trello_id {
             trello_id.to_string()
         } else {
             "None".to_string()
         };
+
         let trello_report_card_id = if let Some(trello_report_card_id) = &self.trello_report_card_id
         {
             trello_report_card_id.to_string()
@@ -335,10 +337,11 @@ impl Display for Member {
         } else {
             "None".to_string()
         };
+
         write!(
             f,
-            "Member: {} ({}) Discord ID: {}, Trello ID: {}, Trello Report Card ID: {}, Member Role: {}, Wiki ID: {}",
-            self.display_name, self.id.simple(), discord_id, trello_id, trello_report_card_id, self.role, wiki_id
+            "{} <@{}> ({}) Trello ID: {}, Trello Report Card ID: {}, Wiki ID: {}",
+            self.role, discord_id, self.id.simple(), trello_id, trello_report_card_id, wiki_id
         )
     }
 }
@@ -356,7 +359,9 @@ impl SlashArgument for Member {
         interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
         value: &serenity::json::Value,
     ) -> Result<Self, poise::SlashArgError> {
-        let member = poise::extract_slash_argument!(serenity::model::guild::Member, ctx, interaction, value).await?;
+        let member =
+            poise::extract_slash_argument!(serenity::model::guild::Member, ctx, interaction, value)
+                .await?;
 
         let member = match Member::find_by_discord_id(member.user.id.to_string()) {
             Ok(member) => member,
