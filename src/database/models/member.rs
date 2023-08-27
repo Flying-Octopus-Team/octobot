@@ -5,7 +5,6 @@ use crate::database::schema::member;
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::RunQueryDsl;
-use crate::discord::Context;
 use crate::discord::Error;
 use crate::SETTINGS;
 use diesel::backend::Backend;
@@ -266,39 +265,6 @@ impl Member {
         self.id
     }
 
-    pub(crate) fn from_discord_id(user_id: String, ctx: Context<'_>) -> Result<Self, Error> {
-        let member_id = match user_id.parse::<u64>() {
-            Ok(id) => id,
-            Err(_) => {
-                let error_msg = format!("Invalid member id: {}", user_id);
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
-            }
-        };
-        let guild_member = match ctx.cache().member(SETTINGS.discord.server_id, member_id) {
-            Some(guild_member) => guild_member,
-            None => {
-                let error_msg = format!("Member not found in the guild: {}", member_id);
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
-            }
-        };
-
-        let result = match Member::find_by_discord_id(guild_member.user.id.to_string()) {
-            Ok(result) => result,
-            Err(why) => {
-                let error_msg = format!(
-                    "Member not found in database: {}\nReason: {}",
-                    member_id, why
-                );
-                error!("{}", error_msg);
-                return Err(anyhow!(error_msg));
-            }
-        };
-
-        Ok(result)
-    }
-
     pub(crate) fn name(&self) -> String {
         self.display_name.clone()
     }
@@ -386,37 +352,20 @@ impl PartialEq for Member {
 #[async_trait::async_trait]
 impl SlashArgument for Member {
     async fn extract(
-        _ctx: &serenity::Context,
-        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
+        ctx: &serenity::Context,
+        interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
         value: &serenity::json::Value,
     ) -> Result<Self, poise::SlashArgError> {
-        let id = match value {
-            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
-                Ok(id) => id,
-                Err(why) => {
-                    let error_msg = format!("Failed to parse member id: {}", id);
-                    error!("{}", error_msg);
-                    return Err(poise::SlashArgError::Parse {
-                        error: Box::new(why),
-                        input: id.to_string(),
-                    });
-                }
-            },
-            _ => {
-                return Err(poise::SlashArgError::CommandStructureMismatch(
-                    "Member id must be a string",
-                ))
-            }
-        };
+        let member = poise::extract_slash_argument!(serenity::model::guild::Member, ctx, interaction, value).await?;
 
-        let member = match Member::find_by_id(id) {
+        let member = match Member::find_by_discord_id(member.user.id.to_string()) {
             Ok(member) => member,
             Err(why) => {
-                let error_msg = format!("Failed to get member: {}", why);
+                let error_msg = format!("Could not find member in database: {}", why);
                 error!("{}", error_msg);
                 return Err(poise::SlashArgError::Parse {
                     error: why.into(),
-                    input: id.to_string(),
+                    input: member.user.id.to_string(),
                 });
             }
         };
@@ -425,6 +374,6 @@ impl SlashArgument for Member {
     }
 
     fn create(builder: &mut serenity::CreateApplicationCommandOption) {
-        builder.kind(serenity::command::CommandOptionType::String);
+        builder.kind(serenity::command::CommandOptionType::User);
     }
 }

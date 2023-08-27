@@ -1,11 +1,9 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
-use poise::serenity_prelude as serenity;
 use tracing::{error, info};
 
 use crate::database::models::meeting::Meeting;
-use crate::database::models::member::Member;
 use crate::database::models::summary::Summary;
 use crate::discord::Context;
 use crate::discord::Error;
@@ -185,20 +183,11 @@ pub(crate) async fn set_note(
 #[poise::command(slash_command, rename = "add-member")]
 pub async fn add_member(
     ctx: Context<'_>,
-    #[description = "Member to add"] member: serenity::Member,
+    #[description = "Member to add"] member: crate::database::models::member::Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
     info!("Adding member to meeting");
     let mut output = String::new();
-
-    let member = match Member::from_discord_id(member.user.id.to_string(), ctx) {
-        Ok(member) => member,
-        Err(e) => {
-            let error_msg = format!("Error finding member: {}", e);
-            error!("{}", error_msg);
-            return Err(anyhow!(error_msg));
-        }
-    };
 
     let result = match meeting {
         Some(meeting) => meeting.add_member(&member)?,
@@ -216,20 +205,11 @@ pub async fn add_member(
 #[poise::command(slash_command, rename = "remove-member")]
 pub async fn remove_member(
     ctx: Context<'_>,
-    #[description = "Member to remove"] member: serenity::Member,
+    #[description = "Member of the organization"] member: crate::database::models::member::Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
     info!("Removing member from meeting");
     let mut output = String::new();
-
-    let member = match Member::from_discord_id(member.user.id.to_string(), ctx) {
-        Ok(member) => member,
-        Err(e) => {
-            let error_msg = format!("Error finding member: {}", e);
-            error!("{}", error_msg);
-            return Err(anyhow!(error_msg));
-        }
-    };
 
     let result = match meeting {
         Some(meeting) => meeting.remove_member(&member)?,
