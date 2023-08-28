@@ -12,6 +12,7 @@ use crate::error::Error;
 use crate::SETTINGS;
 
 use chrono::NaiveDate;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::Table;
 use poise::serenity_prelude as serenity;
 use poise::SlashArgument;
@@ -49,9 +50,7 @@ impl Summary {
     }
 
     pub fn update(&self) -> Result<Self, Error> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<bool, Error> {
