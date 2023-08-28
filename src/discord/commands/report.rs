@@ -52,16 +52,15 @@ pub(crate) async fn remove_report(
     let mut output = String::new();
 
     match report.delete() {
-        Ok(deleted) => match deleted {
-            true => {
+        Ok(rows) => {
+            if rows == 1 {
                 info!("Report removed: {:?}", report);
                 writeln!(&mut output, "Removed: {}", report)?;
+            } else {
+                info!("Removed {rows} reports");
+                writeln!(&mut output, "Removed {rows} reports")?;
             }
-            false => {
-                info!("Removed 0 reports");
-                writeln!(&mut output, "Removed 0 reports")?;
-            }
-        },
+        }
         Err(err) => return Err(err),
     };
 

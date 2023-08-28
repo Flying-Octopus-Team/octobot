@@ -25,14 +25,17 @@ pub(crate) async fn end_meeting(
         return Err(Error::NoMeetingOngoing);
     }
 
-    let rw_lock_read_guard = meeting_status.read().await;
+    let summary_result;
 
-    let meeting = Meeting::find_by_id(rw_lock_read_guard.meeting_id())?;
-    let mut summary = Summary::find_by_id(meeting.summary_id())?;
+    {
+        let rw_lock_read_guard = meeting_status.read().await;
 
-    summary.set_note(note.clone())?;
-    let summary_result = summary.send_summary(ctx, false).await?;
-    drop(rw_lock_read_guard);
+        let meeting = Meeting::find_by_id(rw_lock_read_guard.meeting_id())?;
+        let mut summary = Summary::find_by_id(meeting.summary_id())?;
+
+        summary.set_note(note.clone())?;
+        summary_result = summary.send_summary(ctx, false).await?;
+    }
 
     MeetingStatus::end_meeting(ctx.serenity_context(), meeting_status).await?;
 
@@ -46,36 +49,38 @@ pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
 
     info!("Received status-meeting command");
 
-    let rw_lock = ctx.data().meeting_status.clone();
-    let meeting_status = rw_lock.read().await;
+    {
+        let rw_lock = ctx.data().meeting_status.clone();
+        let meeting_status = rw_lock.read().await;
 
-    if meeting_status.is_meeting_ongoing() {
-        output.push_str("Meeting is ongoing. ");
-        output.push_str(&meeting_status.meeting_id().simple().to_string());
-    } else {
-        output.push_str("Planned meeting on ");
-        output.push_str(
-            &meeting_status
-                .schedule()?
-                .upcoming(chrono::Local)
-                .next()
-                .unwrap()
-                .to_string(),
-        );
-        output.push_str(" with id ");
-        output.push_str(&meeting_status.meeting_id().simple().to_string());
-    }
+        if meeting_status.is_meeting_ongoing() {
+            output.push_str("Meeting is ongoing. ");
+            output.push_str(&meeting_status.meeting_id().simple().to_string());
+        } else {
+            output.push_str("Planned meeting on ");
+            output.push_str(
+                &meeting_status
+                    .schedule()?
+                    .upcoming(chrono::Local)
+                    .next()
+                    .unwrap()
+                    .to_string(),
+            );
+            output.push_str(" with id ");
+            output.push_str(&meeting_status.meeting_id().simple().to_string());
+        }
 
-    output.push_str("\nMembers:");
-    for member in meeting_status.members() {
-        output.push_str(" <@");
-        output.push_str(&member.discord_id()?);
+        output.push_str("\nMembers:");
+        for member in meeting_status.members() {
+            output.push_str(" <@");
+            output.push_str(&member.discord_id()?);
+            output.push('>');
+        }
+
+        output.push_str("\nMonitoring channel: <#");
+        output.push_str(meeting_status.channel());
         output.push('>');
     }
-
-    output.push_str("\nMonitoring channel: <#");
-    output.push_str(meeting_status.channel());
-    output.push('>');
 
     info!("Generated meeting status: \n{}", output);
 
@@ -139,14 +144,16 @@ pub(crate) async fn set_note(
 ) -> Result<(), Error> {
     let mut output = String::new();
 
-    let meeting_status = ctx.data().meeting_status.read().await;
-
     output.push_str("Meeting summary changed to ");
     output.push_str(&note);
 
     let meeting = match meeting {
         Some(meeting) => meeting,
-        None => Meeting::find_by_id(meeting_status.meeting_id())?,
+        None => {
+            let meeting_status = ctx.data().meeting_status.read().await;
+
+            Meeting::find_by_id(meeting_status.meeting_id())?
+        }
     };
 
     let mut summary = Summary::find_by_id(meeting.summary_id())?;

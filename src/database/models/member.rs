@@ -44,7 +44,7 @@ pub enum MemberRole {
     #[default]
     Member = 0,
     #[name = "Apprentice"]
-    Apprentice = 1, // if you add more roles, make sure to update the FromSql implementation below
+    Apprentice = 1, // if you add more roles, make sure to update the FromSql and ToSql implementation below
 }
 
 impl MemberRole {
@@ -155,8 +155,14 @@ impl Member {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
+    pub fn hard_delete(&self) -> Result<usize, Error> {
+        use crate::database::schema::member::dsl::*;
+
+        Ok(diesel::delete(member.filter(id.eq(self.id))).execute(&mut PG_POOL.get()?)?)
+    }
+
     /// Sets users role to Ex-member and removes their discord role
-    pub fn delete(&self) -> Result<bool, Error> {
+    pub fn delete(&self) -> Result<usize, Error> {
         use crate::database::schema::member::dsl::*;
 
         Ok(diesel::update(member.filter(id.eq(self.id)))
@@ -166,8 +172,7 @@ impl Member {
                 trello_id.eq(None::<String>),
                 trello_report_card_id.eq(None::<String>),
             ))
-            .execute(&mut PG_POOL.get()?)
-            .map(|rows| rows != 0)?)
+            .execute(&mut PG_POOL.get()?)?)
     }
 
     pub async fn unassign_wiki_group(&self, group_id: i64) -> Result<(), Error> {
@@ -215,19 +220,12 @@ impl Member {
         }
     }
 
-    pub fn hard_delete(&self) -> Result<bool, Error> {
-        use crate::database::schema::member::dsl::*;
-
-        Ok(diesel::delete(member.filter(id.eq(self.id)))
-            .execute(&mut PG_POOL.get()?)
-            .map(|rows| rows != 0)?)
-    }
-
     pub fn list(page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Error> {
         use crate::database::schema::member::dsl::*;
 
         let mut query = member
             .select(member::all_columns())
+            .order(display_name.asc())
             .into_boxed()
             .paginate(page);
 

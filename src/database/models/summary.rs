@@ -67,6 +67,7 @@ impl Summary {
 
         let mut query = summary
             .select(summary::all_columns())
+            .order(create_date.desc())
             .into_boxed()
             .paginate(page);
 
@@ -131,10 +132,13 @@ impl Summary {
         summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
         let save_summary = Summary::find_by_id(meeting.summary_id())?;
 
-        summary.push_str(&Report::report_summary(Some(save_summary), publish).await?);
+        summary.push_str(
+            &Report::report_summary(Some(save_summary), publish, self.create_date).await?,
+        );
 
         summary.push_str("\n**Notatka ze spotkania:**\n");
         summary.push_str(&note);
+
         Ok(summary)
     }
 
@@ -142,7 +146,7 @@ impl Summary {
     /// If set to resend. It will resend the summary to the summary channel.
     /// If there are no previous summaries messages to resend to or new summary is too long, it will return an error.
     pub(crate) async fn send_summary(
-        self,
+        mut self,
         ctx: Context<'_>,
         resend: bool,
     ) -> Result<String, Error> {
@@ -152,8 +156,8 @@ impl Summary {
             info!("Generated empty summary");
             return Ok("Summary is empty. Nothing was sent".to_string());
         }
-        let messages = split_message(summary)?;
 
+        let messages = split_message(summary)?;
         let channel_id = SETTINGS.discord.summary_channel;
 
         if resend {
@@ -184,22 +188,20 @@ impl Summary {
             self.set_messages_id(messages_id)?;
         }
 
-        Ok("Summary was generated and sent to the channel".to_string())
+        Ok(format!(
+            "Summary was generated and sent to the <#{channel_id}>",
+            channel_id = channel_id.0
+        ))
     }
 
     pub(crate) fn messages_id(&self) -> Option<Vec<String>> {
         self.messages_id.clone()
     }
 
-    pub(crate) fn set_messages_id(&self, messages_id: Vec<String>) -> Result<Self, Error> {
-        let summary = Summary {
-            id: self.id,
-            note: self.note.clone(),
-            create_date: self.create_date,
-            messages_id: Some(messages_id),
-        };
+    pub(crate) fn set_messages_id(&mut self, messages_id: Vec<String>) -> Result<Self, Error> {
+        self.messages_id = Some(messages_id);
 
-        summary.update()
+        self.update()
     }
 
     pub(crate) fn note(&self) -> &str {
