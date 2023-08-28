@@ -119,9 +119,21 @@ pub(crate) async fn update_report(
         Err(why) => return Err(anyhow!("Can't update report: {}", why)),
     };
 
+    let mut output = String::new();
+
+    if let Some(summary_id) = report.summary_id() {
+        info!("Updating summary");
+        let summary = Summary::find_by_id(summary_id)?;
+
+        match summary.send_summary(ctx, true).await {
+            Ok(_) => writeln!(&mut output, "Summary updated")?,
+            Err(why) => writeln!(&mut output, "Can't update summary: {}", why)?,
+        }
+    }
+
     info!("Report updated: {:?}", report);
 
-    let output = format!("Report updated: {}", report);
+    output.push_str(&format!("\nReport updated: {}", report));
 
     crate::discord::respond(ctx, output).await
 }
