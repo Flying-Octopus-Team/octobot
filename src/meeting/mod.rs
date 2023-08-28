@@ -172,17 +172,9 @@ impl MeetingStatus {
     /// Loads the next meeting from the database, or defaults to a new meeting.
     fn load_next_meeting() -> Result<Self, Error> {
         let meeting_data = Meeting::load_next_meeting()?;
-        let s = String::from(meeting_data.scheduled_cron());
 
-        let members = MeetingMembers::load_members(meeting_data.id())?;
+        let meeting_status = MeetingStatus::try_from(meeting_data)?;
 
-        let meeting_status = Self {
-            is_ongoing: AtomicBool::new(false),
-            meeting_data,
-            members,
-            handle: None,
-            schedule: Schedule::from_str(&s)?,
-        };
         Ok(meeting_status)
     }
 
@@ -298,17 +290,20 @@ impl MeetingStatus {
     }
 }
 
-impl From<Meeting> for MeetingStatus {
-    fn from(meeting: Meeting) -> Self {
-        let members = MeetingMembers::load_members(meeting.id()).unwrap();
+impl TryFrom<Meeting> for MeetingStatus {
+    type Error = Error;
 
-        let s = String::from(meeting.scheduled_cron());
-        Self {
+    fn try_from(meeting: Meeting) -> Result<Self, Self::Error> {
+        let members = MeetingMembers::load_members(meeting.id())?;
+
+        let s = meeting.scheduled_cron().to_string();
+
+        Ok(Self {
             is_ongoing: AtomicBool::new(false),
             meeting_data: meeting,
             members,
             handle: None,
             schedule: Schedule::from_str(&s).unwrap(),
-        }
+        })
     }
 }

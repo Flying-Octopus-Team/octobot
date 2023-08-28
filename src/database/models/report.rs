@@ -61,12 +61,10 @@ impl Report {
             .get_result(&mut PG_POOL.get()?)?)
     }
 
-    pub fn delete(&self) -> Result<bool, Error> {
+    pub fn delete(&self) -> Result<usize, Error> {
         use crate::database::schema::report::dsl::*;
 
-        Ok(diesel::delete(report.filter(id.eq(self.id)))
-            .execute(&mut PG_POOL.get()?)
-            .map(|rows| rows != 0)?)
+        Ok(diesel::delete(report.filter(id.eq(self.id))).execute(&mut PG_POOL.get()?)?)
     }
 
     pub fn list(
@@ -75,7 +73,7 @@ impl Report {
         member_id: Option<Uuid>,
         published: Option<bool>,
     ) -> Result<(Vec<Self>, i64), Error> {
-        let mut query = report::table.into_boxed();
+        let mut query = report::table.into_boxed().order(dsl::create_date.desc());
 
         if let Some(member_id) = member_id {
             query = query.filter(dsl::member_id.eq(member_id));
@@ -95,9 +93,11 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-    pub fn get_unpublished_reports() -> Result<Vec<Self>, Error> {
+    /// Returns all unpublished reports from before the given date.
+    pub fn get_unpublished_reports(date: NaiveDate) -> Result<Vec<Self>, Error> {
         Ok(dsl::report
             .filter(dsl::published.eq(false))
+            .filter(dsl::create_date.lt(date))
             .load(&mut PG_POOL.get()?)?)
     }
 
@@ -131,8 +131,9 @@ impl Report {
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
         publish: bool,
+        date: NaiveDate,
     ) -> Result<String, Error> {
-        let mut reports = Report::get_unpublished_reports()?;
+        let mut reports = Report::get_unpublished_reports(date)?;
 
         // get reports associated with summary
         if let Some(summary) = &summary {
@@ -153,7 +154,6 @@ impl Report {
             let member = Member::find_by_id(report.member_id)?;
 
             // if report is from the same member as the previous report, don't print the member's name
-
             if previous_report.is_some()
                 && previous_report.as_ref().unwrap().member_id == report.member_id
             {

@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use chrono::NaiveDateTime;
 use cron::Schedule;
+use diesel::dsl::exists;
+use diesel::{select, BoolExpressionMethods, QueryDsl};
 use poise::serenity_prelude as serenity;
 use poise::SlashArgument;
 use tracing::{error, warn};
@@ -14,7 +16,6 @@ use crate::database::pagination::Paginate;
 use crate::database::schema::{meeting, meeting_members};
 use crate::database::PG_POOL;
 use crate::diesel::ExpressionMethods;
-use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
 use crate::diesel::Table;
 use crate::error::Error;
@@ -70,7 +71,7 @@ impl Meeting {
         self.id
     }
 
-    /// Removes the meeting from the database.
+    /// Removes the meeting and its summary from the database.
     /// Returns the number of rows affected.
     pub fn delete(&self) -> Result<usize, Error> {
         use crate::database::schema::meeting::dsl::*;
@@ -180,21 +181,20 @@ impl Meeting {
     /// Removes member from the database and from the meeting.
     /// Returns the formatted string with the result.
     pub(crate) fn remove_member(&self, member: &Member) -> Result<String, Error> {
+        let rows = self._remove_member(member.id())?;
+
         let member_dc_id = member.discord_id().unwrap();
         let mut output = String::new();
 
-        if !MeetingMembers::is_user_in_meeting(self.id(), member.id())? {
-            return Err(Error::UserNotInMeeting {
-                user_id: member.id(),
-                meeting_id: self.id(),
-            })?;
+        if rows > 0 {
+            output.push_str("Removed member <@");
+            output.push_str(&member_dc_id.to_string());
+            output.push('>');
+        } else {
+            output.push_str("Member <@");
+            output.push_str(&member_dc_id.to_string());
+            output.push_str("> is not in the meeting");
         }
-
-        self._remove_member(member.id())?;
-
-        output.push_str("Removed member <@");
-        output.push_str(member_dc_id);
-        output.push('>');
 
         Ok(output)
     }
@@ -202,8 +202,11 @@ impl Meeting {
     fn _remove_member(&self, user_id: Uuid) -> Result<usize, Error> {
         use crate::database::schema::meeting_members::dsl::*;
 
-        let rows = diesel::delete(meeting_members.filter(member_id.eq(user_id)))
-            .execute(&mut PG_POOL.get()?)?;
+        let rows = diesel::delete(
+            meeting_members.filter(member_id.eq(user_id).and(meeting_id.eq(self.id))),
+        )
+        .execute(&mut PG_POOL.get()?)?;
+
         Ok(rows)
     }
 
@@ -230,25 +233,14 @@ impl Meeting {
     }
 
     fn _add_member(&self, user_id: Uuid) -> Result<MeetingMembers, Error> {
-        let meeting_member = MeetingMembers {
-            id: Uuid::new_v4(),
-            member_id: user_id,
-            meeting_id: self.id,
-        };
-
-        meeting_member.insert()
+        MeetingMembers::new(user_id, self.id).insert()
     }
 
     /// Check if meeting exists in the database.
     pub(crate) fn exists(&self) -> Result<bool, Error> {
         use crate::database::schema::meeting::dsl::*;
 
-        let count: i64 = meeting
-            .filter(id.eq(self.id))
-            .count()
-            .get_result(&mut PG_POOL.get()?)?;
-
-        Ok(count > 0)
+        Ok(select(exists(meeting.filter(id.eq(self.id)))).get_result(&mut PG_POOL.get()?)?)
     }
 
     pub(crate) fn summary_id(&self) -> Uuid {
@@ -264,6 +256,7 @@ impl Meeting {
 
         let mut query = meeting
             .select(meeting::all_columns())
+            .order_by(start_date.desc())
             .into_boxed()
             .paginate(page);
 
@@ -277,11 +270,13 @@ impl Meeting {
     }
 
     pub(crate) fn members(&self) -> Result<Vec<Member>, Error> {
-        let members = MeetingMembers::load_members(self.id)
-            .unwrap()
-            .into_iter()
-            .map(|m| Member::find_by_id(m.member_id))
-            .collect::<Result<Vec<Member>, Error>>()?;
+        use crate::database::schema::meeting_members::dsl::*;
+
+        let members = meeting_members
+            .filter(meeting_id.eq(self.id))
+            .inner_join(crate::database::schema::member::table)
+            .select(crate::database::schema::member::all_columns)
+            .load::<Member>(&mut PG_POOL.get()?)?;
 
         Ok(members)
     }
@@ -313,7 +308,7 @@ impl MeetingMembers {
     pub(crate) fn discord_id(&self) -> Result<String, Error> {
         Ok(Member::find_by_id(self.member_id)?
             .discord_id()
-            .expect("Cannot find user in the database")
+            .expect("Member should have discord id")
             .to_string())
     }
 
@@ -325,13 +320,10 @@ impl MeetingMembers {
     pub(crate) fn is_user_in_meeting(meeting: Uuid, user_id: Uuid) -> Result<bool, Error> {
         use crate::database::schema::meeting_members::dsl::*;
 
-        let count: i64 = meeting_members
-            .filter(meeting_id.eq(meeting))
-            .filter(member_id.eq(user_id))
-            .count()
-            .get_result(&mut PG_POOL.get()?)?;
-
-        Ok(count > 0)
+        Ok(select(exists(
+            meeting_members.filter(meeting_id.eq(meeting).and(member_id.eq(user_id))),
+        ))
+        .get_result(&mut PG_POOL.get()?)?)
     }
 
     pub(crate) fn load_members(find_meeting_id: Uuid) -> Result<Vec<Self>, Error> {

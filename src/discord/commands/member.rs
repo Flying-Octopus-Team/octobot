@@ -52,8 +52,6 @@ pub async fn add_member(
 ) -> Result<(), Error> {
     info!("Adding member");
 
-    let mut output = String::new();
-
     let name = if let Some(name) = name {
         name
     } else {
@@ -61,6 +59,7 @@ pub async fn add_member(
     };
 
     let discord_id = member.user.id;
+    let mut output = String::new();
 
     // check if member is already in the database
     if let Ok(member) = Member::find_by_discord_id(discord_id.to_string()) {
@@ -91,21 +90,19 @@ pub async fn add_member(
         }
     }
 
-    if member.wiki_id().is_some() {
+    let ask_wiki_details = member.wiki_id().is_none();
+
+    if !ask_wiki_details {
         member.assign_wiki_group_by_role().await?;
     }
 
     let mut member = member.insert()?;
 
     info!("Member added: {:?}", member);
-
     output.push_str(&format!("Added {}", member));
 
-    let mut ask_wiki_details = false;
-
-    if member.wiki_id().is_none() {
+    if ask_wiki_details {
         output.push_str("\nInstructions to create wiki account sent via DM to the new member.");
-        ask_wiki_details = true;
     }
 
     crate::discord::respond(ctx, output).await?;
@@ -241,8 +238,6 @@ pub async fn update_member(
     }
 
     if let Some(new_discord_member) = discord_member {
-        let dc_id = new_discord_member.user.id.0;
-
         if let Some(old_dc_id) = member.discord_id() {
             match member.role().remove_role(&ctx, old_dc_id.parse()?).await {
                 Ok(_) => {}
@@ -255,7 +250,9 @@ pub async fn update_member(
             }
         }
 
-        member.set_discord_id(dc_id.to_string());
+        let dc_id = new_discord_member.user.id.0.to_string();
+
+        member.set_discord_id(dc_id);
     }
 
     if let Some(new_role) = role {
