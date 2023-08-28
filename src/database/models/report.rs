@@ -8,6 +8,7 @@ use crate::diesel::ExpressionMethods;
 use crate::error::Error;
 
 use chrono::NaiveDate;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::{QueryDsl, RunQueryDsl};
 use poise::serenity_prelude as serenity;
 use poise::SlashArgument;
@@ -56,9 +57,7 @@ impl Report {
     }
 
     pub fn update(&self) -> Result<Self, Error> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn delete(&self) -> Result<usize, Error> {

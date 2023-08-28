@@ -4,6 +4,7 @@ use std::str::FromStr;
 use chrono::NaiveDateTime;
 use cron::Schedule;
 use diesel::dsl::exists;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::{select, BoolExpressionMethods, QueryDsl};
 use poise::serenity_prelude as serenity;
 use poise::SlashArgument;
@@ -141,9 +142,7 @@ impl Meeting {
     }
 
     pub fn update(&self) -> Result<Self, Error> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn scheduled_cron(&self) -> &str {

@@ -9,6 +9,7 @@ use crate::error::Error;
 use crate::SETTINGS;
 use diesel::backend::Backend;
 use diesel::deserialize::FromSql;
+use diesel::query_dsl::SaveChangesDsl;
 use diesel::serialize::Output;
 use diesel::serialize::ToSql;
 use diesel::sql_types::Integer;
@@ -150,9 +151,7 @@ impl Member {
     }
 
     pub fn update(&self) -> Result<Self, Error> {
-        Ok(diesel::update(self)
-            .set(self)
-            .get_result(&mut PG_POOL.get()?)?)
+        Ok(self.save_changes(&mut PG_POOL.get()?)?)
     }
 
     pub fn hard_delete(&self) -> Result<usize, Error> {
