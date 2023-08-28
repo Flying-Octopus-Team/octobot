@@ -113,6 +113,10 @@ impl Report {
         }
     }
 
+    pub(crate) fn summary_id(&self) -> Option<Uuid> {
+        self.summary_id
+    }
+
     pub(crate) fn set_summary_id(&mut self, id: Uuid) -> Result<Self, Error> {
         self.summary_id = Some(id);
         match self.update() {
