@@ -1,0 +1,73 @@
+# configuration for https://github.com/sagiegurari/cargo-make
+
+[config]
+skip_core_tasks = true
+
+[tasks.default]
+alias = "ci"
+
+[tasks.ci]
+description = "Run continuous integration tasks"
+dependencies = [
+  "style-check",
+  "clippy",
+  "check",
+  "test",
+]
+
+[tasks.style-check]
+description = "Check code style"
+dependencies = ["fmt", "typos"]
+
+[tasks.fmt]
+description = "Format source code"
+install_crate = "rustfmt"
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all", "--check"]
+
+[tasks.typos]
+description = "Run typo checks"
+install_crate = { crate_name = "typos-cli", binary = "typos", test_arg = "--version" }
+command = "typos"
+
+[tasks.check]
+description = "Check code for errors and warnings"
+command = "cargo"
+args = [
+  "check",
+  "--all-targets",
+  "--all-features"
+]
+
+[tasks.build]
+description = "Compile the project"
+command = "cargo"
+args = [
+  "build",
+  "--all-targets",
+  "--all-features",
+]
+
+[tasks.clippy]
+description = "Run Clippy for linting"
+command = "cargo"
+args = [
+  "clippy",
+  "--all-targets",
+  "--tests",
+  "--benches",
+  "--all-features",
+  "--",
+  "-D",
+  "warnings",
+]
+
+[tasks.test]
+description = "Run tests"
+command = "cargo"
+args = [
+  "test",
+  "--all-targets",
+  "--all-features",
+]
