@@ -190,7 +190,7 @@ impl Member {
         .await
     }
 
-    /// Assigns member appropriate group on wiki. This sould be used when assigning a member role to a user.
+    /// Assigns member appropriate group on wiki. This should be used when assigning a member role to a user.
     /// This function will also remove the guest group if the user had one.
     pub async fn assign_wiki_group_by_role(&self) -> Result<(), Error> {
         let group_id = self.wiki_group();
@@ -200,7 +200,7 @@ impl Member {
         Ok(())
     }
 
-    /// Unassigns member appropriate group on wiki. This sould be used when unassigning a member role to a user.
+    /// Unassigns member appropriate group on wiki. This should be used when unassigning a member role to a user.
     /// This function will also remove the guest group if the user had one.
     pub async fn unassign_wiki_group_by_role(&self) -> Result<(), Error> {
         let group_id = self.wiki_group();
