@@ -1,28 +1,19 @@
-use super::meeting::Meeting;
-use super::report::Report;
-use crate::database::pagination::Paginate;
-use crate::database::schema::summary;
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::QueryDsl;
-use crate::diesel::RunQueryDsl;
-use crate::discord::split_message;
-use crate::discord::Context;
-use crate::error::Error;
-use crate::SETTINGS;
+use std::fmt::{Display, Formatter, Write};
 
 use chrono::NaiveDate;
-use diesel::query_dsl::SaveChangesDsl;
-use diesel::Table;
-use poise::serenity_prelude as serenity;
-use poise::SlashArgument;
-use tracing::error;
-use tracing::info;
+use diesel::{query_dsl::SaveChangesDsl, Table};
+use poise::{serenity_prelude as serenity, SlashArgument};
+use tracing::{error, info};
 use uuid::Uuid;
 
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt::Write;
+use super::{meeting::Meeting, report::Report};
+use crate::{
+    database::{pagination::Paginate, schema::summary, PG_POOL},
+    diesel::{ExpressionMethods, QueryDsl, RunQueryDsl},
+    discord::{split_message, Context},
+    error::Error,
+    SETTINGS,
+};
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = summary)]
@@ -96,7 +87,8 @@ impl Summary {
         self.update()
     }
 
-    /// Generate summary for the meeting. Return the summary of reports and the list of members that were present.
+    /// Generate summary for the meeting. Return the summary of reports and the
+    /// list of members that were present.
     pub(crate) async fn generate_summary(
         &self,
         mut note: String,
@@ -141,9 +133,10 @@ impl Summary {
         Ok(summary)
     }
 
-    /// Generates the summary of the meeting and sends it to the summary channel.
-    /// If set to resend. It will resend the summary to the summary channel.
-    /// If there are no previous summaries messages to resend to or new summary is too long, it will return an error.
+    /// Generates the summary of the meeting and sends it to the summary
+    /// channel. If set to resend. It will resend the summary to the summary
+    /// channel. If there are no previous summaries messages to resend to or
+    /// new summary is too long, it will return an error.
     pub(crate) async fn send_summary(
         mut self,
         ctx: Context<'_>,

@@ -1,9 +1,8 @@
 use std::fmt::Write;
+
 use tracing::info;
 
-use crate::database::models::summary::Summary;
-use crate::discord::Context;
-use crate::error::Error;
+use crate::{database::models::summary::Summary, discord::Context, error::Error};
 
 #[poise::command(slash_command, rename = "preview")]
 pub(crate) async fn preview_summary(

@@ -1,21 +1,22 @@
-use super::summary::Summary;
-use crate::database::models::member::Member;
-use crate::database::pagination::Paginate;
-use crate::database::schema::report;
-use crate::database::schema::report::dsl;
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::error::Error;
+use std::fmt::{Display, Formatter, Write};
 
 use chrono::NaiveDate;
-use diesel::query_dsl::SaveChangesDsl;
-use diesel::{QueryDsl, RunQueryDsl};
-use poise::serenity_prelude as serenity;
-use poise::SlashArgument;
-use std::fmt::Write;
-use std::fmt::{Display, Formatter};
+use diesel::{query_dsl::SaveChangesDsl, QueryDsl, RunQueryDsl};
+use poise::{serenity_prelude as serenity, SlashArgument};
 use tracing::error;
 use uuid::Uuid;
+
+use super::summary::Summary;
+use crate::{
+    database::{
+        models::member::Member,
+        pagination::Paginate,
+        schema::{report, report::dsl},
+        PG_POOL,
+    },
+    diesel::ExpressionMethods,
+    error::Error,
+};
 
 #[derive(Associations, Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(belongs_to(Member))]
@@ -126,7 +127,8 @@ impl Report {
 
     /// Returns formatted list of reports since last summary.
     ///
-    /// If the summary is Some and publish is true, it will set the reports as published and set the summary id.
+    /// If the summary is Some and publish is true, it will set the reports as
+    /// published and set the summary id.
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
         publish: bool,
@@ -152,7 +154,8 @@ impl Report {
         for mut report in reports {
             let member = Member::find_by_id(report.member_id)?;
 
-            // if report is from the same member as the previous report, don't print the member's name
+            // if report is from the same member as the previous report, don't print the
+            // member's name
             if previous_report.is_some()
                 && previous_report.as_ref().unwrap().member_id == report.member_id
             {

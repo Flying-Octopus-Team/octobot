@@ -2,10 +2,11 @@ use std::fmt::Write;
 
 use tracing::info;
 
-use crate::database::models::summary::Summary;
-use crate::database::models::{member::Member, report::Report};
-use crate::discord::Context;
-use crate::error::Error;
+use crate::{
+    database::models::{member::Member, report::Report, summary::Summary},
+    discord::Context,
+    error::Error,
+};
 
 #[poise::command(slash_command, rename = "add")]
 pub(crate) async fn add_report(
