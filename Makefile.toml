@@ -59,6 +59,7 @@ args = [
 [tasks.clippy]
 description = "Run Clippy for linting"
 command = "cargo"
+toolchain = "nightly"
 args = [
   "clippy",
   "--all-targets",
