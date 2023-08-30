@@ -2,9 +2,7 @@ use diesel::{
     r2d2::{ConnectionManager, Pool},
     PgConnection,
 };
-use diesel_migrations::embed_migrations;
-use diesel_migrations::EmbeddedMigrations;
-use diesel_migrations::MigrationHarness;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use lazy_static::lazy_static;
 use tracing::info;
 

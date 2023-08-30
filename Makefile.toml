@@ -17,14 +17,21 @@ dependencies = [
 
 [tasks.style-check]
 description = "Check code style"
-dependencies = ["fmt", "typos"]
+dependencies = ["fmt-check", "typos"]
+
+[tasks.fmt-check]
+description = "Check code formatting"
+install_crate = "rustfmt"
+toolchain = "nightly"
+command = "cargo"
+args = ["fmt", "--all", "--check"]
 
 [tasks.fmt]
 description = "Format source code"
 install_crate = "rustfmt"
 toolchain = "nightly"
 command = "cargo"
-args = ["fmt", "--all", "--check"]
+args = ["fmt", "--all"]
 
 [tasks.typos]
 description = "Run typo checks"

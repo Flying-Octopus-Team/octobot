@@ -1,26 +1,24 @@
 use std::fmt::Display;
 
-use crate::database::pagination::Paginate;
-use crate::database::schema::member;
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::RunQueryDsl;
-use crate::error::Error;
-use crate::SETTINGS;
-use diesel::backend::Backend;
-use diesel::deserialize::FromSql;
-use diesel::query_dsl::SaveChangesDsl;
-use diesel::serialize::Output;
-use diesel::serialize::ToSql;
-use diesel::sql_types::Integer;
-use diesel::QueryDsl;
-use diesel::Table;
-use poise::serenity_prelude as serenity;
-use poise::SlashArgument;
-use serenity::http::CacheHttp;
-use serenity::model::prelude::RoleId;
+use diesel::{
+    backend::Backend,
+    deserialize::FromSql,
+    query_dsl::SaveChangesDsl,
+    serialize::{Output, ToSql},
+    sql_types::Integer,
+    QueryDsl, Table,
+};
+use poise::{serenity_prelude as serenity, SlashArgument};
+use serenity::{http::CacheHttp, model::prelude::RoleId};
 use tracing::error;
 use uuid::Uuid;
+
+use crate::{
+    database::{pagination::Paginate, schema::member, PG_POOL},
+    diesel::{ExpressionMethods, RunQueryDsl},
+    error::Error,
+    SETTINGS,
+};
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Eq)]
 #[diesel(table_name = member)]
@@ -45,7 +43,8 @@ pub enum MemberRole {
     #[default]
     Member = 0,
     #[name = "Apprentice"]
-    Apprentice = 1, // if you add more roles, make sure to update the FromSql and ToSql implementation below
+    Apprentice = 1, /* if you add more roles, make sure to update the FromSql and ToSql
+                     * implementation below */
 }
 
 impl MemberRole {
@@ -190,8 +189,9 @@ impl Member {
         .await
     }
 
-    /// Assigns member appropriate group on wiki. This should be used when assigning a member role to a user.
-    /// This function will also remove the guest group if the user had one.
+    /// Assigns member appropriate group on wiki. This should be used when
+    /// assigning a member role to a user. This function will also remove
+    /// the guest group if the user had one.
     pub async fn assign_wiki_group_by_role(&self) -> Result<(), Error> {
         let group_id = self.wiki_group();
 
@@ -200,8 +200,9 @@ impl Member {
         Ok(())
     }
 
-    /// Unassigns member appropriate group on wiki. This should be used when unassigning a member role to a user.
-    /// This function will also remove the guest group if the user had one.
+    /// Unassigns member appropriate group on wiki. This should be used when
+    /// unassigning a member role to a user. This function will also remove
+    /// the guest group if the user had one.
     pub async fn unassign_wiki_group_by_role(&self) -> Result<(), Error> {
         let group_id = self.wiki_group();
 

@@ -1,26 +1,26 @@
-use std::fmt::{Display, Formatter};
-use std::str::FromStr;
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
 use chrono::NaiveDateTime;
 use cron::Schedule;
-use diesel::dsl::exists;
-use diesel::query_dsl::SaveChangesDsl;
-use diesel::{select, BoolExpressionMethods, QueryDsl};
-use poise::serenity_prelude as serenity;
-use poise::SlashArgument;
+use diesel::{dsl::exists, query_dsl::SaveChangesDsl, select, BoolExpressionMethods, QueryDsl};
+use poise::{serenity_prelude as serenity, SlashArgument};
 use tracing::{error, warn};
 use uuid::Uuid;
 
-use crate::database::models::member::Member;
-use crate::database::models::summary::Summary;
-use crate::database::pagination::Paginate;
-use crate::database::schema::{meeting, meeting_members};
-use crate::database::PG_POOL;
-use crate::diesel::ExpressionMethods;
-use crate::diesel::RunQueryDsl;
-use crate::diesel::Table;
-use crate::error::Error;
-use crate::SETTINGS;
+use crate::{
+    database::{
+        models::{member::Member, summary::Summary},
+        pagination::Paginate,
+        schema::{meeting, meeting_members},
+        PG_POOL,
+    },
+    diesel::{ExpressionMethods, RunQueryDsl, Table},
+    error::Error,
+    SETTINGS,
+};
 
 #[derive(Default, Queryable, Identifiable, Insertable, AsChangeset, Clone, Debug)]
 #[diesel(table_name = meeting)]
@@ -86,7 +86,8 @@ impl Meeting {
         Ok(rows)
     }
 
-    /// Saves current time as meeting's end date. And saves itself in the database
+    /// Saves current time as meeting's end date. And saves itself in the
+    /// database
     pub fn end_meeting(
         &mut self,
         new_end_date: chrono::DateTime<chrono::Local>,
@@ -151,7 +152,8 @@ impl Meeting {
 
     /// Loads next meeting based on the previous meeting's cron.
     /// Previous meetings are loaded from the database.
-    /// If there is no previous meeting, loads the next meeting based on the default cron.
+    /// If there is no previous meeting, loads the next meeting based on the
+    /// default cron.
     pub fn load_next_meeting() -> Result<Self, Error> {
         let meeting = if let Ok(latest_meeting) = Meeting::get_latest_meeting() {
             if latest_meeting.end_date.is_none() {

@@ -1,17 +1,17 @@
-use std::fmt::Write;
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use poise::serenity_prelude as serenity;
 use serenity::GatewayIntents;
 use tokio::sync::RwLock;
-use tracing::log::trace;
-use tracing::{error, info, warn};
+use tracing::{error, info, log::trace, warn};
 
-use crate::database::models::member::Member;
-use crate::discord::commands::{meeting, member, report, summary};
-use crate::error::Error;
-use crate::meeting::MeetingStatus;
-use crate::SETTINGS;
+use crate::{
+    database::models::member::Member,
+    discord::commands::{meeting, member, report, summary},
+    error::Error,
+    meeting::MeetingStatus,
+    SETTINGS,
+};
 
 mod commands;
 

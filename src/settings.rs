@@ -1,11 +1,7 @@
-use config::Config;
-use config::ConfigError;
-use config::File;
+use config::{Config, ConfigError, File};
 use poise::serenity_prelude as serenity;
 use serde::Deserialize;
-use serenity::model::prelude::ChannelId;
-use serenity::model::prelude::GuildId;
-use serenity::model::prelude::RoleId;
+use serenity::model::prelude::{ChannelId, GuildId, RoleId};
 use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]

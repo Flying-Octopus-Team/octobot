@@ -1,15 +1,16 @@
-use std::fmt::Write;
-use std::sync::Arc;
+use std::{fmt::Write, sync::Arc};
 
 use tracing::info;
 
-use crate::database::models::meeting::Meeting;
-use crate::database::models::summary::Summary;
-use crate::discord::Context;
-use crate::error::Error;
-use crate::meeting::MeetingStatus;
+use crate::{
+    database::models::{meeting::Meeting, summary::Summary},
+    discord::Context,
+    error::Error,
+    meeting::MeetingStatus,
+};
 
-/// Ends the meeting. Returns the meeting summary which contains members' attendance and reports
+/// Ends the meeting. Returns the meeting summary which contains members'
+/// attendance and reports
 #[poise::command(slash_command, rename = "end")]
 pub(crate) async fn end_meeting(
     ctx: Context<'_>,

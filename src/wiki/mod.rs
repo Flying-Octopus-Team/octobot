@@ -2,8 +2,7 @@ use graphql_client::GraphQLQuery;
 use reqwest::header;
 use thiserror::Error;
 
-use crate::error::Error;
-use crate::SETTINGS;
+use crate::{error::Error, SETTINGS};
 
 #[derive(Error, Debug)]
 pub enum WikiError {

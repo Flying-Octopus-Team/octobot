@@ -1,26 +1,32 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::SeqCst;
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{AtomicBool, Ordering::SeqCst},
+        Arc,
+    },
+    time::Duration,
+};
 
 use chrono::Local;
 use cron::Schedule;
-use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::CacheHttp;
-use serenity::Cache;
-use serenity::TypeMapKey;
+use poise::{serenity_prelude as serenity, serenity_prelude::CacheHttp};
+use serenity::{Cache, TypeMapKey};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::database::models::{
-    meeting::{Meeting, MeetingMembers},
-    member::Member,
+use crate::{
+    database::models::{
+        meeting::{Meeting, MeetingMembers},
+        member::Member,
+    },
+    error::Error,
 };
-use crate::error::Error;
 
 /// Struct that holds the current meeting status.
-/// It is used to keep track of the meeting's members and to check if the meeting is ongoing.
-/// Creates and manages task that is responsible for starting the meeting.
+/// It is used to keep track of the meeting's members and to check if the
+/// meeting is ongoing. Creates and manages task that is responsible for
+/// starting the meeting.
 ///
 /// Every call editing schedule will cancel the task and create a new one.
 #[derive(Debug)]
@@ -120,8 +126,8 @@ impl MeetingStatus {
         self.meeting_data.channel_id()
     }
 
-    /// Ends the meeting and inserts data to the database. Updates given meeting status.
-    /// Clears the meeting data and members.
+    /// Ends the meeting and inserts data to the database. Updates given meeting
+    /// status. Clears the meeting data and members.
     pub async fn end_meeting(
         ctx: &serenity::Context,
         meeting_status: Arc<RwLock<MeetingStatus>>,
@@ -178,7 +184,8 @@ impl MeetingStatus {
         Ok(meeting_status)
     }
 
-    /// Saves the meeting to the database and creates a task that will start the meeting.
+    /// Saves the meeting to the database and creates a task that will start the
+    /// meeting.
     ///
     /// The task will be cancelled if the schedule is changed.
     async fn await_meeting(meeting_status: Arc<RwLock<Self>>, ctx: &serenity::Context) {

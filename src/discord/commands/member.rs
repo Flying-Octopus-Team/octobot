@@ -1,18 +1,20 @@
 use std::fmt::Write;
 
-use poise::serenity_prelude as serenity;
-use poise::serenity_prelude::CreateButton;
-use poise::serenity_prelude::CreateMessage;
-use tracing::error;
-use tracing::info;
+use poise::{
+    serenity_prelude as serenity,
+    serenity_prelude::{CreateButton, CreateMessage},
+};
+use tracing::{error, info};
 
 use super::Context;
-use crate::database::models::member::Member;
-use crate::database::models::member::MemberRole;
-use crate::error::Error;
-use crate::SETTINGS;
+use crate::{
+    database::models::member::{Member, MemberRole},
+    error::Error,
+    SETTINGS,
+};
 
-/// Modal to get the Discord email of a user to connect or create a new wiki account
+/// Modal to get the Discord email of a user to connect or create a new wiki
+/// account
 #[derive(Debug, poise::Modal)]
 #[name = "Discord email for Wiki account"]
 struct WikiEmailModal {
@@ -108,7 +110,8 @@ pub async fn add_member(
     crate::discord::respond(ctx, output).await?;
 
     if ask_wiki_details {
-        // DM new member to get either their Discord email to create new wiki account or their wiki ID
+        // DM new member to get either their Discord email to create new wiki account or
+        // their wiki ID
         let dm = discord_id.create_dm_channel(&ctx).await?;
 
         let msg = dm.send_message(&ctx, dm_wiki_details).await?;
