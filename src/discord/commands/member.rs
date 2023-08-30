@@ -52,8 +52,6 @@ pub async fn add_member(
     #[description = "Display name"] name: Option<String>,
     #[description = "Role"] role: Option<MemberRole>,
 ) -> Result<(), Error> {
-    info!("Adding member");
-
     let name = if let Some(name) = name {
         name
     } else {
@@ -179,7 +177,6 @@ pub async fn remove_member(
     #[description = "Member of the organization"] member: Member,
     #[description = "Hard delete member from the database"] hard_delete: Option<bool>,
 ) -> Result<(), Error> {
-    info!("Removing member");
     let mut output = String::new();
 
     if let Some(user_id) = member.discord_id() {
@@ -232,8 +229,6 @@ pub async fn update_member(
     #[description = "Member role"] role: Option<MemberRole>,
     #[description = "Member wiki ID"] wiki_id: Option<i64>,
 ) -> Result<(), Error> {
-    info!("Updating member");
-
     let mut output = String::new();
 
     if let Some(new_name) = name {
@@ -337,7 +332,6 @@ pub async fn list_members(
     #[description = "Page number"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
 ) -> Result<(), Error> {
-    info!("Listing members");
     let page = page.unwrap_or(1);
 
     let (members, total_pages) = Member::list(page, page_size)?;

@@ -114,6 +114,13 @@ pub async fn start_bot() {
             edit_tracker: None,
             ..Default::default()
         },
+        pre_command: |ctx: Context<'_>| {
+            Box::pin(async move {
+                info!("Running command: {}", ctx.command().qualified_name);
+
+                ctx.defer().await.unwrap();
+            })
+        },
         ..Default::default()
     };
 

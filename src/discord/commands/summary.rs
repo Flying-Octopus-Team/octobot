@@ -1,7 +1,5 @@
 use std::fmt::Write;
 
-use tracing::info;
-
 use crate::{database::models::summary::Summary, discord::Context, error::Error};
 
 #[poise::command(slash_command, rename = "preview")]
@@ -10,8 +8,6 @@ pub(crate) async fn preview_summary(
     #[description = "Preview summary by ID"] summary: Option<Summary>,
     #[description = "Note to add to the summary"] note: Option<String>,
 ) -> Result<(), Error> {
-    info!("Generating summary preview");
-
     let note = note.unwrap_or_default();
 
     let summary = if let Some(summary) = summary {
@@ -33,8 +29,6 @@ pub(crate) async fn list_summaries(
     #[description = "Page number"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
 ) -> Result<(), Error> {
-    info!("Listing summaries");
-
     let page = page.unwrap_or(1);
 
     let (summaries, total_pages) = Summary::list(page, page_size)?;
@@ -54,8 +48,6 @@ pub(crate) async fn resend_summary(
     ctx: Context<'_>,
     #[description = "ID of the summary to resend"] summary: Summary,
 ) -> Result<(), Error> {
-    info!("Resending summary");
-
     let output = summary.send_summary(ctx, true).await?;
 
     crate::discord::respond(ctx, output).await
