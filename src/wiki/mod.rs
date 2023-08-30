@@ -224,8 +224,8 @@ pub async fn find_user_by_email(email: String) -> Result<Option<i64>, Error> {
 pub async fn find_or_create_user(email: String, name: String) -> Result<i64, Error> {
     let user_id = find_user_by_email(email.clone()).await?;
 
-    if user_id.is_some() {
-        return Ok(user_id.unwrap());
+    if let Some(id) = user_id {
+        return Ok(id);
     }
 
     let variables = create_user::Variables {
