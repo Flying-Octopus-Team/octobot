@@ -1,55 +1,150 @@
 name: Rust
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
 
 env:
-  CARGO_TERM_COLOR: always
-  DISCORD_WEBHOOK: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
+    CARGO_TERM_COLOR: always
+    DISCORD_WEBHOOK: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
+    # don't install husky hooks during CI as they are only needed for for pre-push
+    CARGO_HUSKY_DONT_INSTALL_HOOKS: true
 
 jobs:
-  build-and-test:
-    name: Update toolchain and run cargo fmt, check, clippy and test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
+    lint:
+        name: Formatting and linting
+        strategy:
+            fail-fast: false
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v3
 
-      - name: Install rust toolchain
-        run: |
-          rustup update --no-self-update stable
-          rustup component add rustfmt rust-src clippy
+            - name: Install Rust nightly
+              uses: dtolnay/rust-toolchain@nightly
+              with:
+                  components: rustfmt
 
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
 
-      - name: Run cargo fmt
-        run: cargo fmt --all -- --check
+            - name: Check typos
+              uses: crate-ci/typos@master
 
-      - name: Run cargo check
-        run: cargo check --all-features --all-targets
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
 
-      - name: Run cargo clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+            - name: Check formatting
+              run: cargo make fmt-check
 
-      - name: Run cargo test
-        run: cargo test --all-features --all-targets -- --nocapture --quiet
+    clippy:
+        name: Clippy
+        strategy:
+            fail-fast: false
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v3
 
-      - name: Checkout sources
-        uses: actions/checkout@v3
+            - name: Install Rust nightly
+              uses: dtolnay/rust-toolchain@nightly
+              with:
+                  components: clippy
 
-      - name: Setup notification
+            - name: Cache dependencies
+              uses: Swatinem/rust-cache@v2
+              env:
+                  cache-name: ci
+              with:
+                  shared-key: ubuntu-latest-${{ env.cache-name }}-stable
+
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
+
+            - name: Check clippy
+              run: cargo make clippy
+
+    check:
+        name: Check
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v3
+
+            - name: Install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache dependencies
+              uses: Swatinem/rust-cache@v2
+              env:
+                  cache-name: ci
+              with:
+                  shared-key: ${{ matrix.os }}-${{ env.cache-name }}-stable
+
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
+
+            - name: Check
+              run: cargo make check
+              env:
+                  RUST_BACKTRACE: full
+
+    test:
+        name: Test
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, macos-latest, windows-latest]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v3
+
+            - name: Install Rust stable
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: Cache dependencies
+              uses: Swatinem/rust-cache@v2
+              env:
+                  cache-name: ci
+              with:
+                  shared-key: ${{ matrix.os }}-${{ env.cache-name }}-stable
+
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
+
+            - name: Test
+              run: cargo make test
+              env:
+                  RUST_BACKTRACE: full
+
+    # Send Discord notification after every other job
+    notification:
+        name: Discord notification
+        needs: [lint, clippy, check, test]
+        runs-on: ubuntu-latest
         if: ${{ always() }}
-        uses: kceb/pull-request-url-action@v1
-        id: pr-url
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v3
 
-      - name: Actions Status Discord
-        if: ${{ always() }}
-        uses: sarisia/actions-status-discord@v1.10.0
-        with:
-          url: ${{ steps.pr-url.outputs.url }}
+            - name: Setup notification
+              uses: kceb/pull-request-url-action@v1
+              id: pr-url
+
+            - name: Actions Status Discord
+              uses: sarisia/actions-status-discord@v1.10.0
+              with:
+                  url: ${{ steps.pr-url.outputs.url }}
