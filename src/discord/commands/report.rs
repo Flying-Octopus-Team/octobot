@@ -15,7 +15,6 @@ pub(crate) async fn add_report(
     #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Summary's ID"] summary: Option<Summary>,
 ) -> Result<(), Error> {
-    info!("Adding report");
     let member = match member {
         Some(member) => member,
         None => {
@@ -48,8 +47,6 @@ pub(crate) async fn remove_report(
     ctx: Context<'_>,
     #[description = "Report's ID"] report: Report,
 ) -> Result<(), Error> {
-    info!("Removing report");
-
     let mut output = String::new();
 
     match report.delete() {
@@ -76,7 +73,6 @@ pub(crate) async fn list_reports(
     #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Published"] published: Option<bool>,
 ) -> Result<(), Error> {
-    info!("Listing reports");
     let page = page.unwrap_or(1);
 
     let member = member.map(|member| member.id());
@@ -101,8 +97,6 @@ pub(crate) async fn update_report(
     #[description = "Report's content"] content: Option<String>,
     #[description = "Member of the organization"] member: Option<Member>,
 ) -> Result<(), Error> {
-    info!("Updating report");
-
     if let Some(content) = content {
         report.content = content;
     }

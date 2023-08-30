@@ -18,8 +18,6 @@ pub(crate) async fn end_meeting(
     #[rest]
     note: String,
 ) -> Result<(), Error> {
-    info!("Received end-meeting command");
-
     let meeting_status = ctx.data().meeting_status.clone();
 
     if !meeting_status.read().await.is_meeting_ongoing() {
@@ -47,8 +45,6 @@ pub(crate) async fn end_meeting(
 #[poise::command(slash_command, rename = "status")]
 pub(crate) async fn status_meeting(ctx: Context<'_>) -> Result<(), Error> {
     let mut output = String::new();
-
-    info!("Received status-meeting command");
 
     {
         let rw_lock = ctx.data().meeting_status.clone();
@@ -172,7 +168,6 @@ pub async fn add_member(
     #[description = "Member to add"] member: crate::database::models::member::Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
-    info!("Adding member to meeting");
     let mut output = String::new();
 
     let result = match meeting {
@@ -194,7 +189,6 @@ pub async fn remove_member(
     #[description = "Member of the organization"] member: crate::database::models::member::Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
-    info!("Removing member from meeting");
     let mut output = String::new();
 
     let result = match meeting {
@@ -216,8 +210,6 @@ pub(crate) async fn list_meetings(
     #[description = "Page to list"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
 ) -> Result<(), Error> {
-    info!("Listing meetings");
-
     let page = page.unwrap_or(1);
 
     let (meetings, total_pages) = Meeting::list(page, page_size)?;
