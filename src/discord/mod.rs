@@ -1,6 +1,9 @@
-use std::{fmt::Write, sync::Arc};
+use std::{
+    fmt::{Debug, Write},
+    sync::Arc,
+};
 
-use poise::serenity_prelude as serenity;
+use poise::serenity_prelude::{self as serenity, Color};
 use serenity::GatewayIntents;
 use tokio::sync::RwLock;
 use tracing::{error, info, log::trace, warn};
@@ -15,6 +18,7 @@ use crate::{
 
 mod commands;
 
+#[derive(Debug)]
 pub struct Data {
     pub meeting_status: Arc<RwLock<MeetingStatus>>,
 }
@@ -121,6 +125,11 @@ pub async fn start_bot() {
                 ctx.defer().await.unwrap();
             })
         },
+        on_error: |err: poise::FrameworkError<'_, Data, Error>| {
+            Box::pin(async move {
+                on_error(err).await;
+            })
+        },
         ..Default::default()
     };
 
@@ -146,6 +155,40 @@ pub async fn start_bot() {
         .await
     {
         error!("An error occurred while running the client: {:?}", why);
+    }
+}
+
+/// Constructs and sends embed with information about the error as the content. Embed is sent as a
+/// reply to the original message.
+async fn on_error(err: poise::FrameworkError<'_, Data, Error>) {
+    let message = format!("{}", err);
+    let ctx = err.ctx();
+    let err = std::error::Error::source(&err).and_then(|e| e.downcast_ref::<Error>());
+
+    let description = if let Some(err) = err {
+        format!("{}\n{}", err, message)
+    } else {
+        message.clone()
+    };
+
+    error!({message, ?err}, "Error occurred");
+
+    if let Some(ctx) = ctx {
+        let result = ctx
+            .send(|m| {
+                m.embed(|e| {
+                    e.color(Color::from_rgb(209, 53, 56))
+                        .timestamp(chrono::Utc::now())
+                        .title("Error occurred")
+                        .description(description)
+                        .footer(|f| f.text(format!("Command: {}", ctx.command().qualified_name)))
+                })
+            })
+            .await;
+
+        if let Err(e) = result {
+            error!("Error sending error message: {}", e);
+        }
     }
 }
 

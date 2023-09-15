@@ -22,7 +22,7 @@ pub enum Error {
         source: cron::error::Error,
     },
     #[error("Error parsing: {source}")]
-    ParseError {
+    ParseIntError {
         #[from]
         source: std::num::ParseIntError,
     },
