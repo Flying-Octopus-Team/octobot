@@ -20,8 +20,7 @@ tracing-appender = "0.2.2"
 cron = "0.12.0"
 graphql_client = "0.13.0"
 reqwest = "0.11.19"
-# poise = { version = "0.5.5", features = ["cache"] }
-poise = { git = "https://github.com/serenity-rs/poise.git", rev = "5d02b8757d30e4588c193c5ba06e38806bbc1021", features = ["cache"] }
+poise = { version = "0.5.6", features = ["cache"] }
 anyhow = "1.0.75"
 async-trait = "0.1.73"
 thiserror = "1.0.47"
