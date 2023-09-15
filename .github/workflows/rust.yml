@@ -44,6 +44,9 @@ jobs:
             - name: Check formatting
               run: cargo make fmt-check
 
+            - name: Lint dependencies
+              uses: EmbarkStudios/cargo-deny-action@v1
+
     clippy:
         name: Clippy
         strategy:

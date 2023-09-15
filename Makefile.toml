@@ -13,6 +13,7 @@ dependencies = [
   "clippy",
   "check",
   "test",
+  "deny"
 ]
 
 [tasks.style-check]
@@ -78,4 +79,13 @@ args = [
   "test",
   "--all-targets",
   "--all-features",
+]
+
+[tasks.deny]
+description = "Run cargo-deny checks"
+install_crate = { crate_name = "cargo-deny", binary = "cargo-deny", test_arg = "--version" }
+command = "cargo"
+args = [
+  "deny",
+  "check"
 ]
