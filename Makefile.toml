@@ -8,13 +8,7 @@ alias = "ci"
 
 [tasks.ci]
 description = "Run continuous integration tasks"
-dependencies = [
-  "style-check",
-  "clippy",
-  "check",
-  "test",
-  "deny"
-]
+dependencies = ["style-check", "clippy", "check", "test", "deny"]
 
 [tasks.style-check]
 description = "Check code style"
@@ -42,20 +36,12 @@ command = "typos"
 [tasks.check]
 description = "Check code for errors and warnings"
 command = "cargo"
-args = [
-  "check",
-  "--all-targets",
-  "--all-features"
-]
+args = ["check", "--all-targets", "--all-features"]
 
 [tasks.build]
 description = "Compile the project"
 command = "cargo"
-args = [
-  "build",
-  "--all-targets",
-  "--all-features",
-]
+args = ["build", "--all-targets", "--all-features"]
 
 [tasks.clippy]
 description = "Run Clippy for linting"
@@ -75,17 +61,10 @@ args = [
 [tasks.test]
 description = "Run tests"
 command = "cargo"
-args = [
-  "test",
-  "--all-targets",
-  "--all-features",
-]
+args = ["test", "--all-targets", "--all-features"]
 
 [tasks.deny]
 description = "Run cargo-deny checks"
 install_crate = { crate_name = "cargo-deny", binary = "cargo-deny", test_arg = "--version" }
 command = "cargo"
-args = [
-  "deny",
-  "check"
-]
+args = ["deny", "check"]

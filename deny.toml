@@ -12,13 +12,7 @@ default = "deny"
 unlicensed = "deny"
 copyleft = "deny"
 confidence-threshold = 0.8
-allow = [
-    "Apache-2.0",
-    "BSD-3-Clause",
-    "ISC",
-    "MIT",
-    "MPL-2.0",
-]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0"]
 exceptions = [
     { allow = [
         "OpenSSL",
