@@ -1,17 +1,17 @@
 # Octobot
 
-Discord bot, that allows its users to integrate different services used in Flying Octopus together. 
+Discord bot, that allows its users to integrate different services used in Flying Octopus together.
 
 # Features
 
-Add organization's member and manage their profiles and statuses on multiple services using Discord's commands. 
-Manage and sync reports written by users across services. 
+Add organization's member and manage their profiles and statuses on multiple services using Discord's commands.
+Manage and sync reports written by users across services.
 
 # Motivation
 
 - Minimize the amount of work non-tech savvy member's of the team have to do while adding new members of the team.
 - Reduce amount of manual copy-pasting required to keep all reports synchronized
-- Track member's activity to comply with internal rules 
+- Track member's activity to comply with internal rules
 
 # Requirements
 
@@ -54,25 +54,25 @@ Run the bot using cargo
 
 # Roadmap
 
-- [X] Member management
-  - [X] Create
-  - [X] Read
-  - [X] Update
-  - [X] Delete
+- [x] Member management
+  - [x] Create
+  - [x] Read
+  - [x] Update
+  - [x] Delete
 - [ ] Report management
-  - [X] Create
-  - [X] Read
-  - [X] Update
-  - [X] Delete
+  - [x] Create
+  - [x] Read
+  - [x] Update
+  - [x] Delete
   - [ ] Check member's minimum activity
-- [X] Weekly meetings
-  - [X] Check attendance
-  - [X] Write reports after the meeting
-  - [X] Include attendees in the report
-- [X] Discord commands
-  - [X] User
-  - [X] Report
-  - [X] Weekly
+- [x] Weekly meetings
+  - [x] Check attendance
+  - [x] Write reports after the meeting
+  - [x] Include attendees in the report
+- [x] Discord commands
+  - [x] User
+  - [x] Report
+  - [x] Weekly
 - [ ] Trello integration
   - [ ] Auto-invite members
   - [ ] Update and sync member information
@@ -81,14 +81,13 @@ Run the bot using cargo
   - [ ] Auto-invite members
   - [ ] Update and sync member information
 
-
 # Contributors
 
 Join our [Discord server](https://discord.gg/Q2DuSNY) to learn more about our plans and help us develop this tool!
 
-# License 
+# License
 
 Licensed under either of these:
 
-  - Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
-  - MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
