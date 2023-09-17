@@ -6,7 +6,6 @@ use tracing::info;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
-    pub discord_token: String,
     pub database_url: String,
     pub meeting: Meeting,
     pub discord: Discord,
@@ -21,6 +20,7 @@ pub struct Meeting {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Discord {
+    pub token: String,
     pub member_role: RoleId,
     pub apprentice_role: RoleId,
     pub summary_channel: ChannelId,
