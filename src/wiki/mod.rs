@@ -1,6 +1,7 @@
 use graphql_client::GraphQLQuery;
 use reqwest::header;
 use thiserror::Error;
+use tracing::info;
 
 use crate::{error::Error, SETTINGS};
 
@@ -12,12 +13,9 @@ pub enum WikiError {
         slug: String,
         message: Option<String>,
     },
-    #[error("Wiki error: {source:?}")]
-    ReqwestError {
-        #[from]
-        source: reqwest::Error,
-    },
-    #[error("Wiki error: {errors:?}")]
+    #[error("Wiki reqwest error: {source:?}")]
+    ReqwestError { source: reqwest::Error },
+    #[error("Wiki graphql error: {errors:?}")]
     GraphqlClientError { errors: Vec<graphql_client::Error> },
 }
 
@@ -77,18 +75,26 @@ fn get_client() -> Result<reqwest::Client, Error> {
 pub async fn assign_user_group(variables: assign_user_group::Variables) -> Result<(), Error> {
     let client = get_client()?;
 
-    let body = AssignUserGroup::build_query(variables);
-
-    let res = client
-        .post(&SETTINGS.wiki.graphql)
-        .json(&body)
-        .send()
-        .await?;
-
-    let response_body: graphql_client::Response<assign_user_group::ResponseData> =
-        res.json().await?;
+    let response_body = graphql_client::reqwest::post_graphql::<AssignUserGroup, _>(
+        &client,
+        &SETTINGS.wiki.graphql,
+        variables,
+    )
+    .await?;
 
     if let Some(errors) = response_body.errors {
+        let errors = errors
+            .into_iter()
+            .filter(|error| {
+                info!("Wiki user is already in the group");
+                !error.message.contains("User is already assigned to group.")
+            })
+            .collect::<Vec<_>>();
+
+        if errors.is_empty() {
+            return Ok(());
+        }
+
         return Err(Into::<WikiError>::into(errors))?;
     }
 
@@ -117,16 +123,12 @@ pub async fn assign_user_group(variables: assign_user_group::Variables) -> Resul
 pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> Result<(), Error> {
     let client = get_client()?;
 
-    let body = UnassignUserGroup::build_query(variables);
-
-    let res = client
-        .post(&SETTINGS.wiki.graphql)
-        .json(&body)
-        .send()
-        .await?;
-
-    let response_body: graphql_client::Response<unassign_user_group::ResponseData> =
-        res.json().await?;
+    let response_body = graphql_client::reqwest::post_graphql::<UnassignUserGroup, _>(
+        &client,
+        &SETTINGS.wiki.graphql,
+        variables,
+    )
+    .await?;
 
     if let Some(errors) = response_body.errors {
         return Err(Into::<WikiError>::into(errors))?;
@@ -157,15 +159,12 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
 pub async fn create_user(variables: create_user::Variables) -> Result<Option<i64>, Error> {
     let client = get_client()?;
 
-    let body = CreateUser::build_query(variables);
-
-    let res = client
-        .post(&SETTINGS.wiki.graphql)
-        .json(&body)
-        .send()
-        .await?;
-
-    let response_body: graphql_client::Response<create_user::ResponseData> = res.json().await?;
+    let response_body = graphql_client::reqwest::post_graphql::<CreateUser, _>(
+        &client,
+        &SETTINGS.wiki.graphql,
+        variables,
+    )
+    .await?;
 
     if let Some(errors) = response_body.errors {
         return Err(Into::<WikiError>::into(errors))?;
@@ -196,15 +195,12 @@ pub async fn find_user_by_email(email: String) -> Result<Option<i64>, Error> {
 
     let variables = search_user::Variables { query: email };
 
-    let body = SearchUser::build_query(variables);
-
-    let res = client
-        .post(&SETTINGS.wiki.graphql)
-        .json(&body)
-        .send()
-        .await?;
-
-    let response_body: graphql_client::Response<search_user::ResponseData> = res.json().await?;
+    let response_body = graphql_client::reqwest::post_graphql::<SearchUser, _>(
+        &client,
+        &SETTINGS.wiki.graphql,
+        variables,
+    )
+    .await?;
 
     if let Some(errors) = response_body.errors {
         return Err(Into::<WikiError>::into(errors))?;

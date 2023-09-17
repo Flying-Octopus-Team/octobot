@@ -1,10 +1,7 @@
 use std::fmt::Write;
 
-use poise::{
-    serenity_prelude as serenity,
-    serenity_prelude::{CreateButton, CreateMessage},
-};
-use tracing::{error, info};
+use poise::serenity_prelude::{self as serenity, CreateButton, CreateMessage};
+use tracing::{error, info, warn};
 
 use super::Context;
 use crate::{
@@ -112,26 +109,33 @@ pub async fn add_member(
         // their wiki ID
         let dm = discord_id.create_dm_channel(&ctx).await?;
 
-        let msg = dm.send_message(&ctx, dm_wiki_details).await?;
+        let mut msg = dm.send_message(&ctx, dm_wiki_details).await?;
 
         let mut wiki_id = None;
 
-        while let Some(interaction) =
+        let mut response =
             poise::serenity_prelude::CollectComponentInteraction::new(ctx.serenity_context())
                 .channel_id(dm.id)
                 .author_id(discord_id)
                 .message_id(msg.id)
-                .await
-        {
-            info!("User {} responded to wiki email modal", interaction.user.id);
+                .timeout(std::time::Duration::from_secs(3600))
+                .await;
 
-            let email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(
-                ctx,
-                interaction,
-                None,
-                None,
-            )
-            .await?;
+        while let Some(interaction) = response.clone() {
+            info!("User {} responded to wiki email modal", member.name());
+
+            let email = tokio::select! {
+                email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(&ctx, interaction, None, Some(std::time::Duration::from_secs(3600))) => email?,
+                interaction = poise::serenity_prelude::CollectComponentInteraction::new(ctx.serenity_context())
+                .channel_id(dm.id)
+                .author_id(discord_id)
+                .message_id(msg.id)
+                .timeout(std::time::Duration::from_secs(3600))
+                => {
+                    response = interaction;
+                    continue;
+                }
+            };
 
             if let Some(email) = email {
                 let email = email.wiki_email;
@@ -142,11 +146,51 @@ pub async fn add_member(
 
                 wiki_id = Some(user_id);
 
+                let _ = msg
+                    .edit(&ctx, |m| {
+                        m.content(format!(
+                            "Your wiki account has been created. You can now login at {}",
+                            SETTINGS.wiki.url
+                        ))
+                        .components(|c| c)
+                    })
+                    .await;
+
+                break;
+            } else {
+                // Timeout
+                warn!("User {} did not respond to wiki email modal", member.name());
+
+                let _ = msg
+                    .edit(&ctx, |m| {
+                        m.content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")
+                            .components(|c| c)
+                    })
+                    .await;
+
                 break;
             }
         }
 
+        if response.is_none() {
+            // Timeout
+            warn!("User {} did not respond to wiki email modal", member.name());
+
+            // Edit message to indicate timeout
+            let _ = msg
+                .edit(&ctx, |m| {
+                    m.content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")                            
+                    .components(|c| c)
+                })
+                .await;
+
+            return Ok(());
+        }
+
         if let Some(wiki_id) = wiki_id {
+            // Get member again to make sure we have the latest version
+            member = Member::find_by_discord_id(discord_id.to_string())?;
+
             member.set_wiki_id(wiki_id);
 
             member
@@ -157,15 +201,6 @@ pub async fn add_member(
 
             member.update()?;
         }
-
-        let _ = dm
-            .send_message(&ctx, |m| {
-                m.content(format!(
-                    "Your wiki account has been created. You can now login at {}",
-                    SETTINGS.wiki.url
-                ))
-            })
-            .await;
     }
 
     Ok(())
