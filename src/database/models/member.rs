@@ -357,18 +357,31 @@ impl SlashArgument for Member {
         interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
         value: &serenity::json::Value,
     ) -> Result<Self, poise::SlashArgError> {
-        let member =
-            poise::extract_slash_argument!(serenity::model::guild::Member, ctx, interaction, value)
-                .await?;
+        let member_id = match poise::extract_slash_argument!(
+            serenity::model::guild::Member,
+            ctx,
+            interaction,
+            value
+        )
+        .await
+        {
+            Ok(member) => member.user.id.to_string(),
+            Err(why) => {
+                String::from(value.as_str().ok_or_else(|| poise::SlashArgError::Parse {
+                    error: why.into(),
+                    input: value.to_string(),
+                })?)
+            }
+        };
 
-        let member = match Member::find_by_discord_id(member.user.id.to_string()) {
+        let member = match Member::find_by_discord_id(&member_id) {
             Ok(member) => member,
             Err(why) => {
                 let error_msg = format!("Could not find member in database: {}", why);
                 error!("{}", error_msg);
                 return Err(poise::SlashArgError::Parse {
                     error: why.into(),
-                    input: member.user.id.to_string(),
+                    input: member_id,
                 });
             }
         };
