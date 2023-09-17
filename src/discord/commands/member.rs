@@ -220,7 +220,7 @@ pub async fn remove_member(
         match member.role().remove_role(&ctx, user_id).await {
             Ok(_) => {}
             Err(why) => {
-                let error_msg = format!("Failed to remove member role: {}", why);
+                let error_msg = format!("Failed to remove member's role: {}", why);
                 error!("{}", error_msg);
                 output.push_str(&error_msg);
                 output.push('\n');
