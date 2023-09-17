@@ -100,7 +100,7 @@ async fn event_ready(ctx: &serenity::Context, framework: poise::FrameworkContext
 }
 
 pub async fn start_bot() {
-    let token = &SETTINGS.discord_token;
+    let token = &SETTINGS.discord.token;
 
     let intents = GatewayIntents::non_privileged()
         | GatewayIntents::MESSAGE_CONTENT

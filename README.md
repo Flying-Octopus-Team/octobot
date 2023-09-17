@@ -24,16 +24,26 @@ Clone repository and create config file in `config/config.json` following this t
 
 ```json
 {
-    "discord_token": "",
-    "database_url": "postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]",
+  "database_url": "postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]",
+  "meeting": {
+    "cron": "",
+    "channel_id": 123456789012345678
+  },
+  "discord": {
+    "token": "",
     "member_role_id": 123456789012345678,
     "apprentice_role_id": 123456789012345678,
     "server_id": 123456789012345678,
-    "meeting": {
-        "cron": "",
-        "channel_id": 123456789012345678
-    },
     "summary_channel": 123456789012345678
+  },
+  "wiki": {
+    "token": "Bearer very_long_token",
+    "url": "https://wiki.example.com",
+    "graphql": "https://wiki.example.com/graphql",
+    "provider_key": "long-key-for-discord-provider",
+    "member_group_id": 123456789012345678,
+    "guest_group_id": 123456789012345678
+  }
 }
 ```
 
