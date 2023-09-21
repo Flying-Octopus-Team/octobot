@@ -220,14 +220,23 @@ impl Member {
         }
     }
 
-    pub fn list(page: i64, per_page: Option<i64>) -> Result<(Vec<Self>, i64), Error> {
-        use crate::database::schema::member::dsl::*;
+    pub fn list(
+        page: i64,
+        per_page: Option<i64>,
+        role: Option<MemberRole>,
+    ) -> Result<(Vec<Self>, i64), Error> {
+        use crate::database::schema::member::dsl;
 
-        let mut query = member
-            .select(member::all_columns())
-            .order(display_name.asc())
-            .into_boxed()
-            .paginate(page);
+        let mut query = dsl::member
+            .select(dsl::member::all_columns())
+            .order(dsl::display_name.asc())
+            .into_boxed();
+
+        if let Some(role) = role {
+            query = query.filter(dsl::role.eq(role));
+        }
+
+        let mut query = query.paginate(page);
 
         if let Some(per_page) = per_page {
             query = query.per_page(per_page);

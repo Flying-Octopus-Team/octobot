@@ -17,7 +17,7 @@ use crate::{
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug)]
 #[diesel(table_name = summary)]
-pub(crate) struct Summary {
+pub struct Summary {
     id: Uuid,
     note: String,
     create_date: NaiveDate,

@@ -72,12 +72,13 @@ pub(crate) async fn list_reports(
     #[description = "Page size"] page_size: Option<i64>,
     #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Published"] published: Option<bool>,
+    #[description = "Summary's ID"] summary: Option<Summary>,
 ) -> Result<(), Error> {
     let page = page.unwrap_or(1);
 
     let member = member.map(|member| member.id());
 
-    let (reports, total_pages) = Report::list(page, page_size, member, published)?;
+    let (reports, total_pages) = Report::list(page, page_size, member, published, summary)?;
 
     let mut output = String::new();
 
@@ -96,6 +97,7 @@ pub(crate) async fn update_report(
     #[description = "Report's ID"] mut report: Report,
     #[description = "Report's content"] content: Option<String>,
     #[description = "Member of the organization"] member: Option<Member>,
+    #[description = "Summary's ID"] summary: Option<Summary>,
 ) -> Result<(), Error> {
     if let Some(content) = content {
         report.content = content;
@@ -103,6 +105,10 @@ pub(crate) async fn update_report(
 
     if let Some(member) = member {
         report.member_id = member.id();
+    }
+
+    if let Some(summary) = summary {
+        report.set_summary_id(summary.id())?;
     }
 
     let report = report.update()?;
