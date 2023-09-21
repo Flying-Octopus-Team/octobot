@@ -366,10 +366,11 @@ pub async fn list_members(
     ctx: Context<'_>,
     #[description = "Page number"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
+    #[description = "Member role"] role: Option<MemberRole>,
 ) -> Result<(), Error> {
     let page = page.unwrap_or(1);
 
-    let (members, total_pages) = Member::list(page, page_size)?;
+    let (members, total_pages) = Member::list(page, page_size, role)?;
 
     let mut output = String::new();
 

@@ -72,6 +72,7 @@ impl Report {
         per_page: Option<i64>,
         member_id: Option<Uuid>,
         published: Option<bool>,
+        summary: Option<Summary>,
     ) -> Result<(Vec<Self>, i64), Error> {
         let mut query = report::table.into_boxed().order(dsl::create_date.desc());
 
@@ -81,6 +82,10 @@ impl Report {
 
         if let Some(published) = published {
             query = query.filter(dsl::published.eq(published));
+        }
+
+        if let Some(summary) = summary {
+            query = query.filter(dsl::summary_id.eq(summary.id()));
         }
 
         let mut query = query.paginate(page);
