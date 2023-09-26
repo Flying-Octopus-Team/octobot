@@ -8,7 +8,7 @@ alias = "ci"
 
 [tasks.ci]
 description = "Run continuous integration tasks"
-dependencies = ["style-check", "clippy", "check", "test", "deny"]
+dependencies = ["check", "clippy", "test", "style-check", "deny"]
 
 [tasks.style-check]
 description = "Check code style"
@@ -67,4 +67,4 @@ args = ["test", "--all-targets", "--all-features"]
 description = "Run cargo-deny checks"
 install_crate = { crate_name = "cargo-deny", binary = "cargo-deny", test_arg = "--version" }
 command = "cargo"
-args = ["deny", "check"]
+args = ["deny", "--all-features", "check"]
