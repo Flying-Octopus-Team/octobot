@@ -41,25 +41,23 @@ pub(crate) async fn list(
     )?;
 
     for member in members {
-        let user_name = member
-            .discord_id()
-            .map(|id| format!("<@{}>", id))
-            .unwrap_or_else(|| member.name().to_owned());
-
-        let last_activity = member
-            .last_activity()
-            .map(|a| a.to_string())
-            .unwrap_or_else(|| "Never".to_owned());
-
-        writeln!(
-            &mut output,
-            "{} {} Last active: {}",
-            member.role(),
-            user_name,
-            last_activity
-        )?;
+        writeln!(&mut output, "{}", display_member_activity(member))?;
     }
     write!(&mut output, "Page: {page}/{total_pages}")?;
 
     crate::discord::respond(ctx, output).await
+}
+
+fn display_member_activity(member: Member) -> String {
+    let user_name = member
+        .discord_id()
+        .map(|id| format!("<@{}>", id))
+        .unwrap_or_else(|| member.name().to_owned());
+
+    let last_activity = member
+        .last_activity()
+        .map(|a| a.to_string())
+        .unwrap_or_else(|| "Never".to_owned());
+
+    format!("{} Last active: {}", user_name, last_activity)
 }
