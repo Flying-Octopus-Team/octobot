@@ -15,7 +15,7 @@ pub(crate) async fn add_report(
     #[description = "Member of the organization"] member: Option<Member>,
     #[description = "Summary's ID"] summary: Option<Summary>,
 ) -> Result<(), Error> {
-    let member = match member {
+    let mut member = match member {
         Some(member) => member,
         None => {
             let author_id = ctx.author().id.to_string();
@@ -34,6 +34,8 @@ pub(crate) async fn add_report(
 
         summary.send_summary(ctx, true).await?;
     }
+
+    member.update_activity(report.create_date)?;
 
     info!("Report added: {:?}", report);
 
@@ -61,6 +63,16 @@ pub(crate) async fn remove_report(
         }
         Err(err) => return Err(err),
     };
+
+    let mut member = Member::find_by_id(report.member_id)?;
+
+    let last_activity = member.last_activity();
+
+    if let Some(last_activity) = last_activity {
+        if report.create_date >= last_activity {
+            member.refresh_activity()?;
+        }
+    }
 
     crate::discord::respond(ctx, output).await
 }
@@ -103,15 +115,35 @@ pub(crate) async fn update_report(
         report.content = content;
     }
 
-    if let Some(member) = member {
+    let old_member = if let Some(ref member) = member {
+        let old_member = Member::find_by_id(report.member_id)?;
+
         report.member_id = member.id();
-    }
+
+        Some(old_member)
+    } else {
+        None
+    };
 
     if let Some(summary) = summary {
         report.set_summary_id(summary.id())?;
     }
 
     let report = report.update()?;
+
+    if let Some(mut member) = member {
+        member.update_activity(report.create_date)?;
+
+        if let Some(mut old_member) = old_member {
+            let old_last_activity = old_member.last_activity();
+
+            if let Some(old_last_activity) = old_last_activity {
+                if report.create_date >= old_last_activity {
+                    old_member.refresh_activity()?;
+                }
+            }
+        }
+    }
 
     let mut output = String::new();
 

@@ -28,6 +28,7 @@ diesel::table! {
         trello_report_card_id -> Nullable<Text>,
         role -> Int4,
         wiki_id -> Nullable<Int8>,
+        last_activity -> Nullable<Date>,
     }
 }
 

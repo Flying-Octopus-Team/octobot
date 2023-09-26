@@ -25,7 +25,7 @@ pub struct Report {
     id: Uuid,
     pub member_id: Uuid,
     pub content: String,
-    create_date: NaiveDate,
+    pub create_date: NaiveDate,
     published: bool,
     summary_id: Option<Uuid>,
 }

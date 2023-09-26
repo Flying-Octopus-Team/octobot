@@ -1,10 +1,20 @@
 use super::Context;
 use crate::error::Error;
 
+mod activity;
 mod meeting;
 mod member;
 mod report;
 mod summary;
+
+#[poise::command(
+    slash_command,
+    category = "Activity",
+    subcommands("activity::refresh", "activity::list",)
+)]
+pub async fn activity(_ctx: Context<'_>) -> Result<(), Error> {
+    Ok(())
+}
 
 #[poise::command(
     slash_command,

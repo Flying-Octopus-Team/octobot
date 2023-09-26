@@ -5,7 +5,7 @@ use tracing::{error, info, warn};
 
 use super::Context;
 use crate::{
-    database::models::member::{Member, MemberRole},
+    database::models::member::{Activity, Member, MemberRole},
     error::Error,
     SETTINGS,
 };
@@ -263,6 +263,7 @@ pub async fn update_member(
     #[description = "Member Trello Report Card ID"] trello_report_card_id: Option<String>,
     #[description = "Member role"] role: Option<MemberRole>,
     #[description = "Member wiki ID"] wiki_id: Option<i64>,
+    #[description = "Refresh member's activity"] refresh_activity: Option<bool>,
 ) -> Result<(), Error> {
     let mut output = String::new();
 
@@ -322,6 +323,12 @@ pub async fn update_member(
         member.set_trello_report_card_id(new_trello_report_card_id)
     }
 
+    if let Some(refresh_activity) = refresh_activity {
+        if refresh_activity {
+            member.refresh_activity()?;
+        }
+    }
+
     if let Some(new_wiki_id) = wiki_id {
         // remove old account from group - only if it's not guest group
         let is_guest_group = member.wiki_group() != SETTINGS.wiki.guest_group_id;
@@ -367,10 +374,11 @@ pub async fn list_members(
     #[description = "Page number"] page: Option<i64>,
     #[description = "Page size"] page_size: Option<i64>,
     #[description = "Member role"] role: Option<MemberRole>,
+    #[description = "Member's activity"] activity: Option<Activity>,
 ) -> Result<(), Error> {
     let page = page.unwrap_or(1);
 
-    let (members, total_pages) = Member::list(page, page_size, role)?;
+    let (members, total_pages) = Member::list(page, page_size, role, activity)?;
 
     let mut output = String::new();
 

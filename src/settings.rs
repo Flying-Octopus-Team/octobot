@@ -7,6 +7,7 @@ use tracing::info;
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub database_url: String,
+    pub activity_threshold_days: i64,
     pub meeting: Meeting,
     pub discord: Discord,
     pub wiki: Wiki,

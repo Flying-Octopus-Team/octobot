@@ -132,26 +132,36 @@ impl MeetingStatus {
         ctx: &serenity::Context,
         meeting_status: Arc<RwLock<MeetingStatus>>,
     ) -> Result<(), Error> {
-        let mut meeting = meeting_status.write().await;
+        {
+            let mut meeting = meeting_status.write().await;
 
-        meeting.set_is_ongoing(false);
+            meeting.set_is_ongoing(false);
 
-        meeting.meeting_data.end_meeting(Local::now())?;
+            meeting.meeting_data.end_meeting(Local::now())?;
 
-        let scheduled_cron = String::from(meeting.meeting_data.scheduled_cron());
+            let scheduled_cron = String::from(meeting.meeting_data.scheduled_cron());
 
-        let channel_id = meeting.channel().to_string();
+            let channel_id = meeting.channel().to_string();
 
-        *meeting = MeetingStatus::new(&scheduled_cron, channel_id)?;
+            let end_time = meeting.meeting_data.end_date.unwrap();
 
-        drop(meeting);
+            let members = meeting.meeting_data.members()?;
+
+            for mut member in members {
+                member.set_last_activity(end_time.into());
+
+                member.update()?;
+            }
+
+            *meeting = MeetingStatus::new(&scheduled_cron, channel_id)?;
+        }
 
         MeetingStatus::await_meeting(meeting_status.clone(), ctx).await;
 
         Ok(())
     }
 
-    pub fn add_member(&mut self, member: &Member) -> Result<String, Error> {
+    pub fn add_member(&mut self, member: &mut Member) -> Result<String, Error> {
         let meeting = self.meeting();
         match meeting.add_member(member) {
             Ok(msg) => {
@@ -167,7 +177,7 @@ impl MeetingStatus {
         }
     }
 
-    pub fn remove_member(&mut self, member: &Member) -> Result<String, Error> {
+    pub fn remove_member(&mut self, member: &mut Member) -> Result<String, Error> {
         self.members.retain(|m| m.member_id() != member.id());
 
         let meeting = self.meeting();
@@ -265,7 +275,7 @@ impl MeetingStatus {
         };
 
         for member in channel.members(&cache).await? {
-            let member = {
+            let mut member = {
                 let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
                 match member_result {
                     Ok(m) => m,
@@ -275,7 +285,7 @@ impl MeetingStatus {
                     }
                 }
             };
-            match self.add_member(&member) {
+            match self.add_member(&mut member) {
                 Ok(_) => {}
                 Err(e) => error!("Error adding member to meeting: {}", e),
             }
