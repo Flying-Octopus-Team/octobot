@@ -25,6 +25,7 @@ Clone repository and create config file in `config/config.json` following this t
 ```json
 {
   "database_url": "postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]",
+  "activity_threshold_days": 123,
   "meeting": {
     "cron": "",
     "channel_id": 123456789012345678
