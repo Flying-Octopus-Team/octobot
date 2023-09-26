@@ -235,6 +235,7 @@ impl Member {
         page: i64,
         per_page: Option<i64>,
         role: Option<MemberRole>,
+        ignore_role: Option<MemberRole>,
         activity: Option<Activity>,
     ) -> Result<(Vec<Self>, i64), Error> {
         use crate::database::schema::member::dsl;
@@ -246,6 +247,10 @@ impl Member {
 
         if let Some(role) = role {
             query = query.filter(dsl::role.eq(role));
+        }
+
+        if let Some(ignore_role) = ignore_role {
+            query = query.filter(dsl::role.ne(ignore_role));
         }
 
         if let Some(activity) = activity {

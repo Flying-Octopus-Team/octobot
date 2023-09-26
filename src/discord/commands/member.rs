@@ -378,7 +378,7 @@ pub async fn list_members(
 ) -> Result<(), Error> {
     let page = page.unwrap_or(1);
 
-    let (members, total_pages) = Member::list(page, page_size, role, activity)?;
+    let (members, total_pages) = Member::list(page, page_size, role, None, activity)?;
 
     let mut output = String::new();
 
