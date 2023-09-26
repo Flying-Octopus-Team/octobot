@@ -6,11 +6,11 @@ use diesel::{
     query_dsl::SaveChangesDsl,
     serialize::{Output, ToSql},
     sql_types::Integer,
-    QueryDsl, Table,
+    BoolExpressionMethods, QueryDsl, Table,
 };
 use poise::{serenity_prelude as serenity, SlashArgument};
 use serenity::{http::CacheHttp, model::prelude::RoleId};
-use tracing::error;
+use tracing::{error, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -19,6 +19,9 @@ use crate::{
     error::Error,
     SETTINGS,
 };
+
+// Seconds in a day
+const SECONDS_IN_DAY: i64 = 86_400;
 
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Eq)]
 #[diesel(table_name = member)]
@@ -30,6 +33,7 @@ pub struct Member {
     trello_report_card_id: Option<String>,
     role: MemberRole,
     wiki_id: Option<i64>,
+    last_activity: Option<chrono::NaiveDate>,
 }
 
 #[derive(
@@ -45,6 +49,12 @@ pub enum MemberRole {
     #[name = "Apprentice"]
     Apprentice = 1, /* if you add more roles, make sure to update the FromSql and ToSql
                      * implementation below */
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, poise::ChoiceParameter)]
+pub enum Activity {
+    Active,
+    Inactive,
 }
 
 impl MemberRole {
@@ -140,6 +150,7 @@ impl Member {
             trello_report_card_id,
             role,
             wiki_id,
+            last_activity: None,
         }
     }
 
@@ -224,6 +235,7 @@ impl Member {
         page: i64,
         per_page: Option<i64>,
         role: Option<MemberRole>,
+        activity: Option<Activity>,
     ) -> Result<(Vec<Self>, i64), Error> {
         use crate::database::schema::member::dsl;
 
@@ -234,6 +246,31 @@ impl Member {
 
         if let Some(role) = role {
             query = query.filter(dsl::role.eq(role));
+        }
+
+        if let Some(activity) = activity {
+            match activity {
+                Activity::Active => {
+                    query = query.filter(
+                        dsl::last_activity.gt((chrono::Utc::now().naive_utc()
+                            - chrono::Duration::seconds(
+                                SECONDS_IN_DAY * SETTINGS.activity_threshold_days,
+                            ))
+                        .date()),
+                    );
+                }
+                Activity::Inactive => {
+                    query = query.filter(
+                        dsl::last_activity
+                            .le((chrono::Utc::now().naive_utc()
+                                - chrono::Duration::seconds(
+                                    SECONDS_IN_DAY * SETTINGS.activity_threshold_days,
+                                ))
+                            .date())
+                            .or(dsl::last_activity.is_null()),
+                    );
+                }
+            }
         }
 
         let mut query = query.paginate(page);
@@ -262,6 +299,79 @@ impl Member {
         Ok(member
             .filter(discord_id.eq(dc_id))
             .get_result(&mut PG_POOL.get()?)?)
+    }
+
+    /// Refreshes every member's activity by checking their last report or attended meeting
+    /// and updating their last activity date
+    pub fn refresh_all_activities() -> Result<(), Error> {
+        use crate::database::schema::member::dsl;
+
+        let members = dsl::member
+            .select(dsl::member::all_columns())
+            .load::<Member>(&mut PG_POOL.get()?)?;
+
+        for mut member in members {
+            member.refresh_activity()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn refresh_activity(&mut self) -> Result<(), Error> {
+        use crate::database::schema::{
+            meeting::dsl as meeting_dsl, meeting_members::dsl as meeting_members_dsl,
+            report::dsl as report_dsl,
+        };
+
+        let report_date = report_dsl::report
+            .select(diesel::dsl::max(report_dsl::create_date))
+            .filter(report_dsl::member_id.eq(self.id))
+            .get_result::<Option<chrono::NaiveDate>>(&mut PG_POOL.get()?)?;
+
+        let meeting_date = meeting_dsl::meeting
+            .select(diesel::dsl::max(meeting_dsl::end_date))
+            .inner_join(meeting_members_dsl::meeting_members)
+            .filter(meeting_members_dsl::member_id.eq(self.id))
+            .get_result::<Option<chrono::NaiveDateTime>>(&mut PG_POOL.get()?)?
+            .map(|dt| dt.date());
+
+        let last_activity = match (report_date, meeting_date) {
+            (Some(report_date), Some(meeting_date)) => report_date.max(meeting_date),
+            (Some(report_date), None) => report_date,
+            (None, Some(meeting_date)) => meeting_date,
+            (None, None) => {
+                warn!("Member {} has no report or meeting", self.id);
+                return Ok(());
+            }
+        };
+
+        self.last_activity = Some(last_activity);
+
+        self.update()?;
+
+        Ok(())
+    }
+
+    /// Checks if given date is newer than last activity date. If it is, it will update
+    /// the last activity date. If it is not, it will do nothing.
+    ///
+    /// This function returns true if the last activity date was updated, false otherwise.
+    pub fn update_activity(&mut self, date: chrono::NaiveDate) -> Result<bool, Error> {
+        if let Some(last_activity) = self.last_activity {
+            if date > last_activity {
+                self.set_last_activity(date);
+                self.update()?;
+
+                return Ok(true);
+            }
+        } else {
+            self.set_last_activity(date);
+            self.update()?;
+
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 
     pub fn discord_id(&self) -> Option<&String> {
@@ -304,12 +414,20 @@ impl Member {
         self.wiki_id = Some(new_id);
     }
 
+    pub fn set_last_activity(&mut self, new_activity: chrono::NaiveDate) {
+        self.last_activity = Some(new_activity);
+    }
+
     pub fn role(&self) -> MemberRole {
         self.role
     }
 
     pub fn wiki_id(&self) -> Option<i64> {
         self.wiki_id
+    }
+
+    pub fn last_activity(&self) -> Option<chrono::NaiveDate> {
+        self.last_activity
     }
 }
 
@@ -340,12 +458,19 @@ impl Display for Member {
             "None".to_string()
         };
 
+        let activity = if let Some(last_activity) = self.last_activity {
+            last_activity.to_string()
+        } else {
+            "Never".to_string()
+        };
+
         write!(
             f,
-            "{} <@{}> ({}) Trello ID: {}, Trello Report Card ID: {}, Wiki ID: {}",
+            "{} <@{}> ({}) Last active: {}, Trello ID: {}, Trello Report Card ID: {}, Wiki ID: {}",
             self.role,
             discord_id,
             self.id.simple(),
+            activity,
             trello_id,
             trello_report_card_id,
             wiki_id

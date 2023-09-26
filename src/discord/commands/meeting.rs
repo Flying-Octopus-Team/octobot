@@ -3,7 +3,7 @@ use std::{fmt::Write, sync::Arc};
 use tracing::info;
 
 use crate::{
-    database::models::{meeting::Meeting, summary::Summary},
+    database::models::{meeting::Meeting, member::Member, summary::Summary},
     discord::Context,
     error::Error,
     meeting::MeetingStatus,
@@ -165,16 +165,16 @@ pub(crate) async fn set_note(
 #[poise::command(slash_command, rename = "add-member")]
 pub async fn add_member(
     ctx: Context<'_>,
-    #[description = "Member to add"] member: crate::database::models::member::Member,
+    #[description = "Member to add"] mut member: Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
     let mut output = String::new();
 
     let result = match meeting {
-        Some(meeting) => meeting.add_member(&member)?,
+        Some(meeting) => meeting.add_member(&mut member)?,
         None => {
             let mut meeting_status = ctx.data().meeting_status.write().await;
-            meeting_status.add_member(&member)?
+            meeting_status.add_member(&mut member)?
         }
     };
 
@@ -186,16 +186,16 @@ pub async fn add_member(
 #[poise::command(slash_command, rename = "remove-member")]
 pub async fn remove_member(
     ctx: Context<'_>,
-    #[description = "Member of the organization"] member: crate::database::models::member::Member,
+    #[description = "Member of the organization"] mut member: Member,
     #[description = "Meeting ID to add the member to"] meeting: Option<Meeting>,
 ) -> Result<(), Error> {
     let mut output = String::new();
 
     let result = match meeting {
-        Some(meeting) => meeting.remove_member(&member)?,
+        Some(meeting) => meeting.remove_member(&mut member)?,
         None => {
             let mut meeting_status = ctx.data().meeting_status.write().await;
-            meeting_status.remove_member(&member)?
+            meeting_status.remove_member(&mut member)?
         }
     };
 

@@ -181,19 +181,22 @@ impl Meeting {
 
     /// Removes member from the database and from the meeting.
     /// Returns the formatted string with the result.
-    pub(crate) fn remove_member(&self, member: &Member) -> Result<String, Error> {
+    pub(crate) fn remove_member(&self, member: &mut Member) -> Result<String, Error> {
         let rows = self._remove_member(member.id())?;
 
-        let member_dc_id = member.discord_id().unwrap();
         let mut output = String::new();
 
         if rows > 0 {
+            if let Some(end_date) = self.end_date {
+                member.update_activity(end_date.date())?;
+            }
+
             output.push_str("Removed member <@");
-            output.push_str(&member_dc_id.to_string());
+            output.push_str(member.discord_id().unwrap());
             output.push('>');
         } else {
             output.push_str("Member <@");
-            output.push_str(&member_dc_id.to_string());
+            output.push_str(member.discord_id().unwrap());
             output.push_str("> is not in the meeting");
         }
 
@@ -213,8 +216,7 @@ impl Meeting {
 
     /// Adds member from the database and from the meeting.
     /// Returns the formatted string with the result.
-    pub(crate) fn add_member(&self, member: &Member) -> Result<String, Error> {
-        let member_dc_id = member.discord_id().unwrap();
+    pub(crate) fn add_member(&self, member: &mut Member) -> Result<String, Error> {
         let mut output = String::new();
 
         if MeetingMembers::is_user_in_meeting(self.id(), member.id())? {
@@ -226,8 +228,12 @@ impl Meeting {
 
         self._add_member(member.id())?;
 
+        if let Some(end_date) = self.end_date {
+            member.update_activity(end_date.date())?;
+        }
+
         output.push_str("Added member <@");
-        output.push_str(&member_dc_id.to_string());
+        output.push_str(&member.discord_id().unwrap().to_string());
         output.push('>');
 
         Ok(output)

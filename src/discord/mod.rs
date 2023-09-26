@@ -10,7 +10,7 @@ use tracing::{error, info, log::trace, warn};
 
 use crate::{
     database::models::member::Member,
-    discord::commands::{meeting, member, report, summary},
+    discord::commands::{activity, meeting, member, report, summary},
     error::Error,
     meeting::MeetingStatus,
     SETTINGS,
@@ -56,8 +56,8 @@ async fn event_voice_state_update(
         && new.channel_id.unwrap() == meeting_status.channel().parse::<u64>().unwrap()
     {
         match Member::find_by_discord_id(new.user_id.0.to_string()) {
-            Ok(member) => {
-                let output = match meeting_status.add_member(&member) {
+            Ok(mut member) => {
+                let output = match meeting_status.add_member(&mut member) {
                     Ok(msg) => msg,
                     Err(e) => format!("{} could not join the meeting: {}", member.name(), e),
                 };
@@ -81,8 +81,8 @@ async fn event_ready(ctx: &serenity::Context, framework: poise::FrameworkContext
 
         for member in channel.guild().unwrap().members(&ctx).await.unwrap() {
             match Member::find_by_discord_id(member.user.id.0.to_string()) {
-                Ok(member) => {
-                    let output = match meeting_status.add_member(&member) {
+                Ok(mut member) => {
+                    let output = match meeting_status.add_member(&mut member) {
                         Ok(msg) => msg,
                         Err(e) => {
                             format!("{} could not join the meeting: {}", member.name(), e)
@@ -108,7 +108,7 @@ pub async fn start_bot() {
         | GatewayIntents::GUILD_MEMBERS;
 
     let options = poise::FrameworkOptions {
-        commands: vec![member(), report(), summary(), meeting()],
+        commands: vec![activity(), member(), report(), summary(), meeting()],
         event_handler: |ctx, event, framework, _user_data| {
             Box::pin(event_handler(ctx, event, framework))
         },
