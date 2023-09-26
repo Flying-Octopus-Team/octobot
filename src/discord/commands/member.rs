@@ -66,6 +66,8 @@ pub async fn add_member(
 
         output.push_str(&(error_msg + "\n"));
 
+        crate::discord::respond(ctx, output).await?;
+
         return Ok(());
     }
 
