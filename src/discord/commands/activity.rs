@@ -34,9 +34,9 @@ pub(crate) async fn list(
 
     let mut output = String::new();
 
-    write!(
+    writeln!(
         &mut output,
-        "## List of {} members\n",
+        "## List of {} members",
         activity.to_string().to_lowercase()
     )?;
 
