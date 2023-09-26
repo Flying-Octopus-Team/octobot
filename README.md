@@ -60,12 +60,12 @@ Run the bot using cargo
   - [x] Read
   - [x] Update
   - [x] Delete
-- [ ] Report management
+- [x] Report management
   - [x] Create
   - [x] Read
   - [x] Update
   - [x] Delete
-  - [ ] Check member's minimum activity
+  - [x] Check member's minimum activity
 - [x] Weekly meetings
   - [x] Check attendance
   - [x] Write reports after the meeting
@@ -79,7 +79,8 @@ Run the bot using cargo
   - [ ] Update and sync member information
   - [ ] Report synchronization
 - [ ] Wiki.js integration
-  - [ ] Auto-invite members
+  - [x] Auto-invite members
+  - [x] Add and remove member from groups
   - [ ] Update and sync member information
 
 # Contributors
