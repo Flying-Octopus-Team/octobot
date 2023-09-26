@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use crate::{
-    database::models::member::{Activity, Member},
+    database::models::member::{Activity, Member, MemberRole},
     discord::Context,
     error::Error,
 };
@@ -24,7 +24,7 @@ pub(crate) async fn list(
 
     let activity = activity.unwrap_or(Activity::Inactive);
 
-    let (members, total_pages) = Member::list(page, page_size, None, Some(activity))?;
+    let (members, total_pages) = Member::list(page, page_size, None, Some(MemberRole::ExMember), Some(activity))?;
 
     let mut output = String::new();
 
