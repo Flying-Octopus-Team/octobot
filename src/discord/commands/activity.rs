@@ -24,12 +24,40 @@ pub(crate) async fn list(
 
     let activity = activity.unwrap_or(Activity::Inactive);
 
-    let (members, total_pages) = Member::list(page, page_size, None, Some(MemberRole::ExMember), Some(activity))?;
+    let (members, total_pages) = Member::list(
+        page,
+        page_size,
+        None,
+        Some(MemberRole::ExMember),
+        Some(activity),
+    )?;
 
     let mut output = String::new();
 
+    write!(
+        &mut output,
+        "## List of {} members\n",
+        activity.to_string().to_lowercase()
+    )?;
+
     for member in members {
-        writeln!(&mut output, "{}\n", member)?;
+        let user_name = member
+            .discord_id()
+            .map(|id| format!("<@{}>", id))
+            .unwrap_or_else(|| member.name().to_owned());
+
+        let last_activity = member
+            .last_activity()
+            .map(|a| a.to_string())
+            .unwrap_or_else(|| "Never".to_owned());
+
+        writeln!(
+            &mut output,
+            "{} {} Last active: {}",
+            member.role(),
+            user_name,
+            last_activity
+        )?;
     }
     write!(&mut output, "Page: {page}/{total_pages}")?;
 
