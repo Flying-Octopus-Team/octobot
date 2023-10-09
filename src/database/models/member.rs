@@ -20,9 +20,6 @@ use crate::{
     SETTINGS,
 };
 
-// Seconds in a day
-const SECONDS_IN_DAY: i64 = 86_400;
-
 #[derive(Queryable, Identifiable, Insertable, AsChangeset, Debug, Eq)]
 #[diesel(table_name = member)]
 pub struct Member {
@@ -237,6 +234,7 @@ impl Member {
         role: Option<MemberRole>,
         ignore_role: Option<MemberRole>,
         activity: Option<Activity>,
+        active_after: Option<chrono::NaiveDate>,
     ) -> Result<(Vec<Self>, i64), Error> {
         use crate::database::schema::member::dsl;
 
@@ -258,9 +256,7 @@ impl Member {
                 Activity::Active => {
                     query = query.filter(
                         dsl::last_activity.gt((chrono::Utc::now().naive_utc()
-                            - chrono::Duration::seconds(
-                                SECONDS_IN_DAY * SETTINGS.activity_threshold_days,
-                            ))
+                            - chrono::Duration::days(SETTINGS.activity_threshold_days))
                         .date()),
                     );
                 }
@@ -268,14 +264,16 @@ impl Member {
                     query = query.filter(
                         dsl::last_activity
                             .le((chrono::Utc::now().naive_utc()
-                                - chrono::Duration::seconds(
-                                    SECONDS_IN_DAY * SETTINGS.activity_threshold_days,
-                                ))
+                                - chrono::Duration::days(SETTINGS.activity_threshold_days))
                             .date())
                             .or(dsl::last_activity.is_null()),
                     );
                 }
             }
+        }
+
+        if let Some(active_after) = active_after {
+            query = query.filter(dsl::last_activity.gt(active_after));
         }
 
         let mut query = query.paginate(page);
@@ -433,6 +431,20 @@ impl Member {
 
     pub fn last_activity(&self) -> Option<chrono::NaiveDate> {
         self.last_activity
+    }
+
+    pub fn display_activity(&self) -> String {
+        let user_name = self
+            .discord_id()
+            .map(|id| format!("<@{}>", id))
+            .unwrap_or_else(|| self.name().to_owned());
+
+        let last_activity = self
+            .last_activity()
+            .map(|a| a.to_string())
+            .unwrap_or_else(|| "Never".to_owned());
+
+        format!("{} Last active: {}", user_name, last_activity)
     }
 }
 

@@ -136,6 +136,16 @@ impl Meeting {
             .first(&mut PG_POOL.get()?)?)
     }
 
+    pub fn get_previous_meeting() -> Result<Self, Error> {
+        use crate::database::schema::meeting::dsl::*;
+
+        Ok(meeting
+            .select(meeting::all_columns())
+            .order(start_date.desc())
+            .offset(1)
+            .first(&mut PG_POOL.get()?)?)
+    }
+
     pub fn insert(&self) -> Result<Self, Error> {
         Ok(diesel::insert_into(meeting::table)
             .values(self)
