@@ -152,3 +152,4 @@ jobs:
                   url: ${{ steps.pr.outputs.pr_url }}
                   webhook: ${{ secrets.FO_DISCORD_WEB_DEVELOPMENT_WEBHOOK }}
                   title: ${{ steps.pr.outputs.pr_title }}
+                  status: ${{ contains(needs.*.result, 'failure') && 'failure' || contains(needs.*.result, 'cancelled') && 'cancelled' || contains(needs.*.result, 'skipped') && 'skipped' || 'success' }}
