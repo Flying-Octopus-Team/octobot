@@ -3,10 +3,15 @@ use std::{fmt::Write, sync::Arc};
 use tracing::info;
 
 use crate::{
-    database::models::{meeting::Meeting, member::Member, summary::Summary},
+    database::models::{
+        meeting::Meeting,
+        member::{Member, MemberRole},
+        summary::Summary,
+    },
     discord::Context,
     error::Error,
     meeting::MeetingStatus,
+    SETTINGS,
 };
 
 /// Ends the meeting. Returns the meeting summary which contains members'
@@ -24,7 +29,7 @@ pub(crate) async fn end_meeting(
         return Err(Error::NoMeetingOngoing);
     }
 
-    let summary_result;
+    let mut summary_result;
 
     {
         let rw_lock_read_guard = meeting_status.read().await;
@@ -34,6 +39,57 @@ pub(crate) async fn end_meeting(
 
         summary.set_note(note.clone())?;
         summary_result = summary.send_summary(ctx, false).await?;
+    }
+
+    let mut page = 1;
+
+    let previous_meeting = Meeting::get_previous_meeting()?;
+
+    info!(
+        "Active after: {:?}",
+        previous_meeting.start_date() - chrono::Duration::days(SETTINGS.activity_threshold_days)
+    );
+
+    let (members, total_pages) = Member::list(
+        page,
+        None,
+        None,
+        Some(MemberRole::ExMember),
+        Some(crate::database::models::member::Activity::Inactive),
+        Some(
+            (previous_meeting.start_date()
+                - chrono::Duration::days(SETTINGS.activity_threshold_days))
+            .into(),
+        ),
+    )?;
+
+    if !members.is_empty() {
+        summary_result.push_str("\nInactive members from this week:");
+    }
+
+    for member in members {
+        summary_result.push('\n');
+        summary_result.push_str(&member.display_activity());
+    }
+
+    page += 1;
+
+    while page <= total_pages {
+        let (members, _) = Member::list(
+            page,
+            None,
+            None,
+            Some(MemberRole::ExMember),
+            Some(crate::database::models::member::Activity::Inactive),
+            Some((chrono::Local::now().naive_local() - chrono::Duration::weeks(1)).into()),
+        )?;
+
+        for member in members {
+            summary_result.push('\n');
+            summary_result.push_str(&member.display_activity());
+        }
+
+        page += 1;
     }
 
     MeetingStatus::end_meeting(ctx.serenity_context(), meeting_status).await?;
