@@ -2,7 +2,10 @@ use std::fmt::{Display, Formatter, Write};
 
 use chrono::NaiveDate;
 use diesel::{query_dsl::SaveChangesDsl, Table};
-use poise::{serenity_prelude as serenity, SlashArgument};
+use poise::{
+    serenity_prelude::{self as serenity, CreateCommandOption, ResolvedValue},
+    SlashArgument,
+};
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -158,9 +161,11 @@ impl Summary {
                 if messages_id.len() == messages.len() {
                     for (message_id, message) in messages_id.iter().zip(messages.iter()) {
                         channel_id
-                            .edit_message(ctx, message_id.parse::<u64>().unwrap(), |m| {
-                                m.content(message)
-                            })
+                            .edit_message(
+                                ctx,
+                                message_id.parse::<u64>().unwrap(),
+                                serenity::builder::EditMessage::new().content(message),
+                            )
                             .await?;
                     }
                 } else {
@@ -172,7 +177,7 @@ impl Summary {
         } else {
             let mut messages_id = Vec::new();
             for message in messages {
-                let message_id = channel_id.say(ctx, message).await?.id.0;
+                let message_id = channel_id.say(ctx, message).await?.id.get();
 
                 messages_id.push(message_id.to_string());
             }
@@ -182,7 +187,7 @@ impl Summary {
 
         Ok(format!(
             "Summary was generated and sent to the <#{channel_id}>",
-            channel_id = channel_id.0
+            channel_id = channel_id.get()
         ))
     }
 
@@ -220,26 +225,36 @@ impl Display for Summary {
 #[async_trait::async_trait]
 impl SlashArgument for Summary {
     async fn extract(
-        _ctx: &serenity::Context,
-        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
-        value: &serenity::json::Value,
+        _ctx: &impl serenity::CacheHttp,
+        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        value: &serenity::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
         let id = match value {
-            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
+            ResolvedValue::String(id) => match Uuid::parse_str(id) {
                 Ok(id) => id,
-                Err(why) => {
+                Err(_why) => {
                     let error_msg = format!("Failed to parse summary id: {}", id);
                     error!("{}", error_msg);
-                    return Err(poise::SlashArgError::Parse {
-                        error: Box::new(why),
-                        input: id.to_string(),
-                    });
+                    // return Err(poise::SlashArgError::Parse {
+                    //     error: Box::new(why),
+                    //     input: id.to_string(),
+                    // });
+                    // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                    // constructed.
+                    return Err(poise::SlashArgError::new_command_structure_mismatch(
+                        "expected string",
+                    ));
                 }
             },
             _ => {
-                return Err(poise::SlashArgError::CommandStructureMismatch(
+                // return Err(poise::SlashArgError::CommandStructureMismatch(
+                //     "Summary id must be a string",
+                // ))
+                // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                // constructed.
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
                     "Summary id must be a string",
-                ))
+                ));
             }
         };
 
@@ -248,17 +263,22 @@ impl SlashArgument for Summary {
             Err(why) => {
                 let error_msg = format!("Failed to get summary: {}", why);
                 error!("{}", error_msg);
-                return Err(poise::SlashArgError::Parse {
-                    error: why.into(),
-                    input: id.to_string(),
-                });
+                // return Err(poise::SlashArgError::Parse {
+                //     error: why.into(),
+                //     input: id.to_string(),
+                // });
+                // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                // constructed.
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
+                    "Failed to get summary",
+                ));
             }
         };
 
         Ok(summary)
     }
 
-    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
-        builder.kind(serenity::command::CommandOptionType::String);
+    fn create(builder: CreateCommandOption) -> CreateCommandOption {
+        builder.kind(poise::serenity_prelude::CommandOptionType::String)
     }
 }

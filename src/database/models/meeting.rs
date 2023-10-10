@@ -6,7 +6,10 @@ use std::{
 use chrono::NaiveDateTime;
 use cron::Schedule;
 use diesel::{dsl::exists, query_dsl::SaveChangesDsl, select, BoolExpressionMethods, QueryDsl};
-use poise::{serenity_prelude as serenity, SlashArgument};
+use poise::{
+    serenity_prelude::{self as serenity, CreateCommandOption},
+    SlashArgument,
+};
 use tracing::{error, warn};
 use uuid::Uuid;
 
@@ -377,26 +380,31 @@ impl Display for Meeting {
 #[async_trait::async_trait]
 impl SlashArgument for Meeting {
     async fn extract(
-        _ctx: &serenity::Context,
-        _interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
-        value: &serenity::json::Value,
+        _ctx: &impl serenity::CacheHttp,
+        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        value: &serenity::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
         let id = match value {
-            serenity::json::Value::String(id) => match Uuid::parse_str(id) {
+            serenity::ResolvedValue::String(id) => match Uuid::parse_str(id) {
                 Ok(id) => id,
-                Err(why) => {
+                Err(_why) => {
                     let error_msg = format!("Failed to parse meeting id: {}", id);
                     error!("{}", error_msg);
-                    return Err(poise::SlashArgError::Parse {
-                        error: Box::new(why),
-                        input: id.to_string(),
-                    });
+                    // return Err(poise::SlashArgError::Parse {
+                    //     error: Box::new(why),
+                    //     input: id.to_string(),
+                    // });
+                    // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                    // constructed.
+                    return Err(poise::SlashArgError::new_command_structure_mismatch(
+                        "Failed to parse meeting id",
+                    ));
                 }
             },
             _ => {
-                return Err(poise::SlashArgError::CommandStructureMismatch(
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
                     "Meeting id must be a string",
-                ))
+                ));
             }
         };
 
@@ -405,17 +413,22 @@ impl SlashArgument for Meeting {
             Err(why) => {
                 let error_msg = format!("Failed to get meeting: {}", why);
                 error!("{}", error_msg);
-                return Err(poise::SlashArgError::Parse {
-                    error: why.into(),
-                    input: id.to_string(),
-                });
+                // return Err(poise::SlashArgError::Parse {
+                //     error: why.into(),
+                //     input: id.to_string(),
+                // });
+                // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                // constructed.
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
+                    "Failed to get meeting",
+                ));
             }
         };
 
         Ok(meeting)
     }
 
-    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
-        builder.kind(serenity::command::CommandOptionType::String);
+    fn create(builder: CreateCommandOption) -> CreateCommandOption {
+        builder.kind(poise::serenity_prelude::CommandOptionType::String)
     }
 }
