@@ -1,5 +1,7 @@
 use std::fmt::Write;
 
+use poise::ChoiceParameter;
+
 use crate::{
     database::models::member::{Activity, Member, MemberRole},
     discord::Context,
@@ -38,7 +40,10 @@ pub(crate) async fn list(
     writeln!(
         &mut output,
         "## List of {} members",
-        activity.to_string().to_lowercase()
+        activity
+            .localized_name(ctx.locale().unwrap())
+            .unwrap_or(&activity.to_string())
+            .to_lowercase()
     )?;
 
     for member in members {

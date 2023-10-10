@@ -9,8 +9,11 @@ use std::{
 
 use chrono::Local;
 use cron::Schedule;
-use poise::{serenity_prelude as serenity, serenity_prelude::CacheHttp};
-use serenity::{Cache, TypeMapKey};
+use poise::{
+    serenity_prelude as serenity,
+    serenity_prelude::{prelude::TypeMapKey, CacheHttp},
+};
+use serenity::Cache;
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -274,9 +277,9 @@ impl MeetingStatus {
             }
         };
 
-        for member in channel.members(&cache).await? {
+        for member in channel.members(cache)? {
             let mut member = {
-                let member_result = Member::find_by_discord_id(member.user.id.0.to_string());
+                let member_result = Member::find_by_discord_id(member.user.id.get().to_string());
                 match member_result {
                     Ok(m) => m,
                     Err(e) => {

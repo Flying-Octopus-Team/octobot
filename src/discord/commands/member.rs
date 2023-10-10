@@ -1,6 +1,8 @@
-use std::fmt::Write;
+use std::{fmt::Write, future::IntoFuture};
 
-use poise::serenity_prelude::{self as serenity, CreateButton, CreateMessage};
+use poise::serenity_prelude::{
+    self as serenity, CreateActionRow, CreateButton, CreateMessage, EditMessage,
+};
 use tracing::{error, info, warn};
 
 use super::Context;
@@ -23,19 +25,13 @@ struct WikiEmailModal {
 }
 
 fn discord_email_button() -> CreateButton {
-    let mut button = CreateButton::default();
-    button
-        .label("Discord email")
-        .custom_id("discord_email_button");
-    button
+    CreateButton::new("discord_email_button").label("Discord email")
 }
 
-fn dm_wiki_details<'a, 'b>(c: &'a mut CreateMessage<'b>) -> &'a mut CreateMessage<'b> {
-    c.content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address (the one you use to log into Discord).")
-        .components(|c|
-            c.create_action_row(|a|
-                a.add_button(discord_email_button())
-            )
+fn dm_wiki_details() -> CreateMessage {
+    CreateMessage::new().content("Welcome to Flying Octopus! In order to create your account on our wiki, please provide your Discord email address (the one you use to log into Discord).")
+        .components(
+            vec![CreateActionRow::Buttons(vec![discord_email_button()])]
         )
 }
 
@@ -80,7 +76,7 @@ pub async fn add_member(
         wiki_id,
     );
 
-    match member.role().add_role(&ctx, discord_id.0).await {
+    match member.role().add_role(&ctx, discord_id.get()).await {
         Ok(_) => (),
         Err(why) => {
             let error_msg = format!("Failed to add role: {}", why);
@@ -111,12 +107,12 @@ pub async fn add_member(
         // their wiki ID
         let dm = discord_id.create_dm_channel(&ctx).await?;
 
-        let mut msg = dm.send_message(&ctx, dm_wiki_details).await?;
+        let mut msg = dm.send_message(&ctx, dm_wiki_details()).await?;
 
         let mut wiki_id = None;
 
         let mut response =
-            poise::serenity_prelude::CollectComponentInteraction::new(ctx.serenity_context())
+            poise::serenity_prelude::ComponentInteractionCollector::new(ctx.serenity_context())
                 .channel_id(dm.id)
                 .author_id(discord_id)
                 .message_id(msg.id)
@@ -125,14 +121,18 @@ pub async fn add_member(
 
         while let Some(interaction) = response.clone() {
             info!("User {} responded to wiki email modal", member.name());
+            let collector =
+                poise::serenity_prelude::ComponentInteractionCollector::new(ctx.serenity_context())
+                    .channel_id(dm.id)
+                    .author_id(discord_id)
+                    .message_id(msg.id)
+                    .timeout(std::time::Duration::from_secs(3600))
+                    .into_future();
 
             let email = tokio::select! {
-                email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(&ctx, interaction, None, Some(std::time::Duration::from_secs(3600))) => email?,
-                interaction = poise::serenity_prelude::CollectComponentInteraction::new(ctx.serenity_context())
-                .channel_id(dm.id)
-                .author_id(discord_id)
-                .message_id(msg.id)
-                .timeout(std::time::Duration::from_secs(3600))
+                email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(&ctx, std::sync::Arc::new(interaction), None, Some(std::time::Duration::from_secs(3600))) => email?,
+                interaction =
+                collector
                 => {
                     response = interaction;
                     continue;
@@ -149,13 +149,15 @@ pub async fn add_member(
                 wiki_id = Some(user_id);
 
                 let _ = msg
-                    .edit(&ctx, |m| {
-                        m.content(format!(
-                            "Your wiki account has been created. You can now login at {}",
-                            SETTINGS.wiki.url
-                        ))
-                        .components(|c| c)
-                    })
+                    .edit(
+                        &ctx,
+                        EditMessage::new()
+                            .content(format!(
+                                "Your wiki account has been created. You can now login at {}",
+                                SETTINGS.wiki.url
+                            ))
+                            .components(Vec::new()),
+                    )
                     .await;
 
                 break;
@@ -164,10 +166,11 @@ pub async fn add_member(
                 warn!("User {} did not respond to wiki email modal", member.name());
 
                 let _ = msg
-                    .edit(&ctx, |m| {
-                        m.content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")
-                            .components(|c| c)
-                    })
+                    .edit(&ctx,
+                EditMessage::new()
+                        .content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")
+                        .components(Vec::new())
+                    )
                     .await;
 
                 break;
@@ -180,10 +183,11 @@ pub async fn add_member(
 
             // Edit message to indicate timeout
             let _ = msg
-                .edit(&ctx, |m| {
-                    m.content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")                            
-                    .components(|c| c)
-                })
+                .edit(&ctx,
+            EditMessage::new()
+                    .content("Timed out waiting for response. Please use `/member update` to update your wiki ID.")
+                    // .components(|c| c)
+            )
                 .await;
 
             return Ok(());
@@ -286,7 +290,7 @@ pub async fn update_member(
             }
         }
 
-        let dc_id = new_discord_member.user.id.0.to_string();
+        let dc_id = new_discord_member.user.id.get().to_string();
 
         member.set_discord_id(dc_id);
     }

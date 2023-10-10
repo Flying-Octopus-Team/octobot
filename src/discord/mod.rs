@@ -3,7 +3,13 @@ use std::{
     sync::Arc,
 };
 
-use poise::serenity_prelude::{self as serenity, Color};
+use poise::{
+    serenity_prelude::{
+        self as serenity, Client, Color, CreateAllowedMentions, CreateEmbed, CreateEmbedFooter,
+        FullEvent,
+    },
+    CreateReply,
+};
 use serenity::GatewayIntents;
 use tokio::sync::RwLock;
 use tracing::{error, info, log::trace, warn};
@@ -25,16 +31,19 @@ pub struct Data {
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 async fn event_handler(
-    ctx: &serenity::Context,
-    event: &poise::Event<'_>,
+    // ctx: &serenity::Context,
+    event: &FullEvent,
     framework: poise::FrameworkContext<'_, Data, Error>,
 ) -> Result<(), Error> {
     match event {
-        poise::Event::Ready { data_about_bot } => {
+        FullEvent::Ready {
+            data_about_bot,
+            ctx,
+        } => {
             info!("{} is connected!", data_about_bot.user.name);
             event_ready(ctx, framework).await;
         }
-        poise::Event::VoiceStateUpdate { old, new } => {
+        FullEvent::VoiceStateUpdate { ctx: _, old, new } => {
             event_voice_state_update(framework, old, new).await;
         }
         _ => {}
@@ -55,7 +64,7 @@ async fn event_voice_state_update(
         && new.channel_id.is_some()
         && new.channel_id.unwrap() == meeting_status.channel().parse::<u64>().unwrap()
     {
-        match Member::find_by_discord_id(new.user_id.0.to_string()) {
+        match Member::find_by_discord_id(new.user_id.get().to_string()) {
             Ok(mut member) => {
                 let output = match meeting_status.add_member(&mut member) {
                     Ok(msg) => msg,
@@ -65,7 +74,8 @@ async fn event_voice_state_update(
             }
             Err(e) => warn!(
                 "User {} is not member of the organization: {:?}",
-                new.user_id.0, e
+                new.user_id.get(),
+                e
             ),
         }
     }
@@ -79,8 +89,8 @@ async fn event_ready(ctx: &serenity::Context, framework: poise::FrameworkContext
         let channel_id = SETTINGS.meeting.channel_id;
         let channel = channel_id.to_channel(&ctx).await.unwrap();
 
-        for member in channel.guild().unwrap().members(&ctx).await.unwrap() {
-            match Member::find_by_discord_id(member.user.id.0.to_string()) {
+        for member in channel.guild().unwrap().members(ctx).unwrap() {
+            match Member::find_by_discord_id(member.user.id.get().to_string()) {
                 Ok(mut member) => {
                     let output = match meeting_status.add_member(&mut member) {
                         Ok(msg) => msg,
@@ -92,7 +102,8 @@ async fn event_ready(ctx: &serenity::Context, framework: poise::FrameworkContext
                 }
                 Err(e) => warn!(
                     "User {} is not member of the organization: {:?}",
-                    member.user.id.0, e
+                    member.user.id.get(),
+                    e
                 ),
             }
         }
@@ -109,9 +120,7 @@ pub async fn start_bot() {
 
     let options = poise::FrameworkOptions {
         commands: vec![activity(), member(), report(), summary(), meeting()],
-        event_handler: |ctx, event, framework, _user_data| {
-            Box::pin(event_handler(ctx, event, framework))
-        },
+        event_handler: |event, framework, _data| Box::pin(event_handler(event, framework)),
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(String::from("~")),
             mention_as_prefix: true,
@@ -135,25 +144,25 @@ pub async fn start_bot() {
 
     info!("Starting bot...");
 
-    if let Err(why) = poise::Framework::builder()
-        .token(token)
-        .options(options)
-        .intents(intents)
-        .setup(|ctx, _ready, framework| {
-            Box::pin(async move {
-                poise::builtins::register_in_guild(
-                    ctx,
-                    &framework.options().commands,
-                    SETTINGS.discord.server_id,
-                )
-                .await?;
-                let meeting_status = crate::meeting::create_meeting_job(ctx).await.unwrap();
-                Ok(Data { meeting_status })
-            })
+    let framework = poise::Framework::new(options, move |ctx, _ready, framework| {
+        Box::pin(async move {
+            poise::builtins::register_in_guild(
+                ctx,
+                &framework.options().commands,
+                SETTINGS.discord.server_id,
+            )
+            .await?;
+            let meeting_status = crate::meeting::create_meeting_job(ctx).await.unwrap();
+            Ok(Data { meeting_status })
         })
-        .run()
+    });
+
+    let mut client = Client::builder(token, intents)
+        .framework(framework)
         .await
-    {
+        .expect("Error creating client");
+
+    if let Err(why) = client.start().await {
         error!("An error occurred while running the client: {:?}", why);
     }
 }
@@ -175,15 +184,19 @@ async fn on_error(err: poise::FrameworkError<'_, Data, Error>) {
 
     if let Some(ctx) = ctx {
         let result = ctx
-            .send(|m| {
-                m.embed(|e| {
-                    e.color(Color::from_rgb(209, 53, 56))
+            .send(
+                CreateReply::new().embed(
+                    CreateEmbed::new()
+                        .color(Color::from_rgb(209, 53, 56))
                         .timestamp(chrono::Utc::now())
                         .title("Error occurred")
                         .description(description)
-                        .footer(|f| f.text(format!("Command: {}", ctx.command().qualified_name)))
-                })
-            })
+                        .footer(CreateEmbedFooter::new(format!(
+                            "Command: {}",
+                            ctx.command().qualified_name
+                        ))),
+                ),
+            )
             .await;
 
         if let Err(e) = result {
@@ -214,9 +227,12 @@ async fn respond(ctx: Context<'_>, content: String) -> Result<(), Error> {
     let content_chunks = split_message(content)?;
 
     for content in content_chunks {
-        poise::reply::send_reply(ctx, |m| {
-            m.content(content).allowed_mentions(|m| m.empty_parse())
-        })
+        poise::reply::send_reply(
+            ctx,
+            CreateReply::new()
+                .content(content)
+                .allowed_mentions(CreateAllowedMentions::new().empty_roles().empty_users()),
+        )
         .await?;
     }
 

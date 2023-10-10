@@ -8,7 +8,11 @@ use diesel::{
     sql_types::Integer,
     BoolExpressionMethods, QueryDsl, Table,
 };
-use poise::{serenity_prelude as serenity, SlashArgument};
+use poise::{
+    serenity_prelude as serenity,
+    serenity_prelude::{CreateCommandOption, ResolvedValue},
+    SlashArgument,
+};
 use serenity::{http::CacheHttp, model::prelude::RoleId};
 use tracing::{error, warn};
 use uuid::Uuid;
@@ -54,6 +58,15 @@ pub enum Activity {
     Inactive,
 }
 
+impl Display for Activity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Activity::Active => write!(f, "Active"),
+            Activity::Inactive => write!(f, "Inactive"),
+        }
+    }
+}
+
 impl MemberRole {
     pub fn discord_role(&self) -> Option<RoleId> {
         match self {
@@ -67,7 +80,7 @@ impl MemberRole {
         if let Some(role_id) = self.discord_role() {
             cache_http
                 .http()
-                .add_member_role(SETTINGS.discord.server_id.0, member_id, role_id.0, None)
+                .add_member_role(SETTINGS.discord.server_id, member_id.into(), role_id, None)
                 .await?;
         }
 
@@ -82,7 +95,7 @@ impl MemberRole {
         if let Some(role_id) = self.discord_role() {
             cache_http
                 .http()
-                .remove_member_role(SETTINGS.discord.server_id.0, member_id, role_id.0, None)
+                .remove_member_role(SETTINGS.discord.server_id, member_id.into(), role_id, None)
                 .await?;
         }
 
@@ -448,6 +461,16 @@ impl Member {
     }
 }
 
+impl Display for MemberRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MemberRole::ExMember => write!(f, "Ex-Member"),
+            MemberRole::Member => write!(f, "Member"),
+            MemberRole::Apprentice => write!(f, "Apprentice"),
+        }
+    }
+}
+
 impl Display for Member {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let discord_id = if let Some(discord_id) = &self.discord_id {
@@ -504,43 +527,42 @@ impl PartialEq for Member {
 #[async_trait::async_trait]
 impl SlashArgument for Member {
     async fn extract(
-        ctx: &serenity::Context,
-        interaction: poise::ApplicationCommandOrAutocompleteInteraction<'_>,
-        value: &serenity::json::Value,
+        _ctx: &impl poise::serenity_prelude::CacheHttp,
+        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        value: &poise::serenity_prelude::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
-        let member_id = match poise::extract_slash_argument!(
-            serenity::model::guild::Member,
-            ctx,
-            interaction,
-            value
-        )
-        .await
-        {
-            Ok(member) => member.user.id.to_string(),
-            Err(why) => {
-                String::from(value.as_str().ok_or_else(|| poise::SlashArgError::Parse {
-                    error: why.into(),
-                    input: value.to_string(),
-                })?)
+        let member_id = match value {
+            ResolvedValue::User(user, _member) => user.id.to_string(),
+            _ => {
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
+                    "Expected user",
+                ))
             }
         };
 
-        let member = match Member::find_by_discord_id(&member_id) {
+        let member = match Member::find_by_discord_id(member_id) {
             Ok(member) => member,
             Err(why) => {
                 let error_msg = format!("Could not find member in database: {}", why);
                 error!("{}", error_msg);
-                return Err(poise::SlashArgError::Parse {
-                    error: why.into(),
-                    input: member_id,
-                });
+                // return Err(poise::SlashArgError::Parse {
+                //     error: why.into(),
+                //     input: member_id,
+                // });
+                // FIXME: SlashArgError::Parse is marked as non_exhaustive, thus it can't be
+                // constructed.
+                return Err(poise::SlashArgError::new_command_structure_mismatch(
+                    // &error_msg,
+                    // error_msg does not live long enough
+                    "Could not find member in database",
+                ));
             }
         };
 
         Ok(member)
     }
 
-    fn create(builder: &mut serenity::CreateApplicationCommandOption) {
-        builder.kind(serenity::command::CommandOptionType::User);
+    fn create(builder: CreateCommandOption) -> CreateCommandOption {
+        builder.kind(poise::serenity_prelude::CommandOptionType::User)
     }
 }
