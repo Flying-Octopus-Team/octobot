@@ -101,11 +101,10 @@ impl Report {
         Ok((reports, total_pages))
     }
 
-    /// Returns all unpublished reports from before the given date.
-    pub fn get_unpublished_reports(date: NaiveDate) -> Result<Vec<Self>, Error> {
+    /// Returns all unpublished reports
+    pub fn get_unpublished_reports() -> Result<Vec<Self>, Error> {
         Ok(dsl::report
             .filter(dsl::published.eq(false))
-            .filter(dsl::create_date.lt(date))
             .load(&mut PG_POOL.get()?)?)
     }
 
@@ -140,9 +139,8 @@ impl Report {
     pub(crate) async fn report_summary(
         summary: Option<Summary>,
         publish: bool,
-        date: NaiveDate,
     ) -> Result<String, Error> {
-        let mut reports = Report::get_unpublished_reports(date)?;
+        let mut reports = Report::get_unpublished_reports()?;
 
         // get reports associated with summary
         if let Some(summary) = &summary {
