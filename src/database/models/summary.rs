@@ -126,9 +126,7 @@ impl Summary {
         summary.push_str("\n\n**Raporty z tego tygodnia:**\n");
         let save_summary = Summary::find_by_id(meeting.summary_id())?;
 
-        summary.push_str(
-            &Report::report_summary(Some(save_summary), publish, self.create_date).await?,
-        );
+        summary.push_str(&Report::report_summary(Some(save_summary), publish).await?);
 
         summary.push_str("\n**Notatka ze spotkania:**\n");
         summary.push_str(&note);
