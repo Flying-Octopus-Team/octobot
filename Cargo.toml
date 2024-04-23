@@ -7,31 +7,31 @@ license = "Apache-2.0 OR MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-config = "0.13.3"
-serde = "1.0.188"
+config = { version = "0.14.0", features = ["toml", "json", "ini", "ron", "json5", "convert-case", "async"], default-features = false } # Disable yaml to avoid errors with unmaintained yaml-rust
+serde = "1.0.198"
 lazy_static = "1.4.0"
 diesel_migrations = "2.1.0"
-tokio = { version = "1.32.0", features = ["full"] }
-chrono = { version = "0.4.31", default-features = false }
-serde_json = "1.0.107"
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
-tracing-appender = "0.2.2"
-cron = "0.12.0"
-graphql_client = { version = "0.13.0", features = ["reqwest"] }
-reqwest = "0.11.20"
+tokio = { version = "1.37.0", features = ["full"] }
+chrono = { version = "0.4.38", default-features = false }
+serde_json = "1.0.116"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
+tracing-appender = "0.2.3"
+cron = "0.12.1"
+graphql_client = { version = "0.14.0", features = ["reqwest"] }
+reqwest = "0.11.27"
 poise = { git = "https://github.com/serenity-rs/poise", rev = "928d777635c61dbbcd8ed291c772708ead7e43e6", features = ["cache"] }
-anyhow = "1.0.75"
-async-trait = "0.1.73"
-thiserror = "1.0.48"
+anyhow = "1.0.82"
+async-trait = "0.1.80"
+thiserror = "1.0.59"
 r2d2 = "0.8.10"
 
 [dependencies.diesel]
-version = "2.1.1"
+version = "2.1.6"
 features = ["postgres", "r2d2", "chrono", "uuid"]
 
 [dependencies.uuid]
-version = "1.4.1"
+version = "1.8.0"
 features = ["v4", "serde"]
 
 [dev-dependencies]
