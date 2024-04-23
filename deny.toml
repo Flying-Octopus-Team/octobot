@@ -1,18 +1,13 @@
 # configuration for https://github.com/EmbarkStudios/cargo-deny
 
 [advisories]
-vulnerability = "deny"
-unmaintained = "deny"
+version = 2
 yanked = "deny"
-notice = "deny"
-unsound = "deny"
 
 [licenses]
-default = "deny"
-unlicensed = "deny"
-copyleft = "deny"
+version = 2
 confidence-threshold = 0.8
-allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0"]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "CC0-1.0"]
 exceptions = [
     { allow = [
         "OpenSSL",
