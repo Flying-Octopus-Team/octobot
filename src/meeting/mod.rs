@@ -269,7 +269,7 @@ impl MeetingStatus {
 
     /// Starts the meeting and saves current users in the meeting channel
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
-        let channel = match cache.guild_channel(self.channel().parse::<u64>()?) {
+        let channel = match cache.channel(self.channel().parse::<u64>()?) {
             Some(c) => c,
             None => {
                 error!("Channel not found");

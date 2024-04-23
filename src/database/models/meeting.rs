@@ -7,7 +7,7 @@ use chrono::NaiveDateTime;
 use cron::Schedule;
 use diesel::{dsl::exists, query_dsl::SaveChangesDsl, select, BoolExpressionMethods, QueryDsl};
 use poise::{
-    serenity_prelude::{self as serenity, CreateCommandOption},
+    serenity_prelude::{self as serenity, CommandInteraction, Context, CreateCommandOption},
     SlashArgument,
 };
 use tracing::{error, warn};
@@ -380,8 +380,8 @@ impl Display for Meeting {
 #[async_trait::async_trait]
 impl SlashArgument for Meeting {
     async fn extract(
-        _ctx: &impl serenity::CacheHttp,
-        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        _ctx: &Context,
+        _interaction: &CommandInteraction,
         value: &serenity::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
         let id = match value {

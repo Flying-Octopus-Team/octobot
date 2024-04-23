@@ -36,7 +36,3 @@ multiple-versions = "allow"
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = [
-    "https://github.com/serenity-rs/poise?rev=928d777635c61dbbcd8ed291c772708ead7e43e6#928d777635c61dbbcd8ed291c772708ead7e43e6",
-    "https://github.com/serenity-rs/serenity?branch=next#a0c102f9acfd8d7184650815e06e0301954cb9e7", # Allow those two because it solves advisory issue with tungstenite. We can switch to the next release of serenity once it's out.
-]

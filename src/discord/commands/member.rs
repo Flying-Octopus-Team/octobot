@@ -130,7 +130,7 @@ pub async fn add_member(
                     .into_future();
 
             let email = tokio::select! {
-                email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(&ctx, std::sync::Arc::new(interaction), None, Some(std::time::Duration::from_secs(3600))) => email?,
+                email = poise::execute_modal_on_component_interaction::<WikiEmailModal>(&ctx, interaction, None, Some(std::time::Duration::from_secs(3600))) => email?,
                 interaction =
                 collector
                 => {

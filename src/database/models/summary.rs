@@ -3,7 +3,7 @@ use std::fmt::{Display, Formatter, Write};
 use chrono::NaiveDate;
 use diesel::{query_dsl::SaveChangesDsl, Table};
 use poise::{
-    serenity_prelude::{self as serenity, CreateCommandOption, ResolvedValue},
+    serenity_prelude::{self as serenity, CommandInteraction, CreateCommandOption, ResolvedValue},
     SlashArgument,
 };
 use tracing::{error, info};
@@ -223,8 +223,8 @@ impl Display for Summary {
 #[async_trait::async_trait]
 impl SlashArgument for Summary {
     async fn extract(
-        _ctx: &impl serenity::CacheHttp,
-        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        _ctx: &poise::serenity_prelude::Context,
+        _interaction: &CommandInteraction,
         value: &serenity::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
         let id = match value {
