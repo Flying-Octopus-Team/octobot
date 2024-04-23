@@ -9,8 +9,9 @@ use diesel::{
     BoolExpressionMethods, QueryDsl, Table,
 };
 use poise::{
-    serenity_prelude as serenity,
-    serenity_prelude::{CreateCommandOption, ResolvedValue},
+    serenity_prelude::{
+        self as serenity, CommandInteraction, Context, CreateCommandOption, ResolvedValue,
+    },
     SlashArgument,
 };
 use serenity::{http::CacheHttp, model::prelude::RoleId};
@@ -527,8 +528,8 @@ impl PartialEq for Member {
 #[async_trait::async_trait]
 impl SlashArgument for Member {
     async fn extract(
-        _ctx: &impl poise::serenity_prelude::CacheHttp,
-        _interaction: poise::CommandOrAutocompleteInteraction<'_>,
+        _ctx: &Context,
+        _interaction: &CommandInteraction,
         value: &poise::serenity_prelude::ResolvedValue<'_>,
     ) -> Result<Self, poise::SlashArgError> {
         let member_id = match value {

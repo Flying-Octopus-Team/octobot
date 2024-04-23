@@ -31,19 +31,16 @@ pub struct Data {
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 async fn event_handler(
-    // ctx: &serenity::Context,
+    ctx: &serenity::Context,
     event: &FullEvent,
     framework: poise::FrameworkContext<'_, Data, Error>,
 ) -> Result<(), Error> {
     match event {
-        FullEvent::Ready {
-            data_about_bot,
-            ctx,
-        } => {
+        FullEvent::Ready { data_about_bot } => {
             info!("{} is connected!", data_about_bot.user.name);
             event_ready(ctx, framework).await;
         }
-        FullEvent::VoiceStateUpdate { ctx: _, old, new } => {
+        FullEvent::VoiceStateUpdate { old, new } => {
             event_voice_state_update(framework, old, new).await;
         }
         _ => {}
@@ -120,7 +117,9 @@ pub async fn start_bot() {
 
     let options = poise::FrameworkOptions {
         commands: vec![activity(), member(), report(), summary(), meeting()],
-        event_handler: |event, framework, _data| Box::pin(event_handler(event, framework)),
+        event_handler: |ctx, event, framework, _data| {
+            Box::pin(event_handler(ctx, event, framework))
+        },
         prefix_options: poise::PrefixFrameworkOptions {
             prefix: Some(String::from("~")),
             mention_as_prefix: true,
@@ -185,7 +184,7 @@ async fn on_error(err: poise::FrameworkError<'_, Data, Error>) {
     if let Some(ctx) = ctx {
         let result = ctx
             .send(
-                CreateReply::new().embed(
+                CreateReply::default().embed(
                     CreateEmbed::new()
                         .color(Color::from_rgb(209, 53, 56))
                         .timestamp(chrono::Utc::now())
@@ -229,7 +228,7 @@ async fn respond(ctx: Context<'_>, content: String) -> Result<(), Error> {
     for content in content_chunks {
         poise::reply::send_reply(
             ctx,
-            CreateReply::new()
+            CreateReply::default()
                 .content(content)
                 .allowed_mentions(CreateAllowedMentions::new().empty_roles().empty_users()),
         )
