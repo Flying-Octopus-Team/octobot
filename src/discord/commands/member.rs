@@ -309,7 +309,9 @@ pub async fn update_member(
         }
 
         // remove wiki account from old group
-        member.unassign_wiki_group_by_role().await?;
+        if member.wiki_id().is_some() {
+            member.unassign_wiki_group_by_role().await?;
+        }
 
         member.set_role(new_role);
 
