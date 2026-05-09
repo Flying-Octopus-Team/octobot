@@ -59,6 +59,8 @@ args = [
   "deprecated",
   "-A",
   "clippy::result_large_err",
+  "-A",
+  "clippy::sort_by_key",
 ]
 
 [tasks.test]
