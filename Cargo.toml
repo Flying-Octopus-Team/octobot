@@ -15,19 +15,20 @@ tokio = { version = "1.37.0", features = ["full"] }
 chrono = { version = "0.4.38", default-features = false }
 serde_json = "1.0.116"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter"] }
 tracing-appender = "0.2.3"
 cron = "0.12.1"
 graphql_client = { version = "0.14.0", features = ["reqwest"] }
 reqwest = "0.11.27"
-poise = "0.6.1"
+poise = { version = "0.6.2", default-features = false, features = ["cache", "chrono", "handle_panics"] }
+serenity = { version = "0.12.5", default-features = false, features = ["builder", "client", "gateway", "model", "utils", "collector", "framework", "native_tls_backend"] }
 anyhow = "1.0.82"
 async-trait = "0.1.80"
 thiserror = "1.0.59"
 r2d2 = "0.8.10"
 
 [dependencies.diesel]
-version = "2.1.6"
+version = "2.2.3"
 features = ["postgres", "r2d2", "chrono", "uuid"]
 
 [dependencies.uuid]

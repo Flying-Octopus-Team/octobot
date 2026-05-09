@@ -3,31 +3,26 @@
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+    # `derivative` is unmaintained but still pulled in transitively by poise 0.6.x.
+    # No safe upgrade exists and it is a proc-macro with no runtime exposure.
+    "RUSTSEC-2024-0388",
+    # `rustls-pemfile` 1.x is unmaintained but reqwest 0.11.x pulls it
+    # unconditionally via its internal `__tls` feature (regardless of which TLS
+    # backend is selected). Removing it requires upgrading to reqwest 0.12,
+    # which graphql_client 0.14 does not yet support.
+    "RUSTSEC-2025-0134",
+]
 
 [licenses]
 version = 2
 confidence-threshold = 0.8
-allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "CC0-1.0"]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "CC0-1.0", "Unicode-3.0"]
 exceptions = [
-    { allow = [
-        "OpenSSL",
-    ], name = "ring" },
     { allow = [
         "Unicode-DFS-2016",
     ], name = "unicode-ident" },
 ]
-
-[[licenses.clarify]]
-name = "ring"
-# SPDX considers OpenSSL to encompass both the OpenSSL and SSLeay licenses
-# https://spdx.org/licenses/OpenSSL.html
-# ISC - Both BoringSSL and ring use this for their new files
-# MIT - "Files in third_party/ have their own licenses, as described therein. The MIT
-# license, for third_party/fiat, which, unlike other third_party directories, is
-# compiled into non-test libraries, is included below."
-# OpenSSL - Obviously
-expression = "ISC AND MIT AND OpenSSL"
-license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
 [bans]
 multiple-versions = "allow"
