@@ -270,13 +270,10 @@ impl MeetingStatus {
     /// Starts the meeting and saves current users in the meeting channel
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
         let channel_id = serenity::ChannelId::new(self.channel().parse::<u64>()?);
-        let channel = cache
-            .guilds()
-            .iter()
-            .find_map(|guild_id| {
-                let guild = cache.guild(guild_id)?;
-                guild.channels.get(&channel_id).cloned()
-            });
+        let channel = cache.guilds().iter().find_map(|guild_id| {
+            let guild = cache.guild(guild_id)?;
+            guild.channels.get(&channel_id).cloned()
+        });
 
         let channel = match channel {
             Some(c) => c,
