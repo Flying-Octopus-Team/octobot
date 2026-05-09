@@ -28,21 +28,22 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Install Rust nightly
-              uses: dtolnay/rust-toolchain@nightly
+              # Pinned to nightly-2026-05-04, the last build before the E0365
+              # regression (rust-lang/rust#156264) that breaks `serenity` 0.12.x.
+              # Drop the pin once the upstream regression is resolved.
+              uses: dtolnay/rust-toolchain@master
               with:
+                  toolchain: nightly-2026-05-04
                   components: rustfmt
-
-            - name: Install cargo-make
-              uses: taiki-e/install-action@cargo-make
 
             - name: Check typos
               uses: crate-ci/typos@master
 
-            - name: Install cargo-make
-              uses: taiki-e/install-action@cargo-make
-
             - name: Check formatting
-              run: cargo make fmt-check
+              # Bypass cargo-make to use the date-pinned nightly above; the
+              # Makefile.toml task targets the floating `nightly` channel for
+              # local development, which CI doesn't install.
+              run: cargo +nightly-2026-05-04 fmt --all --check
 
             - name: Lint dependencies
               uses: EmbarkStudios/cargo-deny-action@v2
@@ -56,9 +57,13 @@ jobs:
             - name: Checkout sources
               uses: actions/checkout@v4
 
-            - name: Install Rust stable
-              uses: dtolnay/rust-toolchain@stable
+            - name: Install Rust nightly
+              # Pinned to nightly-2026-05-04, the last build before the E0365
+              # regression (rust-lang/rust#156264) that breaks `serenity` 0.12.x.
+              # Drop the pin once the upstream regression is resolved.
+              uses: dtolnay/rust-toolchain@master
               with:
+                  toolchain: nightly-2026-05-04
                   components: clippy
 
             - name: Cache dependencies
@@ -68,11 +73,10 @@ jobs:
               with:
                   shared-key: ubuntu-latest-${{ env.cache-name }}-stable
 
-            - name: Install cargo-make
-              uses: taiki-e/install-action@cargo-make
-
             - name: Check clippy
-              run: cargo make clippy
+              # Bypass cargo-make to use the date-pinned nightly above; see
+              # the Check formatting step for the rationale.
+              run: cargo +nightly-2026-05-04 clippy --all-targets --tests --benches --all-features -- -D warnings
 
     check:
         name: Check
