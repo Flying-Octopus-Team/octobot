@@ -32,8 +32,9 @@ jobs:
               # an E0365 regression introduced in nightly-2026-05-05 that
               # breaks `serenity` 0.12.x via `pub use crate::model::prelude::*`.
               # Drop the pin once the upstream regression is resolved.
-              uses: dtolnay/rust-toolchain@nightly-2026-05-04
+              uses: dtolnay/rust-toolchain@master
               with:
+                  toolchain: nightly-2026-05-04
                   components: rustfmt
 
             - name: Install cargo-make
@@ -65,8 +66,9 @@ jobs:
               # an E0365 regression introduced in nightly-2026-05-05 that
               # breaks `serenity` 0.12.x via `pub use crate::model::prelude::*`.
               # Drop the pin once the upstream regression is resolved.
-              uses: dtolnay/rust-toolchain@nightly-2026-05-04
+              uses: dtolnay/rust-toolchain@master
               with:
+                  toolchain: nightly-2026-05-04
                   components: clippy
 
             - name: Cache dependencies
