@@ -55,6 +55,8 @@ args = [
   "--",
   "-D",
   "warnings",
+  "-A",
+  "deprecated",
 ]
 
 [tasks.test]
