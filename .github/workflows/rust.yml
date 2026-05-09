@@ -45,7 +45,7 @@ jobs:
               run: cargo make fmt-check
 
             - name: Lint dependencies
-              uses: EmbarkStudios/cargo-deny-action@v1
+              uses: EmbarkStudios/cargo-deny-action@v2
 
     clippy:
         name: Clippy
