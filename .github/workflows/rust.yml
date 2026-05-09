@@ -37,6 +37,9 @@ jobs:
                   toolchain: nightly-2026-05-04
                   components: rustfmt
 
+            - name: Alias dated nightly as `nightly`
+              run: rustup toolchain link nightly "$(rustc +nightly-2026-05-04 --print sysroot)"
+
             - name: Install cargo-make
               uses: taiki-e/install-action@cargo-make
 
@@ -70,6 +73,9 @@ jobs:
               with:
                   toolchain: nightly-2026-05-04
                   components: clippy
+
+            - name: Alias dated nightly as `nightly`
+              run: rustup toolchain link nightly "$(rustc +nightly-2026-05-04 --print sysroot)"
 
             - name: Cache dependencies
               uses: Swatinem/rust-cache@v2
