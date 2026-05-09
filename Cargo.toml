@@ -7,32 +7,32 @@ license = "Apache-2.0 OR MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-config = { version = "0.14.0", features = ["toml", "json", "ini", "ron", "json5", "convert-case", "async"], default-features = false } # Disable yaml to avoid errors with unmaintained yaml-rust
-serde = "1.0.198"
+config = { version = "0.15.22", features = ["toml", "json", "ini", "ron", "json5", "convert-case", "async"], default-features = false }
+serde = "1.0.228"
 lazy_static = "1.4.0"
-diesel_migrations = "2.1.0"
-tokio = { version = "1.37.0", features = ["full"] }
-chrono = { version = "0.4.38", default-features = false }
-serde_json = "1.0.116"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.20", features = ["json", "env-filter"] }
-tracing-appender = "0.2.3"
-cron = "0.12.1"
-graphql_client = { version = "0.14.0", features = ["reqwest"] }
-reqwest = { version = "0.11.27", default-features = false, features = ["json", "native-tls"] }
+diesel_migrations = "2.3.2"
+tokio = { version = "1.52.3", features = ["full"] }
+chrono = { version = "0.4.44", default-features = false }
+serde_json = "1.0.149"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+tracing-appender = "0.2.5"
+cron = "0.16.0"
+graphql_client = { version = "0.16.0", features = ["reqwest"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
 poise = { version = "0.6.2", default-features = false, features = ["cache", "chrono", "handle_panics"] }
 serenity = { version = "0.12.5", default-features = false, features = ["builder", "client", "gateway", "model", "utils", "collector", "framework", "native_tls_backend"] }
-anyhow = "1.0.82"
-async-trait = "0.1.80"
-thiserror = "1.0.59"
+anyhow = "1.0.102"
+async-trait = "0.1.89"
+thiserror = "2.0.18"
 r2d2 = "0.8.10"
 
 [dependencies.diesel]
-version = "2.2.3"
+version = "2.3.9"
 features = ["postgres", "r2d2", "chrono", "uuid"]
 
 [dependencies.uuid]
-version = "1.8.0"
+version = "1.23.1"
 features = ["v4", "serde"]
 
 [dev-dependencies]

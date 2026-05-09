@@ -4,26 +4,15 @@
 version = 2
 yanked = "deny"
 ignore = [
-    # `adler` is unmaintained but pulled transitively by `miniz_oxide` via `miniz` crate -> serenity.
-    # No safe upgrade path exists without replacing serenity.
-    "RUSTSEC-2025-0056",
     # `derivative` is unmaintained but still pulled in transitively by poise 0.6.x.
     # No safe upgrade exists and it is a proc-macro with no runtime exposure.
     "RUSTSEC-2024-0388",
-    # `rustls-pemfile` 1.x is unmaintained but reqwest 0.11.x pulls it
-    # unconditionally via its internal `__tls` feature.
-    "RUSTSEC-2025-0134",
 ]
 
 [licenses]
 version = 2
 confidence-threshold = 0.8
-allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "CC0-1.0", "Unicode-3.0"]
-exceptions = [
-    { allow = [
-        "Unicode-DFS-2016",
-    ], name = "unicode-ident" },
-]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0", "CC0-1.0", "Unicode-3.0", "CDLA-Permissive-2.0"]
 
 [bans]
 multiple-versions = "allow"
