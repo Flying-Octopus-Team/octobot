@@ -6,7 +6,6 @@ yanked = "deny"
 ignore = [
     { id = "RUSTSEC-2025-0056", reason = "adler has no maintained replacement; transitive dep of miniz_oxide via flate2/serenity" },
     { id = "RUSTSEC-2024-0388", reason = "derivative crate is unmaintained; transitive dep of poise" },
-    { id = "RUSTSEC-2025-0057", reason = "fxhash has no maintained replacement; transitive dep of serenity" },
     { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile is unmaintained; transitive dep of reqwest 0.11.x locked by serenity" },
     { id = "RUSTSEC-2026-0049", reason = "rustls-webpki 0.102.8 is pinned by rustls 0.22.4 which is locked by tokio-rustls 0.25.0 via serenity" },
     { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101.7 is pinned by rustls 0.21.11 which is locked by reqwest 0.11.x" },
