@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Error with serenity: {0}")]
-    SerenityError(#[from] serenity::Error),
+    SerenityError(#[from] Box<serenity::Error>),
     #[error("Error operating with settings: {0}")]
     ConfigError(#[from] config::ConfigError),
     #[error("Error formatting: {0}")]
