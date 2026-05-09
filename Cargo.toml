@@ -7,7 +7,7 @@ license = "Apache-2.0 OR MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-config = { version = "0.15.22", features = ["toml", "json", "ini", "ron", "json5", "convert-case", "async"], default-features = false }
+config = { version = "0.15.22", features = ["toml", "json", "ini", "ron", "json5", "convert-case", "async"], default-features = false } # Disable yaml to avoid errors with unmaintained yaml-rust
 serde = "1.0.228"
 lazy_static = "1.4.0"
 diesel_migrations = "2.3.2"

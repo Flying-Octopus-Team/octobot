@@ -4,7 +4,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("Error with serenity: {0}")]
-    SerenityError(#[from] serenity::Error),
+    SerenityError(Box<serenity::Error>),
     #[error("Error operating with settings: {0}")]
     ConfigError(#[from] config::ConfigError),
     #[error("Error formatting: {0}")]
@@ -58,4 +58,13 @@ pub enum Error {
     GuildChannelNotFound,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+// `serenity::Error` is ~136 bytes, large enough that boxing it keeps `Error`
+// under the `clippy::result_large_err` threshold; a manual `From` preserves the
+// `?` ergonomics we'd otherwise get from `#[from]`.
+impl From<serenity::Error> for Error {
+    fn from(err: serenity::Error) -> Self {
+        Error::SerenityError(Box::new(err))
+    }
 }
