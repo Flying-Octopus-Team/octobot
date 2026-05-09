@@ -57,6 +57,8 @@ args = [
   "warnings",
   "-A",
   "deprecated",
+  "-A",
+  "clippy::result_large_err",
 ]
 
 [tasks.test]
