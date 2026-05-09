@@ -4,13 +4,15 @@
 version = 2
 yanked = "deny"
 ignore = [
-    { id = "RUSTSEC-2025-0056", reason = "adler has no maintained replacement; transitive dep of miniz_oxide via flate2/serenity" },
-    { id = "RUSTSEC-2024-0388", reason = "derivative crate is unmaintained; transitive dep of poise" },
-    { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile is unmaintained; transitive dep of reqwest 0.11.x locked by serenity" },
-    { id = "RUSTSEC-2026-0049", reason = "rustls-webpki 0.102.8 is pinned by rustls 0.22.4 which is locked by tokio-rustls 0.25.0 via serenity" },
-    { id = "RUSTSEC-2026-0098", reason = "rustls-webpki 0.101.7 is pinned by rustls 0.21.11 which is locked by reqwest 0.11.x" },
-    { id = "RUSTSEC-2026-0099", reason = "rustls-webpki 0.101.7 is pinned by rustls 0.21.11 which is locked by reqwest 0.11.x" },
-    { id = "RUSTSEC-2026-0104", reason = "rustls-webpki 0.101.7 is pinned by rustls 0.21.11 which is locked by reqwest 0.11.x" },
+    # `adler` is unmaintained but pulled transitively by miniz_oxide -> flate2 -> serenity.
+    # No safe upgrade path exists without replacing serenity.
+    "RUSTSEC-2025-0056",
+    # `derivative` is unmaintained but still pulled in transitively by poise 0.6.x.
+    # No safe upgrade exists and it is a proc-macro with no runtime exposure.
+    "RUSTSEC-2024-0388",
+    # `rustls-pemfile` 1.x is unmaintained but reqwest 0.11.x pulls it
+    # unconditionally via its internal `__tls` feature.
+    "RUSTSEC-2025-0134",
 ]
 
 [licenses]
@@ -22,18 +24,6 @@ exceptions = [
         "Unicode-DFS-2016",
     ], name = "unicode-ident" },
 ]
-
-[[licenses.clarify]]
-name = "ring"
-# SPDX considers OpenSSL to encompass both the OpenSSL and SSLeay licenses
-# https://spdx.org/licenses/OpenSSL.html
-# ISC - Both BoringSSL and ring use this for their new files
-# MIT - "Files in third_party/ have their own licenses, as described therein. The MIT
-# license, for third_party/fiat, which, unlike other third_party directories, is
-# compiled into non-test libraries, is included below."
-# OpenSSL - Obviously
-expression = "ISC AND MIT AND OpenSSL"
-license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
 
 [bans]
 multiple-versions = "allow"

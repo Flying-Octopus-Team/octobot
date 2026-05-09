@@ -46,6 +46,7 @@ args = ["build", "--all-targets", "--all-features"]
 [tasks.clippy]
 description = "Run Clippy for linting"
 command = "cargo"
+toolchain = "nightly"
 args = [
   "clippy",
   "--all-targets",
@@ -55,10 +56,6 @@ args = [
   "--",
   "-D",
   "warnings",
-  "-A",
-  "deprecated",
-  "-A",
-  "clippy::result_large_err",
 ]
 
 [tasks.test]
