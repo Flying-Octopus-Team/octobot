@@ -13,7 +13,7 @@ use poise::{
     serenity_prelude as serenity,
     serenity_prelude::{prelude::TypeMapKey, CacheHttp},
 };
-use serenity::Cache;
+use serenity::{Cache, ChannelId, GuildId};
 use tokio::{sync::RwLock, task::JoinHandle};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -24,6 +24,7 @@ use crate::{
         member::Member,
     },
     error::Error,
+    SETTINGS,
 };
 
 /// Struct that holds the current meeting status.
@@ -269,13 +270,26 @@ impl MeetingStatus {
 
     /// Starts the meeting and saves current users in the meeting channel
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
-        let channel = match cache.channel(self.channel().parse::<u64>()?) {
-            Some(c) => c,
+        let guild_id = GuildId::new(SETTINGS.discord.server_id.get());
+        let channel_id = ChannelId::new(self.channel().parse::<u64>()?);
+
+        let guild = match cache.guild(guild_id) {
+            Some(g) => g,
             None => {
-                error!("Channel not found");
+                error!("Guild not found in cache");
                 return Err(Error::GuildChannelNotFound);
             }
         };
+
+        let channel = match guild.channels.get(&channel_id) {
+            Some(c) => c.clone(),
+            None => {
+                error!("Channel not found in guild");
+                return Err(Error::GuildChannelNotFound);
+            }
+        };
+
+        drop(guild);
 
         for member in channel.members(cache)? {
             let mut member = {
