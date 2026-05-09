@@ -4,6 +4,21 @@
 version = 2
 yanked = "deny"
 
+# These advisories are in transitive dependencies that require upstream fixes.
+# They cannot be resolved by this project alone.
+ignore = [
+    # derivative is unmaintained; used by poise (RUSTSEC-2024-0388)
+    # Fix requires: poise to migrate away from derivative
+    "RUSTSEC-2024-0388",
+    # rustls-webpki vulnerabilities via tokio-tungstenite → rustls 0.22.4
+    # rustls 0.22.4 pins rustls-webpki ^0.102.1 which contains these issues.
+    # Fix requires: tokio-tungstenite or serenity to update to rustls 0.23+
+    "RUSTSEC-2026-0049",
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+]
+
 [licenses]
 version = 2
 confidence-threshold = 0.8
