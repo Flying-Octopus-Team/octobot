@@ -273,23 +273,23 @@ impl MeetingStatus {
         let guild_id = GuildId::new(SETTINGS.discord.server_id.get());
         let channel_id = ChannelId::new(self.channel().parse::<u64>()?);
 
-        let guild = match cache.guild(guild_id) {
-            Some(g) => g,
-            None => {
-                error!("Guild not found in cache");
-                return Err(Error::GuildChannelNotFound);
+        let channel = {
+            let guild = match cache.guild(guild_id) {
+                Some(g) => g,
+                None => {
+                    error!("Guild not found in cache");
+                    return Err(Error::GuildChannelNotFound);
+                }
+            };
+
+            match guild.channels.get(&channel_id) {
+                Some(c) => c.clone(),
+                None => {
+                    error!("Channel not found in guild");
+                    return Err(Error::GuildChannelNotFound);
+                }
             }
         };
-
-        let channel = match guild.channels.get(&channel_id) {
-            Some(c) => c.clone(),
-            None => {
-                error!("Channel not found in guild");
-                return Err(Error::GuildChannelNotFound);
-            }
-        };
-
-        drop(guild);
 
         for member in channel.members(cache)? {
             let mut member = {
