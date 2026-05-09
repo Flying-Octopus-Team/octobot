@@ -45,7 +45,7 @@ jobs:
               run: cargo make fmt-check
 
             - name: Lint dependencies
-              uses: EmbarkStudios/cargo-deny-action@v1
+              uses: EmbarkStudios/cargo-deny-action@v2
 
     clippy:
         name: Clippy
@@ -116,6 +116,10 @@ jobs:
 
             - name: Install Rust stable
               uses: dtolnay/rust-toolchain@stable
+
+            - name: Install libpq (macOS)
+              if: runner.os == 'macOS'
+              run: brew install libpq && echo "PQ_LIB_DIR=$(brew --prefix libpq)/lib" >> $GITHUB_ENV
 
             - name: Cache dependencies
               uses: Swatinem/rust-cache@v2
