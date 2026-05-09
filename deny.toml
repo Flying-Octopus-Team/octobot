@@ -4,7 +4,7 @@
 version = 2
 yanked = "deny"
 ignore = [
-    # `adler` is unmaintained but pulled transitively by miniz_oxide -> flate2 -> serenity.
+    # `adler` is unmaintained but pulled transitively by miniz_oxide via the `flate2` crate -> serenity.
     # No safe upgrade path exists without replacing serenity.
     "RUSTSEC-2025-0056",
     # `derivative` is unmaintained but still pulled in transitively by poise 0.6.x.

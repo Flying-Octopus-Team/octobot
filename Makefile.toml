@@ -17,14 +17,14 @@ dependencies = ["fmt-check", "typos"]
 [tasks.fmt-check]
 description = "Check code formatting"
 install_crate = "rustfmt"
-toolchain = "nightly"
+toolchain = "nightly-2026-05-04"
 command = "cargo"
 args = ["fmt", "--all", "--check"]
 
 [tasks.fmt]
 description = "Format source code"
 install_crate = "rustfmt"
-toolchain = "nightly"
+toolchain = "nightly-2026-05-04"
 command = "cargo"
 args = ["fmt", "--all"]
 
@@ -46,7 +46,7 @@ args = ["build", "--all-targets", "--all-features"]
 [tasks.clippy]
 description = "Run Clippy for linting"
 command = "cargo"
-toolchain = "nightly"
+toolchain = "nightly-2026-05-04"
 args = [
   "clippy",
   "--all-targets",
