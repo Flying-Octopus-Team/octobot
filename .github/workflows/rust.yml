@@ -36,13 +36,18 @@ jobs:
                   toolchain: nightly-2026-05-04
                   components: rustfmt
 
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
+
             - name: Check typos
               uses: crate-ci/typos@master
 
             - name: Check formatting
               # Bypass cargo-make to use the date-pinned nightly above; the
               # Makefile.toml task targets the floating `nightly` channel for
-              # local development, which CI doesn't install.
+              # local development, which CI doesn't install. Restore the
+              # cargo-make invocation once the date pin is dropped.
+              # run: cargo make fmt-check
               run: cargo +nightly-2026-05-04 fmt --all --check
 
             - name: Lint dependencies
@@ -73,9 +78,14 @@ jobs:
               with:
                   shared-key: ubuntu-latest-${{ env.cache-name }}-stable
 
+            - name: Install cargo-make
+              uses: taiki-e/install-action@cargo-make
+
             - name: Check clippy
               # Bypass cargo-make to use the date-pinned nightly above; see
-              # the Check formatting step for the rationale.
+              # the Check formatting step for the rationale. Restore the
+              # cargo-make invocation once the date pin is dropped.
+              # run: cargo make clippy
               run: cargo +nightly-2026-05-04 clippy --all-targets --tests --benches --all-features -- -D warnings
 
     check:
