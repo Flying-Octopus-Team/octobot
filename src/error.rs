@@ -59,3 +59,9 @@ pub enum Error {
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
+
+impl From<serenity::Error> for Error {
+    fn from(err: serenity::Error) -> Self {
+        Error::SerenityError(Box::new(err))
+    }
+}
