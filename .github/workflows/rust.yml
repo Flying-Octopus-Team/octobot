@@ -127,6 +127,10 @@ jobs:
             - name: Install cargo-make
               uses: taiki-e/install-action@cargo-make
 
+            - name: Set libpq path (macOS)
+              if: matrix.os == 'macos-latest'
+              run: echo "PQ_LIB_DIR=$(brew --prefix libpq)/lib" >> $GITHUB_ENV
+
             - name: Test
               run: cargo make test
               env:
