@@ -157,7 +157,7 @@ impl Report {
         }
 
         let mut output = String::new();
-        reports.sort_by(|a, b| a.member_id.cmp(&b.member_id));
+        reports.sort_by_key(|r| r.member_id);
         let mut previous_report: Option<Report> = None;
         for mut report in reports {
             let member = Member::find_by_id(report.member_id)?;
