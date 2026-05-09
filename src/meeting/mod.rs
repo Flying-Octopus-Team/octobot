@@ -267,7 +267,7 @@ impl MeetingStatus {
         }
     }
 
-/// Starts the meeting and saves current users in the meeting channel
+    /// Starts the meeting and saves current users in the meeting channel
     #[allow(deprecated)]
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
         let channel = match cache.channel(self.channel().parse::<u64>()?) {
