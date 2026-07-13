@@ -8,9 +8,31 @@ use tracing::info;
 pub struct Settings {
     pub database_url: String,
     pub activity_threshold_days: i64,
+    /// Initial state of silent mode. When enabled, the bot does not act on
+    /// its own (e.g. does not start scheduled meetings); it only responds to
+    /// explicit commands. Defaults to `true` when missing from the config.
+    /// Admins can toggle it at runtime with the `/silent-mode` command.
+    #[serde(default = "default_silent_mode")]
+    pub silent_mode: bool,
+    /// Presence gate for scheduled meetings. When enabled, a scheduled
+    /// meeting will not start unless at least one human (non-bot) member is
+    /// already connected to the meeting's voice channel. This is an
+    /// additional, independent safety check on top of `silent_mode`: it
+    /// applies even when silent mode is disabled. Defaults to `true` when
+    /// missing from the config.
+    #[serde(default = "default_require_presence")]
+    pub require_presence: bool,
     pub meeting: Meeting,
     pub discord: Discord,
     pub wiki: Wiki,
+}
+
+fn default_silent_mode() -> bool {
+    true
+}
+
+fn default_require_presence() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize, Clone)]

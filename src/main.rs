@@ -15,6 +15,7 @@ mod discord;
 pub mod error;
 mod meeting;
 mod settings;
+mod silent;
 pub mod wiki;
 
 lazy_static! {
@@ -24,6 +25,16 @@ lazy_static! {
 #[tokio::main]
 async fn main() {
     let _guard = setup_tracing();
+
+    silent::init(SETTINGS.silent_mode);
+    tracing::info!(
+        "Silent mode initially {}",
+        if silent::is_enabled() {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
 
     database::run_migrations();
     discord::start_bot().await;

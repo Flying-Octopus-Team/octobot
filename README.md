@@ -26,6 +26,8 @@ Clone repository and create config file in `config/config.json` following this t
 {
   "database_url": "postgresql://[user[:password]@][netloc][:port][/dbname][?param1=value1&...]",
   "activity_threshold_days": 123,
+  "silent_mode": true,
+  "require_presence": true,
   "meeting": {
     "cron": "",
     "channel_id": 123456789012345678
@@ -47,6 +49,10 @@ Clone repository and create config file in `config/config.json` following this t
   }
 }
 ```
+
+`silent_mode` controls whether the bot may act on its own (start scheduled meetings, send unprompted messages). It defaults to `true` (silent) when omitted, so the bot only responds to commands. Server administrators can toggle it at runtime with the `/silent-mode enable`, `/silent-mode disable` and `/silent-mode status` commands.
+
+`require_presence` controls an independent safety gate: when enabled (the default), a scheduled meeting will not start unless at least one human (non-bot) member is already connected to the meeting's voice channel. This check applies even when `silent_mode` is disabled, and there is no Discord command to toggle it at runtime — change it in the config file. If the channel's presence cannot be determined (e.g. cache miss or API error), the bot conservatively treats the channel as empty and does not start the meeting.
 
 Add your bot to the Discord server you've specified in the config, and make sure it has all required permissions to access the channels.
 Run the bot using cargo

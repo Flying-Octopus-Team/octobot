@@ -5,6 +5,7 @@ mod activity;
 mod meeting;
 mod member;
 mod report;
+mod silent;
 mod summary;
 
 #[poise::command(
@@ -54,6 +55,19 @@ pub async fn report(_ctx: Context<'_>) -> Result<(), Error> {
     )
 )]
 pub async fn summary(_ctx: Context<'_>) -> Result<(), Error> {
+    Ok(())
+}
+
+/// Admin switch: while silent mode is enabled the bot does not act on its own.
+#[poise::command(
+    slash_command,
+    category = "Admin",
+    rename = "silent-mode",
+    subcommands("silent::status", "silent::enable", "silent::disable"),
+    required_permissions = "ADMINISTRATOR",
+    default_member_permissions = "ADMINISTRATOR"
+)]
+pub async fn silent_mode(_ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }
 

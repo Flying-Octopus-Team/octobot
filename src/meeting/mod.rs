@@ -15,7 +15,7 @@ use poise::{
 };
 use serenity::{Cache, ChannelId, GuildId};
 use tokio::{sync::RwLock, task::JoinHandle};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -202,6 +202,15 @@ impl MeetingStatus {
     /// meeting.
     ///
     /// The task will be cancelled if the schedule is changed.
+    ///
+    /// This is the central guard for silent mode: while silent mode is
+    /// enabled, the task never starts a meeting. Instead it re-checks at
+    /// every scheduled occurrence, so disabling silent mode makes meetings
+    /// resume at their next scheduled time without a restart.
+    ///
+    /// It is also the guard for the presence gate (`require_presence`): a
+    /// meeting never starts into an empty voice channel, independent of
+    /// silent mode. This applies even when silent mode is disabled.
     async fn await_meeting(meeting_status: Arc<RwLock<Self>>, ctx: &serenity::Context) {
         let meeting_status_clone = Arc::clone(&meeting_status);
         let cache = ctx.cache().unwrap().clone();
@@ -212,25 +221,138 @@ impl MeetingStatus {
                 meeting_status.read().await.meeting_id()
             );
 
-            let duration = meeting_status.read().await.load_duration().unwrap();
+            loop {
+                let duration = meeting_status.read().await.load_duration().unwrap();
 
-            if duration.as_secs() > 0 {
-                info!("Sleeping for {:?}", duration);
-                tokio::time::sleep(duration).await;
-            }
-
-            let mut meeting_status = meeting_status.write().await;
-
-            meeting_status.set_is_ongoing(true);
-
-            match meeting_status.start_meeting(&cache).await {
-                Ok(_) => {
-                    info!("Meeting started");
+                if duration.as_secs() > 0 {
+                    info!("Sleeping for {:?}", duration);
+                    tokio::time::sleep(duration).await;
                 }
-                Err(e) => error!("Error creating meeting job: {:?}", e),
+
+                if crate::silent::is_enabled() {
+                    info!("Silent mode is enabled; not starting the scheduled meeting");
+
+                    // Sleep until the next scheduled occurrence and check
+                    // again, instead of starting the meeting.
+                    if Self::wait_for_next_occurrence(&meeting_status).await {
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                if SETTINGS.require_presence {
+                    let has_human = {
+                        let meeting_status = meeting_status.read().await;
+                        meeting_status.voice_channel_has_human(&cache)
+                    };
+
+                    if !has_human {
+                        info!(
+                            "No human present in the meeting voice channel; not starting the scheduled meeting"
+                        );
+
+                        // Sleep until the next scheduled occurrence and check
+                        // again, instead of starting the meeting.
+                        if Self::wait_for_next_occurrence(&meeting_status).await {
+                            continue;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                let mut meeting_status = meeting_status.write().await;
+
+                meeting_status.set_is_ongoing(true);
+
+                match meeting_status.start_meeting(&cache).await {
+                    Ok(_) => {
+                        info!("Meeting started");
+                    }
+                    Err(e) => error!("Error creating meeting job: {:?}", e),
+                }
+
+                break;
             }
         });
         meeting_status.write().await.handle = Some(join_handle);
+    }
+
+    /// Sleeps until the next scheduled occurrence of the meeting's cron
+    /// schedule.
+    ///
+    /// Returns `true` if the caller should re-check its gates (silent mode /
+    /// presence) and try again, or `false` if there is no upcoming
+    /// occurrence and the polling job should stop entirely.
+    async fn wait_for_next_occurrence(meeting_status: &Arc<RwLock<Self>>) -> bool {
+        let next_check = {
+            let meeting_status = meeting_status.read().await;
+            meeting_status.schedule.upcoming(Local).next().map(|next| {
+                next.signed_duration_since(Local::now())
+                    .to_std()
+                    .unwrap_or_default()
+            })
+        };
+
+        match next_check {
+            Some(duration) => {
+                info!("Re-checking in {:?}", duration);
+                tokio::time::sleep(duration).await;
+                true
+            }
+            None => {
+                error!("No upcoming occurrence in the schedule; stopping meeting job");
+                false
+            }
+        }
+    }
+
+    /// Looks up the meeting's voice channel in the given cache.
+    fn voice_channel(&self, cache: &Arc<Cache>) -> Result<serenity::GuildChannel, Error> {
+        let guild_id = GuildId::new(SETTINGS.discord.server_id.get());
+        let channel_id = ChannelId::new(self.channel().parse::<u64>()?);
+
+        let guild = match cache.guild(guild_id) {
+            Some(g) => g,
+            None => {
+                error!("Guild not found in cache");
+                return Err(Error::GuildChannelNotFound);
+            }
+        };
+
+        match guild.channels.get(&channel_id) {
+            Some(c) => Ok(c.clone()),
+            None => {
+                error!("Channel not found in guild");
+                Err(Error::GuildChannelNotFound)
+            }
+        }
+    }
+
+    /// Checks whether the meeting's voice channel currently has at least one
+    /// human (non-bot) member connected.
+    ///
+    /// This is the presence gate: an additional, independent safety check on
+    /// top of silent mode. If the channel/guild state cannot be determined
+    /// (cache miss, lookup error, etc.) this conservatively returns `false`
+    /// (treats the channel as empty) so a meeting is never started without
+    /// positive confirmation that a human is present.
+    fn voice_channel_has_human(&self, cache: &Arc<Cache>) -> bool {
+        let members = self
+            .voice_channel(cache)
+            .and_then(|channel| Ok(channel.members(cache)?));
+
+        match members {
+            Ok(members) => has_human_presence(members.iter().map(|member| member.user.bot)),
+            Err(e) => {
+                warn!(
+                    "Could not determine voice channel presence, treating as empty: {}",
+                    e
+                );
+                false
+            }
+        }
     }
 
     fn load_duration(&self) -> Result<Duration, Error> {
@@ -270,26 +392,7 @@ impl MeetingStatus {
 
     /// Starts the meeting and saves current users in the meeting channel
     async fn start_meeting(&mut self, cache: &Arc<Cache>) -> Result<(), Error> {
-        let guild_id = GuildId::new(SETTINGS.discord.server_id.get());
-        let channel_id = ChannelId::new(self.channel().parse::<u64>()?);
-
-        let channel = {
-            let guild = match cache.guild(guild_id) {
-                Some(g) => g,
-                None => {
-                    error!("Guild not found in cache");
-                    return Err(Error::GuildChannelNotFound);
-                }
-            };
-
-            match guild.channels.get(&channel_id) {
-                Some(c) => c.clone(),
-                None => {
-                    error!("Channel not found in guild");
-                    return Err(Error::GuildChannelNotFound);
-                }
-            }
-        };
+        let channel = self.voice_channel(cache)?;
 
         for member in channel.members(cache)? {
             let mut member = {
@@ -339,5 +442,44 @@ impl TryFrom<Meeting> for MeetingStatus {
             handle: None,
             schedule: Schedule::from_str(&s).unwrap(),
         })
+    }
+}
+
+/// Returns `true` if at least one of the given members is not a bot.
+///
+/// Each item is a member's `user.bot` flag (`true` for bots, `false` for
+/// humans). This is a pure helper, deliberately kept free of any Discord
+/// cache/HTTP access, so the presence gate's core decision can be unit
+/// tested without standing up a live cache or constructing `serenity`
+/// model types.
+fn has_human_presence<I>(bot_flags: I) -> bool
+where
+    I: IntoIterator<Item = bool>,
+{
+    bot_flags.into_iter().any(|is_bot| !is_bot)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::has_human_presence;
+
+    #[test]
+    fn empty_channel_has_no_human() {
+        assert!(!has_human_presence(vec![]));
+    }
+
+    #[test]
+    fn only_bots_has_no_human() {
+        assert!(!has_human_presence(vec![true, true, true]));
+    }
+
+    #[test]
+    fn single_human_is_detected() {
+        assert!(has_human_presence(vec![false]));
+    }
+
+    #[test]
+    fn human_among_bots_is_detected() {
+        assert!(has_human_presence(vec![true, false, true]));
     }
 }

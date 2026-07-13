@@ -16,7 +16,7 @@ use tracing::{error, info, log::trace, warn};
 
 use crate::{
     database::models::member::Member,
-    discord::commands::{activity, meeting, member, report, summary},
+    discord::commands::{activity, meeting, member, report, silent_mode, summary},
     error::Error,
     meeting::MeetingStatus,
     SETTINGS,
@@ -116,7 +116,14 @@ pub async fn start_bot() {
         | GatewayIntents::GUILD_MEMBERS;
 
     let options = poise::FrameworkOptions {
-        commands: vec![activity(), member(), report(), summary(), meeting()],
+        commands: vec![
+            activity(),
+            member(),
+            report(),
+            summary(),
+            meeting(),
+            silent_mode(),
+        ],
         event_handler: |ctx, event, framework, _data| {
             Box::pin(event_handler(ctx, event, framework))
         },
