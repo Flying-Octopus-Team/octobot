@@ -233,7 +233,7 @@ impl Meeting {
         let mut output = String::new();
 
         if MeetingMembers::is_user_in_meeting(self.id(), member.id())? {
-            return Err(Error::UserAlreadyInMeeting {
+            Err(Error::UserAlreadyInMeeting {
                 user_id: member.id(),
                 meeting_id: self.id(),
             })?;

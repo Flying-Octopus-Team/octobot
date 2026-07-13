@@ -95,7 +95,7 @@ pub async fn assign_user_group(variables: assign_user_group::Variables) -> Resul
             return Ok(());
         }
 
-        return Err(Into::<WikiError>::into(errors))?;
+        Err(Into::<WikiError>::into(errors))?;
     }
 
     let response_result = response_body
@@ -131,7 +131,7 @@ pub async fn unassign_user_group(variables: unassign_user_group::Variables) -> R
     .await?;
 
     if let Some(errors) = response_body.errors {
-        return Err(Into::<WikiError>::into(errors))?;
+        Err(Into::<WikiError>::into(errors))?;
     }
 
     let response_result = response_body
@@ -167,7 +167,7 @@ pub async fn create_user(variables: create_user::Variables) -> Result<Option<i64
     .await?;
 
     if let Some(errors) = response_body.errors {
-        return Err(Into::<WikiError>::into(errors))?;
+        Err(Into::<WikiError>::into(errors))?;
     }
 
     let create_user_users_create = response_body.data.unwrap().users.unwrap().create;
@@ -203,7 +203,7 @@ pub async fn find_user_by_email(email: String) -> Result<Option<i64>, Error> {
     .await?;
 
     if let Some(errors) = response_body.errors {
-        return Err(Into::<WikiError>::into(errors))?;
+        Err(Into::<WikiError>::into(errors))?;
     }
 
     let search_user_users = response_body.data.unwrap().users.unwrap().search.unwrap();
