@@ -56,6 +56,8 @@ pub enum Error {
     NoMeetingPlanned,
     #[error("Guild channel not found")]
     GuildChannelNotFound,
+    #[error("Note cannot be empty")]
+    EmptyNote,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

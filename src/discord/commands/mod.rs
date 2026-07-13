@@ -80,6 +80,7 @@ pub async fn silent_mode(_ctx: Context<'_>) -> Result<(), Error> {
         "meeting::list_meetings",
         "meeting::plan_meeting",
         "meeting::set_note",
+        "meeting::compose_note",
         "meeting::add_member",
         "meeting::remove_member",
     )

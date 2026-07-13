@@ -1,5 +1,6 @@
-use std::{fmt::Write, sync::Arc};
+use std::{fmt::Write, sync::Arc, time::Duration};
 
+use poise::serenity_prelude::{ComponentInteractionCollector, CreateActionRow, CreateButton};
 use tracing::info;
 
 use crate::{
@@ -187,6 +188,19 @@ pub(crate) async fn plan_meeting(
     crate::discord::respond(ctx, output).await
 }
 
+/// Resolves the target meeting for note-related commands: the explicitly
+/// given meeting, or the current one (ongoing or next planned) otherwise.
+async fn resolve_meeting(ctx: Context<'_>, meeting: Option<Meeting>) -> Result<Meeting, Error> {
+    match meeting {
+        Some(meeting) => Ok(meeting),
+        None => {
+            let meeting_status = ctx.data().meeting_status.read().await;
+
+            Meeting::find_by_id(meeting_status.meeting_id())
+        }
+    }
+}
+
 #[poise::command(slash_command, rename = "set-note")]
 pub(crate) async fn set_note(
     ctx: Context<'_>,
@@ -200,14 +214,7 @@ pub(crate) async fn set_note(
     output.push_str("Meeting summary changed to ");
     output.push_str(&note);
 
-    let meeting = match meeting {
-        Some(meeting) => meeting,
-        None => {
-            let meeting_status = ctx.data().meeting_status.read().await;
-
-            Meeting::find_by_id(meeting_status.meeting_id())?
-        }
-    };
+    let meeting = resolve_meeting(ctx, meeting).await?;
 
     let mut summary = Summary::find_by_id(meeting.summary_id())?;
 
@@ -216,6 +223,112 @@ pub(crate) async fn set_note(
     summary.send_summary(ctx, true).await?;
 
     crate::discord::respond(ctx, output).await
+}
+
+/// Modal used to compose a meeting note. A modal's paragraph input allows
+/// comfortable multi-line text entry, unlike a slash command string option.
+#[derive(Debug, poise::Modal)]
+#[name = "Compose meeting note"]
+struct NoteModal {
+    #[name = "Title (optional)"]
+    #[placeholder = "e.g. Sprint retro highlights"]
+    #[max_length = 100]
+    title: Option<String>,
+    #[name = "Note"]
+    #[placeholder = "What should be recorded for this meeting?"]
+    #[paragraph]
+    #[min_length = 1]
+    #[max_length = 3900]
+    note: String,
+}
+
+fn compose_note_button() -> CreateButton {
+    CreateButton::new("compose_note_button").label("Compose note")
+}
+
+/// Formats the modal's title/note fields into the text stored on the
+/// summary. Returns [`Error::EmptyNote`] if the note is blank once
+/// whitespace is trimmed off both ends (Discord only guarantees the field is
+/// non-empty *before* trimming, so a whitespace-only submission is still
+/// possible).
+fn format_note(title: Option<String>, note: String) -> Result<String, Error> {
+    let note = note.trim();
+
+    if note.is_empty() {
+        return Err(Error::EmptyNote);
+    }
+
+    let title = title
+        .as_deref()
+        .map(str::trim)
+        .filter(|title| !title.is_empty());
+
+    Ok(match title {
+        Some(title) => format!("**{title}**\n\n{note}"),
+        None => note.to_string(),
+    })
+}
+
+/// Opens a pop-up form (Discord modal) to compose the meeting's note.
+///
+/// Unlike `set-note`, the note is entered in a multi-line text box, which is
+/// friendlier for longer or multi-paragraph notes than a single slash
+/// command option.
+#[poise::command(slash_command, rename = "compose-note")]
+pub(crate) async fn compose_note(
+    ctx: Context<'_>,
+    #[description = "Meeting ID to set the note for (defaults to the current meeting)"]
+    meeting: Option<Meeting>,
+) -> Result<(), Error> {
+    let meeting = resolve_meeting(ctx, meeting).await?;
+
+    ctx.send(
+        poise::CreateReply::default()
+            .content("Click the button below to open the note form.")
+            .components(vec![CreateActionRow::Buttons(vec![compose_note_button()])]),
+    )
+    .await?;
+
+    let interaction = ComponentInteractionCollector::new(ctx.serenity_context())
+        .author_id(ctx.author().id)
+        .channel_id(ctx.channel_id())
+        .filter(|interaction| interaction.data.custom_id == "compose_note_button")
+        .timeout(Duration::from_secs(600))
+        .await;
+
+    let Some(interaction) = interaction else {
+        return crate::discord::respond(
+            ctx,
+            "Timed out waiting for the note form to be opened.".to_string(),
+        )
+        .await;
+    };
+
+    let modal_data = poise::execute_modal_on_component_interaction::<NoteModal>(
+        &ctx,
+        interaction,
+        None,
+        Some(Duration::from_secs(600)),
+    )
+    .await?;
+
+    let Some(modal_data) = modal_data else {
+        return crate::discord::respond(
+            ctx,
+            "Timed out waiting for the note to be submitted.".to_string(),
+        )
+        .await;
+    };
+
+    let note = format_note(modal_data.title, modal_data.note)?;
+
+    let mut summary = Summary::find_by_id(meeting.summary_id())?;
+
+    summary.set_note(note.clone())?;
+
+    let result = summary.send_summary(ctx, true).await?;
+
+    crate::discord::respond(ctx, format!("Meeting summary changed to {note}\n{result}")).await
 }
 
 #[poise::command(slash_command, rename = "add-member")]
@@ -278,4 +391,64 @@ pub(crate) async fn list_meetings(
     write!(output, "Page {}/{}", page, total_pages)?;
 
     crate::discord::respond(ctx, output).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_note;
+    use crate::error::Error;
+
+    #[test]
+    fn note_without_title_is_passed_through() {
+        let note = format_note(None, "Discussed the roadmap.".to_string()).unwrap();
+
+        assert_eq!(note, "Discussed the roadmap.");
+    }
+
+    #[test]
+    fn note_with_title_is_prefixed() {
+        let note = format_note(
+            Some("Retro".to_string()),
+            "Discussed the roadmap.".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(note, "**Retro**\n\nDiscussed the roadmap.");
+    }
+
+    #[test]
+    fn note_and_title_are_trimmed() {
+        let note = format_note(
+            Some("  Retro  ".to_string()),
+            "  Discussed the roadmap.  ".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(note, "**Retro**\n\nDiscussed the roadmap.");
+    }
+
+    #[test]
+    fn blank_title_is_treated_as_absent() {
+        let note = format_note(
+            Some("   ".to_string()),
+            "Discussed the roadmap.".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(note, "Discussed the roadmap.");
+    }
+
+    #[test]
+    fn empty_note_is_rejected() {
+        let err = format_note(None, String::new()).unwrap_err();
+
+        assert!(matches!(err, Error::EmptyNote));
+    }
+
+    #[test]
+    fn whitespace_only_note_is_rejected() {
+        let err = format_note(None, "   \n\t  ".to_string()).unwrap_err();
+
+        assert!(matches!(err, Error::EmptyNote));
+    }
 }
